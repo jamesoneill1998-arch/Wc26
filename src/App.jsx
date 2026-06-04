@@ -69,6 +69,40 @@ const SAMPLE_DETAIL = {
 
 function getCountdown(){ const diff=KICKOFF-new Date(); if(diff<=0)return null; return {d:Math.floor(diff/86400000),h:Math.floor(diff%86400000/3600000),m:Math.floor(diff%3600000/60000),s:Math.floor(diff%60000/1000)}; }
 
+// ── Built-in prediction model (runs in-app, no external calls / no cost) ─────
+// Power ratings (~50–95) loosely reflect team strength & ranking.
+const RATINGS = {
+  "Argentina":94,"France":93,"Spain":92,"Brazil":90,"England":89,"Portugal":88,"Germany":87,"Netherlands":86,"Belgium":84,
+  "Croatia":82,"Uruguay":83,"Morocco":83,"Colombia":81,"Japan":80,"USA":79,"Switzerland":80,"Senegal":80,"Mexico":79,"Norway":79,"Türkiye":78,
+  "Austria":77,"South Korea":76,"Ecuador":76,"Canada":75,"Ivory Coast":75,"Algeria":75,"Sweden":74,"Egypt":74,"Iran":74,"Australia":73,"Scotland":73,"Bosnia & Herz.":72,"Paraguay":72,"Tunisia":72,
+  "Ghana":71,"Qatar":71,"Saudi Arabia":70,"DR Congo":70,"Uzbekistan":69,"Panama":68,"Iraq":68,"South Africa":68,"Cape Verde":67,"Jordan":66,"New Zealand":65,"Curaçao":61,"Haiti":61,
+};
+function predict(m){
+  const rh=(RATINGS[m.home]??70)+3; // small home/first-named edge
+  const ra=RATINGS[m.away]??70;
+  const diff=rh-ra;
+  let draw=0.27-Math.abs(diff)*0.004; draw=Math.max(0.13,Math.min(0.30,draw));
+  const pTop=1/(1+Math.pow(10,-diff/22));            // home win-or-better
+  let pH=pTop*(1-draw), pA=(1-pTop)*(1-draw);
+  const ph=Math.round(pH*100), pd=Math.round(draw*100), pa=Math.round(pA*100);
+  const top=Math.max(ph,pd,pa);
+  const verdict= top===ph?"Home Win": top===pa?"Away Win":"Draw";
+  let gh=Math.max(0,Math.round(1.3+diff/28)), ga=Math.max(0,Math.round(1.3-diff/28));
+  if(verdict==="Home Win"&&gh<=ga)gh=ga+1;
+  if(verdict==="Away Win"&&ga<=gh)ga=gh+1;
+  if(verdict==="Draw"){const x=Math.min(gh,ga);gh=x;ga=x;}
+  const tier=r=>r>=86?"elite":r>=78?"strong":r>=70?"solid":"underdog";
+  const blurb={elite:"Elite squad depth and genuine tournament pedigree.",strong:"Well-drilled and dangerous against anyone on their day.",solid:"Organised and competitive, capable of an upset.",underdog:"Outsiders who'll sit deep and threaten on the counter."};
+  const fav = diff>0?m.home:m.away, dog = diff>0?m.away:m.home;
+  const keyFactor = Math.abs(diff)<5 ? "Finely balanced on paper — likely decided by small margins or a moment of quality."
+    : `${fav} hold a clear edge in squad strength and ranking over ${dog}.`;
+  const tip = Math.abs(diff)<5 ? "Tight game — a draw or under 2.5 goals looks the value angle."
+    : `${fav} are strong favourites; the value may lie in the winning margin or both-teams-to-score markets.`;
+  return { verdict, confidence:top, predictedScore:`${gh}-${ga}`, keyFactor,
+    homeStrength:blurb[tier(RATINGS[m.home]??70)], awayStrength:blurb[tier(RATINGS[m.away]??70)], tip,
+    probs:{ph,pd,pa} };
+}
+
 function mapFixtures(resp){
   if(!Array.isArray(resp))return null;
   const out=resp.map(item=>{
@@ -281,7 +315,6 @@ export default function App(){
   const [isLive,setIsLive]=useState(false);
   const [kWinner,setKWinner]=useState(null);
   const [aiMatch,setAiMatch]=useState(null);
-  const [aiLoading,setAiLoading]=useState(false);
   const [aiResult,setAiResult]=useState(null);
   const [aiError,setAiError]=useState(null);
   const toastRef=useRef(null);
@@ -318,7 +351,7 @@ export default function App(){
   useEffect(()=>{if(tab==="markets")loadKalshi();},[tab]);
   const winnerData=kWinner||FW;
 
-  const getAi=async(m)=>{setAiMatch(m);setAiLoading(true);setAiResult(null);setAiError(null);try{const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:`World Cup 2026 analyst. Respond ONLY valid JSON:{"verdict":"Home Win"|"Draw"|"Away Win","confidence":1-100,"predictedScore":"X-Y","keyFactor":"sentence","homeStrength":"sentence","awayStrength":"sentence","tip":"max 20 words"}`,messages:[{role:"user",content:`Predict ${m.home} vs ${m.away}, Group ${m.group}.`}]})});const data=await res.json();const txt=data.content?.find(b=>b.type==="text")?.text||"";setAiResult(JSON.parse(txt.replace(/```json|```/g,"").trim()));}catch{setAiError("Prediction failed — try again.");}setAiLoading(false);};
+  const getAi=(m)=>{ setAiMatch(m); setAiError(null); setAiResult(predict(m)); };
 
   const alertCount=Object.keys(alerts).length;
   const upcoming=matches.filter(m=>m.status==="upcoming");
@@ -334,7 +367,7 @@ export default function App(){
         <div className="hdr">
           <div className="kick">⚽ June 11 – July 19, 2026</div>
           <div className="ttl">WC26</div>
-          <div className="sub">SCHEDULE · LINEUPS · STATS · KALSHI · AI PICKS</div>
+          <div className="sub">SCHEDULE · LINEUPS · STATS · KALSHI · PREDICTIONS</div>
           {isLive && <div className="livestrip"><span className="ldot"/>Live data connected</div>}
         </div>
 
@@ -347,7 +380,7 @@ export default function App(){
           </div>
         )}
 
-        <div className="tabrow">{[["schedule","Schedule"],["standings","Standings"],["markets","Kalshi"],["ai","AI Picks"],["myalerts","Alerts"]].map(([k,l])=>(<button key={k} className={`tb${tab===k?" on":""}`} onClick={()=>setTab(k)}>{l}{k==="myalerts"&&alertCount>0?` ${alertCount}`:""}</button>))}</div>
+        <div className="tabrow">{[["schedule","Schedule"],["standings","Standings"],["markets","Kalshi"],["ai","Predict"],["myalerts","Alerts"]].map(([k,l])=>(<button key={k} className={`tb${tab===k?" on":""}`} onClick={()=>setTab(k)}>{l}{k==="myalerts"&&alertCount>0?` ${alertCount}`:""}</button>))}</div>
 
         {tab==="schedule" && (<>
           <div className="frow">{[["all","All"],["live","🔴 Live"],["upcoming","Upcoming"],["alerts","Alerts"]].map(([k,l])=>(<button key={k} className={`chip${filter===k?" on":""}`} onClick={()=>setFilter(k)}>{l}</button>))}</div>
@@ -404,13 +437,11 @@ export default function App(){
 
         {tab==="ai" && (
           <div className="pad">
-            <div className="aih">AI Picks</div>
-            <div className="ais">Claude · Form & Matchup Analysis</div>
+            <div className="aih">Predictions</div>
+            <div className="ais">Model · Team Ratings & Home Edge</div>
             {(upcoming.length?upcoming:matches).slice(0,10).map((m,i)=>(<div key={m.id} className={`aim${aiMatch?.id===m.id?" sel":""}`} style={{animationDelay:`${i*.04}s`}} onClick={()=>getAi(m)}><div><div style={{fontSize:15,fontWeight:700,color:"var(--ink)"}}>{m.homeFlag} {m.home} <span style={{color:"var(--dim)"}}>v</span> {m.awayFlag} {m.away}</div><div style={{fontSize:11,color:"var(--mut)",marginTop:3,fontWeight:600}}>Group {m.group} · {m.time}</div></div><span style={{color:"var(--c2)",fontSize:20}}>→</span></div>))}
-            {aiLoading&&<div className="air"><div className="aild"><div className="spin"/><div className="aildt">Analysing…</div></div></div>}
-            {aiError&&!aiLoading&&<div className="air" style={{borderColor:"rgba(255,80,80,.4)"}}><div style={{color:"#ff8080",fontSize:13}}>{aiError}</div></div>}
-            {aiResult&&!aiLoading&&aiMatch&&(<div className="air"><div style={{fontSize:11,color:"var(--c1)",fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",marginBottom:10}}>{aiMatch.homeFlag} {aiMatch.home} v {aiMatch.awayFlag} {aiMatch.away}</div><div className="aiv">{aiResult.verdict}</div><div className="aip">Predicted {aiResult.predictedScore}</div><div className="aicb"><div className="aicf" style={{width:`${aiResult.confidence}%`}}/></div><div className="aicl">Confidence {aiResult.confidence}%</div><div style={{marginTop:14,padding:"12px 14px",background:"rgba(255,255,255,.04)",border:"1px solid var(--line)",borderRadius:12}}><div style={{fontSize:9,fontWeight:800,color:"var(--c1)",letterSpacing:1.5,textTransform:"uppercase",marginBottom:5}}>Key Factor</div><div style={{fontSize:13,color:"var(--mut)",lineHeight:1.6,fontWeight:500}}>{aiResult.keyFactor}</div></div><div className="aidr"><div className="aidb"><div className="aidl">{aiMatch.homeFlag} {aiMatch.home}</div><div className="aidt">{aiResult.homeStrength}</div></div><div className="aidb"><div className="aidl">{aiMatch.awayFlag} {aiMatch.away}</div><div className="aidt">{aiResult.awayStrength}</div></div></div>{aiResult.tip&&<div className="ait"><div className="aitl">💡 Insight</div><div className="aitt">{aiResult.tip}</div></div>}<div style={{marginTop:14,fontSize:10,color:"var(--dim)",letterSpacing:.5}}>⚠ For entertainment only. Not betting advice.</div></div>)}
-            {!aiMatch&&!aiLoading&&<div className="empty" style={{marginTop:8}}><div className="emi">🤖</div><div className="emt">Tap a match for a prediction</div></div>}
+            {aiResult&&aiMatch&&(<div className="air"><div style={{fontSize:11,color:"var(--c1)",fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",marginBottom:10}}>{aiMatch.homeFlag} {aiMatch.home} v {aiMatch.awayFlag} {aiMatch.away}</div><div className="aiv">{aiResult.verdict}</div><div className="aip">Predicted {aiResult.predictedScore}</div><div style={{display:"flex",gap:6,margin:"14px 0 4px"}}>{[["Home",aiResult.probs.ph,"var(--c1)"],["Draw",aiResult.probs.pd,"var(--mut)"],["Away",aiResult.probs.pa,"var(--c2)"]].map(([l,v,c])=>(<div key={l} style={{flex:1,textAlign:"center",background:"rgba(255,255,255,.04)",border:"1px solid var(--line)",borderRadius:10,padding:"8px 4px"}}><div style={{fontFamily:"'Anton',sans-serif",fontSize:20,color:c}}>{v}%</div><div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:"var(--mut)",textTransform:"uppercase"}}>{l}</div></div>))}</div><div className="aicl" style={{marginTop:6}}>Confidence {aiResult.confidence}%</div><div style={{marginTop:14,padding:"12px 14px",background:"rgba(255,255,255,.04)",border:"1px solid var(--line)",borderRadius:12}}><div style={{fontSize:9,fontWeight:800,color:"var(--c1)",letterSpacing:1.5,textTransform:"uppercase",marginBottom:5}}>Key Factor</div><div style={{fontSize:13,color:"var(--mut)",lineHeight:1.6,fontWeight:500}}>{aiResult.keyFactor}</div></div><div className="aidr"><div className="aidb"><div className="aidl">{aiMatch.homeFlag} {aiMatch.home}</div><div className="aidt">{aiResult.homeStrength}</div></div><div className="aidb"><div className="aidl">{aiMatch.awayFlag} {aiMatch.away}</div><div className="aidt">{aiResult.awayStrength}</div></div></div>{aiResult.tip&&<div className="ait"><div className="aitl">💡 Insight</div><div className="aitt">{aiResult.tip}</div></div>}<div style={{marginTop:14,fontSize:10,color:"var(--dim)",letterSpacing:.5}}>⚠ Model estimate for entertainment only. Not betting advice.</div></div>)}
+            {!aiMatch&&<div className="empty" style={{marginTop:8}}><div className="emi">🔮</div><div className="emt">Tap a match for a prediction</div></div>}
           </div>
         )}
 
@@ -449,7 +480,7 @@ export default function App(){
 
         {toast&&<div className={`toast${toast.type==="rm"?" rm":""}`}>{toast.msg}</div>}
 
-        <div className="nav">{[["schedule","📅","Schedule"],["standings","📊","Table"],["markets","📈","Kalshi"],["ai","🤖","AI"],["myalerts","🔔","Alerts"]].map(([k,ic,l])=>(<button key={k} className={`ni${tab===k?" on":""}`} onClick={()=>setTab(k)}><span className="nico">{ic}</span><span className="nl">{l}</span>{k==="myalerts"&&alertCount>0&&<span className="nb">{alertCount}</span>}</button>))}</div>
+        <div className="nav">{[["schedule","📅","Schedule"],["standings","📊","Table"],["markets","📈","Kalshi"],["ai","🔮","Predict"],["myalerts","🔔","Alerts"]].map(([k,ic,l])=>(<button key={k} className={`ni${tab===k?" on":""}`} onClick={()=>setTab(k)}><span className="nico">{ic}</span><span className="nl">{l}</span>{k==="myalerts"&&alertCount>0&&<span className="nb">{alertCount}</span>}</button>))}</div>
       </div>
     </div>
   );
