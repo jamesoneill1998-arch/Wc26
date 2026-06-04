@@ -1,711 +1,455 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
-// ── KALSHI API ──────────────────────────────────────────────────────────────
-const KALSHI_BASE = "https://external-api.kalshi.com/trade-api/v2";
+// ════════════════════════════════════════════════════════════════════════════
+//  LIVE DATA — real fixtures, scores, standings, lineups & stats come from
+//  API-Football via the secure /api/football proxy (key stays server-side).
+//  Falls back to sample/preview data until the key is set or data exists.
+// ════════════════════════════════════════════════════════════════════════════
+const KICKOFF = new Date("2026-06-11T15:00:00-05:00");
 
-// Known Kalshi World Cup series/event tickers (public, no auth needed)
-const WC_SERIES_TICKERS = ["FIFAWC", "WCWINNER", "WCFIFA", "FIFA26"];
-const WC_SEARCH_TERMS   = ["world cup", "fifa", "soccer wc", "wc2026", "wc26"];
-
+async function api(type, fixture) {
+  const qs = new URLSearchParams({ type, ...(fixture ? { fixture } : {}) });
+  const res = await fetch(`/api/football?${qs}`);
+  if (!res.ok) throw new Error(`proxy ${res.status}`);
+  return res.json();
+}
 async function kalshiFetch(path) {
-  const res = await fetch(`${KALSHI_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" }
-  });
+  const res = await fetch(`https://external-api.kalshi.com/trade-api/v2${path}`, { headers: { "Content-Type": "application/json" } });
   if (!res.ok) throw new Error(`Kalshi ${res.status}`);
   return res.json();
 }
 
-// ── STATIC MATCH DATA ───────────────────────────────────────────────────────
-const WC_MATCHES = [
-  { id: 1,  group:"A", home:"Mexico",      away:"South Africa",       homeFlag:"🇲🇽", awayFlag:"🇿🇦", date:"2026-06-11", time:"3:00 PM ET", city:"Mexico City",  status:"final",    homeScore:2, awayScore:1 },
-  { id: 2,  group:"A", home:"South Korea", away:"Czechia",            homeFlag:"🇰🇷", awayFlag:"🇨🇿", date:"2026-06-11", time:"10:00 PM ET",city:"Guadalajara",  status:"final",    homeScore:0, awayScore:0 },
-  { id: 3,  group:"B", home:"Canada",      away:"Bosnia & Herz.",     homeFlag:"🇨🇦", awayFlag:"🇧🇦", date:"2026-06-12", time:"3:00 PM ET", city:"Toronto",      status:"final",    homeScore:3, awayScore:0 },
-  { id: 4,  group:"D", home:"USA",         away:"Paraguay",           homeFlag:"🇺🇸", awayFlag:"🇵🇾", date:"2026-06-12", time:"9:00 PM ET", city:"Los Angeles",  status:"final",    homeScore:4, awayScore:1 },
-  { id: 5,  group:"B", home:"Qatar",       away:"Switzerland",        homeFlag:"🇶🇦", awayFlag:"🇨🇭", date:"2026-06-13", time:"3:00 PM ET", city:"Santa Clara",  status:"live",     homeScore:0, awayScore:2 },
-  { id: 6,  group:"C", home:"Brazil",      away:"Morocco",            homeFlag:"🇧🇷", awayFlag:"🇲🇦", date:"2026-06-13", time:"6:00 PM ET", city:"New York/NJ",  status:"upcoming" },
-  { id: 7,  group:"C", home:"Haiti",       away:"Scotland",           homeFlag:"🇭🇹", awayFlag:"🏴󠁧󠁢󠁳󠁣󠁴󠁿", date:"2026-06-13", time:"9:00 PM ET", city:"Boston",       status:"upcoming" },
-  { id: 8,  group:"E", home:"Germany",     away:"Curaçao",            homeFlag:"🇩🇪", awayFlag:"🇨🇼", date:"2026-06-14", time:"1:00 PM ET", city:"New York/NJ",  status:"upcoming" },
-  { id: 9,  group:"E", home:"Netherlands", away:"Japan",              homeFlag:"🇳🇱", awayFlag:"🇯🇵", date:"2026-06-14", time:"4:00 PM ET", city:"Santa Clara",  status:"upcoming" },
-  { id: 10, group:"H", home:"Spain",       away:"Cape Verde",         homeFlag:"🇪🇸", awayFlag:"🇨🇻", date:"2026-06-15", time:"12:00 PM ET",city:"Atlanta",      status:"upcoming" },
-  { id: 11, group:"I", home:"France",      away:"Senegal",            homeFlag:"🇫🇷", awayFlag:"🇸🇳", date:"2026-06-16", time:"3:00 PM ET", city:"New York/NJ",  status:"upcoming" },
-  { id: 12, group:"J", home:"Argentina",   away:"Algeria",            homeFlag:"🇦🇷", awayFlag:"🇩🇿", date:"2026-06-16", time:"9:00 PM ET", city:"Kansas City",  status:"upcoming" },
-  { id: 13, group:"K", home:"Portugal",    away:"DR Congo",           homeFlag:"🇵🇹", awayFlag:"🇨🇩", date:"2026-06-17", time:"1:00 PM ET", city:"Houston",      status:"upcoming" },
-  { id: 14, group:"L", home:"England",     away:"Croatia",            homeFlag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", awayFlag:"🇭🇷", date:"2026-06-17", time:"4:00 PM ET", city:"Dallas",       status:"upcoming" },
-];
+const TEAMS = {
+  "Mexico":["🇲🇽","A"],"South Korea":["🇰🇷","A"],"Czechia":["🇨🇿","A"],"South Africa":["🇿🇦","A"],
+  "Canada":["🇨🇦","B"],"Switzerland":["🇨🇭","B"],"Qatar":["🇶🇦","B"],"Bosnia & Herz.":["🇧🇦","B"],
+  "Brazil":["🇧🇷","C"],"Morocco":["🇲🇦","C"],"Scotland":["🏴󠁧󠁢󠁳󠁣󠁴󠁿","C"],"Haiti":["🇭🇹","C"],
+  "USA":["🇺🇸","D"],"Australia":["🇦🇺","D"],"Paraguay":["🇵🇾","D"],"Türkiye":["🇹🇷","D"],
+  "Germany":["🇩🇪","E"],"Ecuador":["🇪🇨","E"],"Ivory Coast":["🇨🇮","E"],"Curaçao":["🇨🇼","E"],
+  "Netherlands":["🇳🇱","F"],"Japan":["🇯🇵","F"],"Tunisia":["🇹🇳","F"],"Sweden":["🇸🇪","F"],
+  "Belgium":["🇧🇪","G"],"Iran":["🇮🇷","G"],"Egypt":["🇪🇬","G"],"New Zealand":["🇳🇿","G"],
+  "Spain":["🇪🇸","H"],"Uruguay":["🇺🇾","H"],"Saudi Arabia":["🇸🇦","H"],"Cape Verde":["🇨🇻","H"],
+  "France":["🇫🇷","I"],"Senegal":["🇸🇳","I"],"Norway":["🇳🇴","I"],"Iraq":["🇮🇶","I"],
+  "Argentina":["🇦🇷","J"],"Austria":["🇦🇹","J"],"Algeria":["🇩🇿","J"],"Jordan":["🇯🇴","J"],
+  "Portugal":["🇵🇹","K"],"Colombia":["🇨🇴","K"],"DR Congo":["🇨🇩","K"],"Uzbekistan":["🇺🇿","K"],
+  "England":["🏴󠁧󠁢󠁥󠁮󠁧󠁿","L"],"Croatia":["🇭🇷","L"],"Ghana":["🇬🇭","L"],"Panama":["🇵🇦","L"],
+};
+const ALIASES = {"united states":"USA","korea republic":"South Korea","ir iran":"Iran","czech republic":"Czechia","turkey":"Türkiye","cote d'ivoire":"Ivory Coast","bosnia and herzegovina":"Bosnia & Herz.","cabo verde":"Cape Verde","congo dr":"DR Congo","curacao":"Curaçao"};
+function resolveTeam(name=""){ if(TEAMS[name])return name; const k=name.toLowerCase().trim(); if(ALIASES[k])return ALIASES[k]; for(const t of Object.keys(TEAMS)){const tl=t.toLowerCase();if(tl.includes(k)||k.includes(tl))return t;} return null; }
+const flagOf = n => { const t=resolveTeam(n); return t?TEAMS[t][0]:"🏳"; };
+const groupOf = n => { const t=resolveTeam(n); return t?TEAMS[t][1]:"?"; };
+
+const FALLBACK_MATCHES = [
+  { id:1,group:"A",home:"Mexico",away:"South Africa",date:"2026-06-11",time:"3:00 PM ET",city:"Mexico City",venue:"Estadio Azteca",status:"upcoming" },
+  { id:2,group:"A",home:"South Korea",away:"Czechia",date:"2026-06-11",time:"10:00 PM ET",city:"Guadalajara",venue:"Estadio Akron",status:"upcoming" },
+  { id:3,group:"B",home:"Canada",away:"Bosnia & Herz.",date:"2026-06-12",time:"3:00 PM ET",city:"Toronto",venue:"BMO Field",status:"upcoming" },
+  { id:4,group:"D",home:"USA",away:"Paraguay",date:"2026-06-12",time:"9:00 PM ET",city:"Los Angeles",venue:"SoFi Stadium",status:"upcoming" },
+  { id:5,group:"B",home:"Qatar",away:"Switzerland",date:"2026-06-13",time:"3:00 PM ET",city:"Santa Clara",venue:"Levi's Stadium",status:"upcoming" },
+  { id:6,group:"C",home:"Brazil",away:"Morocco",date:"2026-06-13",time:"6:00 PM ET",city:"New York/NJ",venue:"MetLife Stadium",status:"upcoming" },
+  { id:7,group:"C",home:"Haiti",away:"Scotland",date:"2026-06-13",time:"9:00 PM ET",city:"Boston",venue:"Gillette Stadium",status:"upcoming" },
+  { id:8,group:"E",home:"Germany",away:"Curaçao",date:"2026-06-14",time:"1:00 PM ET",city:"New York/NJ",venue:"MetLife Stadium",status:"upcoming" },
+  { id:9,group:"F",home:"Netherlands",away:"Japan",date:"2026-06-14",time:"4:00 PM ET",city:"Santa Clara",venue:"Levi's Stadium",status:"upcoming" },
+  { id:10,group:"H",home:"Spain",away:"Cape Verde",date:"2026-06-15",time:"12:00 PM ET",city:"Atlanta",venue:"Mercedes-Benz Stadium",status:"upcoming" },
+  { id:11,group:"I",home:"France",away:"Senegal",date:"2026-06-16",time:"3:00 PM ET",city:"New York/NJ",venue:"MetLife Stadium",status:"upcoming" },
+  { id:12,group:"J",home:"Argentina",away:"Algeria",date:"2026-06-16",time:"9:00 PM ET",city:"Kansas City",venue:"Arrowhead Stadium",status:"upcoming" },
+  { id:13,group:"K",home:"Portugal",away:"DR Congo",date:"2026-06-17",time:"1:00 PM ET",city:"Houston",venue:"NRG Stadium",status:"upcoming" },
+  { id:14,group:"L",home:"England",away:"Croatia",date:"2026-06-17",time:"4:00 PM ET",city:"Dallas",venue:"AT&T Stadium",status:"upcoming" },
+].map(m => ({ ...m, homeFlag:flagOf(m.home), awayFlag:flagOf(m.away) }));
 
 const GROUPS = ["A","B","C","D","E","F","G","H","I","J","K","L"];
-const GROUP_TEAMS = {
-  A:[{name:"Mexico",flag:"🇲🇽",w:1,d:0,l:0,pts:3},{name:"South Korea",flag:"🇰🇷",w:0,d:1,l:0,pts:1},{name:"Czechia",flag:"🇨🇿",w:0,d:1,l:0,pts:1},{name:"South Africa",flag:"🇿🇦",w:0,d:0,l:1,pts:0}],
-  B:[{name:"Canada",flag:"🇨🇦",w:1,d:0,l:0,pts:3},{name:"Switzerland",flag:"🇨🇭",w:1,d:0,l:0,pts:3},{name:"Bosnia & Herz.",flag:"🇧🇦",w:0,d:0,l:1,pts:0},{name:"Qatar",flag:"🇶🇦",w:0,d:0,l:0,pts:0}],
-  C:[{name:"Brazil",flag:"🇧🇷",w:0,d:0,l:0,pts:0},{name:"Morocco",flag:"🇲🇦",w:0,d:0,l:0,pts:0},{name:"Haiti",flag:"🇭🇹",w:0,d:0,l:0,pts:0},{name:"Scotland",flag:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",w:0,d:0,l:0,pts:0}],
-  D:[{name:"USA",flag:"🇺🇸",w:1,d:0,l:0,pts:3},{name:"Australia",flag:"🇦🇺",w:0,d:0,l:0,pts:0},{name:"Türkiye",flag:"🇹🇷",w:0,d:0,l:0,pts:0},{name:"Paraguay",flag:"🇵🇾",w:0,d:0,l:1,pts:0}],
-  E:[{name:"Germany",flag:"🇩🇪",w:0,d:0,l:0,pts:0},{name:"Netherlands",flag:"🇳🇱",w:0,d:0,l:0,pts:0},{name:"Japan",flag:"🇯🇵",w:0,d:0,l:0,pts:0},{name:"Curaçao",flag:"🇨🇼",w:0,d:0,l:0,pts:0}],
-  F:[{name:"Ivory Coast",flag:"🇨🇮",w:0,d:0,l:0,pts:0},{name:"Ecuador",flag:"🇪🇨",w:0,d:0,l:0,pts:0},{name:"Sweden",flag:"🇸🇪",w:0,d:0,l:0,pts:0},{name:"Tunisia",flag:"🇹🇳",w:0,d:0,l:0,pts:0}],
-  G:[{name:"Belgium",flag:"🇧🇪",w:0,d:0,l:0,pts:0},{name:"Egypt",flag:"🇪🇬",w:0,d:0,l:0,pts:0},{name:"Iran",flag:"🇮🇷",w:0,d:0,l:0,pts:0},{name:"New Zealand",flag:"🇳🇿",w:0,d:0,l:0,pts:0}],
-  H:[{name:"Spain",flag:"🇪🇸",w:0,d:0,l:0,pts:0},{name:"Uruguay",flag:"🇺🇾",w:0,d:0,l:0,pts:0},{name:"Saudi Arabia",flag:"🇸🇦",w:0,d:0,l:0,pts:0},{name:"Cape Verde",flag:"🇨🇻",w:0,d:0,l:0,pts:0}],
-  I:[{name:"France",flag:"🇫🇷",w:0,d:0,l:0,pts:0},{name:"Norway",flag:"🇳🇴",w:0,d:0,l:0,pts:0},{name:"Senegal",flag:"🇸🇳",w:0,d:0,l:0,pts:0},{name:"Iraq",flag:"🇮🇶",w:0,d:0,l:0,pts:0}],
-  J:[{name:"Argentina",flag:"🇦🇷",w:0,d:0,l:0,pts:0},{name:"Austria",flag:"🇦🇹",w:0,d:0,l:0,pts:0},{name:"Algeria",flag:"🇩🇿",w:0,d:0,l:0,pts:0},{name:"Jordan",flag:"🇯🇴",w:0,d:0,l:0,pts:0}],
-  K:[{name:"Portugal",flag:"🇵🇹",w:0,d:0,l:0,pts:0},{name:"Colombia",flag:"🇨🇴",w:0,d:0,l:0,pts:0},{name:"DR Congo",flag:"🇨🇩",w:0,d:0,l:0,pts:0},{name:"Uzbekistan",flag:"🇺🇿",w:0,d:0,l:0,pts:0}],
-  L:[{name:"England",flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",w:0,d:0,l:0,pts:0},{name:"Croatia",flag:"🇭🇷",w:0,d:0,l:0,pts:0},{name:"Ghana",flag:"🇬🇭",w:0,d:0,l:0,pts:0},{name:"Panama",flag:"🇵🇦",w:0,d:0,l:0,pts:0}],
+const FALLBACK_STANDINGS = {};
+GROUPS.forEach(g => { FALLBACK_STANDINGS[g] = Object.entries(TEAMS).filter(([,v])=>v[1]===g).map(([name,v])=>({name,flag:v[0],played:0,w:0,d:0,l:0,pts:0})); });
+
+const SAMPLE_DETAIL = {
+  homeFormation:"4-3-3", awayFormation:"4-2-3-1",
+  homeXI:[{n:1,name:"Goalkeeper",pos:"GK"},{n:2,name:"Right Back",pos:"RB"},{n:5,name:"Centre Back",pos:"CB"},{n:4,name:"Centre Back",pos:"CB"},{n:3,name:"Left Back",pos:"LB"},{n:6,name:"Midfielder",pos:"CM"},{n:8,name:"Midfielder",pos:"CM"},{n:10,name:"Playmaker",pos:"AM"},{n:7,name:"Winger",pos:"RW"},{n:9,name:"Striker",pos:"ST"},{n:11,name:"Winger",pos:"LW"}],
+  awayXI:[{n:1,name:"Goalkeeper",pos:"GK"},{n:2,name:"Right Back",pos:"RB"},{n:5,name:"Centre Back",pos:"CB"},{n:4,name:"Centre Back",pos:"CB"},{n:3,name:"Left Back",pos:"LB"},{n:6,name:"Holding Mid",pos:"DM"},{n:8,name:"Holding Mid",pos:"DM"},{n:10,name:"Playmaker",pos:"AM"},{n:7,name:"Winger",pos:"RW"},{n:9,name:"Striker",pos:"ST"},{n:11,name:"Winger",pos:"LW"}],
+  stats:[{label:"Possession",home:55,away:45,unit:"%"},{label:"Shots",home:12,away:8,unit:""},{label:"Shots on Target",home:5,away:3,unit:""},{label:"Corners",home:6,away:3,unit:""},{label:"Fouls",home:10,away:12,unit:""},{label:"Yellow Cards",home:1,away:2,unit:""},{label:"Red Cards",home:0,away:0,unit:""},{label:"Offsides",home:2,away:1,unit:""}],
+  events:[{min:"—",type:"info",player:"Lineups and stats appear here",detail:"once the match kicks off"}],
 };
 
-// Flag map for matching Kalshi market titles to teams
-const TEAM_FLAGS = {
-  "france":"🇫🇷","spain":"🇪🇸","england":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","argentina":"🇦🇷","brazil":"🇧🇷",
-  "germany":"🇩🇪","portugal":"🇵🇹","netherlands":"🇳🇱","usa":"🇺🇸","united states":"🇺🇸",
-  "belgium":"🇧🇪","uruguay":"🇺🇾","mexico":"🇲🇽","canada":"🇨🇦","japan":"🇯🇵",
-  "morocco":"🇲🇦","south korea":"🇰🇷","switzerland":"🇨🇭","colombia":"🇨🇴","denmark":"🇩🇰",
-  "croatia":"🇭🇷","senegal":"🇸🇳","ecuador":"🇪🇨","australia":"🇦🇺","turkey":"🇹🇷",
-  "türkiye":"🇹🇷","nigeria":"🇳🇬","poland":"🇵🇱","iran":"🇮🇷","sweden":"🇸🇪",
-  "austria":"🇦🇹","ivory coast":"🇨🇮","algeria":"🇩🇿","norway":"🇳🇴","ghana":"🇬🇭",
-  "qatar":"🇶🇦","saudi arabia":"🇸🇦","tunisia":"🇹🇳","iraq":"🇮🇶","new zealand":"🇳🇿",
-};
+function getCountdown(){ const diff=KICKOFF-new Date(); if(diff<=0)return null; return {d:Math.floor(diff/86400000),h:Math.floor(diff%86400000/3600000),m:Math.floor(diff%3600000/60000),s:Math.floor(diff%60000/1000)}; }
 
-function getFlagForTeam(name) {
-  const key = name.toLowerCase().trim();
-  for (const [k, v] of Object.entries(TEAM_FLAGS)) {
-    if (key.includes(k) || k.includes(key)) return v;
-  }
-  return "🏳";
+function mapFixtures(resp){
+  if(!Array.isArray(resp))return null;
+  const out=resp.map(item=>{
+    const f=item.fixture||{},t=item.teams||{},g=item.goals||{};
+    const short=f.status?.short||"NS";
+    const status=["NS","TBD"].includes(short)?"upcoming":["FT","AET","PEN"].includes(short)?"final":"live";
+    const hN=t.home?.name||"",aN=t.away?.name||"";
+    const d=f.date?new Date(f.date):null;
+    return {id:f.id,apiId:f.id,group:groupOf(hN),home:resolveTeam(hN)||hN,away:resolveTeam(aN)||aN,homeFlag:flagOf(hN),awayFlag:flagOf(aN),date:d?d.toISOString().slice(0,10):"",time:d?d.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"}):"",city:f.venue?.city||"",venue:f.venue?.name||"",status,homeScore:g.home,awayScore:g.away,liveMin:f.status?.elapsed};
+  }).filter(m=>m.id&&m.home&&m.away).sort((a,b)=>a.date.localeCompare(b.date));
+  return out.length?out:null;
+}
+function mapStandings(resp){
+  try{ const tables=resp?.[0]?.league?.standings; if(!Array.isArray(tables))return null;
+    const byGroup={};
+    tables.flat().forEach(row=>{const name=row.team?.name||"";const g=(row.group||"").replace(/group\s*/i,"").trim()||groupOf(name);if(!byGroup[g])byGroup[g]=[];byGroup[g].push({name:resolveTeam(name)||name,flag:flagOf(name),played:row.all?.played||0,w:row.all?.win||0,d:row.all?.draw||0,l:row.all?.lose||0,pts:row.points||0});});
+    return Object.keys(byGroup).length?byGroup:null;
+  }catch{return null;}
+}
+function mapDetail(lineups,events,stats){
+  const d={...SAMPLE_DETAIL};
+  try{
+    if(Array.isArray(lineups)&&lineups.length>=2){const toXI=s=>(s.startXI||[]).map(p=>({n:p.player?.number||"-",name:p.player?.name||"?",pos:p.player?.pos||""}));d.homeXI=toXI(lineups[0]);d.awayXI=toXI(lineups[1]);d.homeFormation=lineups[0].formation||"";d.awayFormation=lineups[1].formation||"";}
+    if(Array.isArray(stats)&&stats.length>=2){const grab=(s,t)=>{const x=(s.statistics||[]).find(y=>y.type===t);return x?.value??0;};const num=v=>typeof v==="string"?parseInt(v)||0:(v||0);d.stats=[{label:"Possession",home:num(grab(stats[0],"Ball Possession")),away:num(grab(stats[1],"Ball Possession")),unit:"%"},{label:"Shots",home:num(grab(stats[0],"Total Shots")),away:num(grab(stats[1],"Total Shots")),unit:""},{label:"Shots on Target",home:num(grab(stats[0],"Shots on Goal")),away:num(grab(stats[1],"Shots on Goal")),unit:""},{label:"Corners",home:num(grab(stats[0],"Corner Kicks")),away:num(grab(stats[1],"Corner Kicks")),unit:""},{label:"Fouls",home:num(grab(stats[0],"Fouls")),away:num(grab(stats[1],"Fouls")),unit:""},{label:"Yellow Cards",home:num(grab(stats[0],"Yellow Cards")),away:num(grab(stats[1],"Yellow Cards")),unit:""},{label:"Red Cards",home:num(grab(stats[0],"Red Cards")),away:num(grab(stats[1],"Red Cards")),unit:""},{label:"Offsides",home:num(grab(stats[0],"Offsides")),away:num(grab(stats[1],"Offsides")),unit:""}];}
+    if(Array.isArray(events)&&events.length){d.events=events.map(e=>{const type=e.type==="Goal"?"goal":e.type==="Card"&&/yellow/i.test(e.detail)?"yellow":e.type==="Card"&&/red/i.test(e.detail)?"red":e.type==="subst"?"subst":"info";return{min:e.time?.elapsed??"—",type,player:e.player?.name||"",detail:e.detail||"",teamName:e.team?.name||""};});}
+  }catch{}
+  return d;
 }
 
-// ── STYLES ──────────────────────────────────────────────────────────────────
 const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bebas+Neue&display=swap');
-  *{box-sizing:border-box;margin:0;padding:0}
-  ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:#0a1020}::-webkit-scrollbar-thumb{background:#c9a84c;border-radius:2px}
-  .bg{position:fixed;top:0;left:0;right:0;height:340px;background:radial-gradient(ellipse at 60% 0%,rgba(201,168,76,.18) 0%,transparent 65%),radial-gradient(ellipse at 10% 80%,rgba(16,120,80,.15) 0%,transparent 55%),linear-gradient(180deg,#0a1520 0%,#050a14 100%);pointer-events:none;z-index:0}
-  @keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(34,197,94,.25)}50%{box-shadow:0 0 0 7px rgba(34,197,94,.08)}}
-  @keyframes fsu{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
-  @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-  @keyframes shimmer{0%{opacity:.4}50%{opacity:.9}100%{opacity:.4}}
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--ink:#eaf0ff;--mut:#7e89b0;--dim:#4a5680;--c1:#1fe0ff;--c2:#ff2e7e;--c3:#b6ff3a;--card:rgba(255,255,255,.04);--line:rgba(255,255,255,.09)}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#0a0e1a}::-webkit-scrollbar-thumb{background:linear-gradient(#1fe0ff,#ff2e7e);border-radius:3px}
+.bg{position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(circle at 80% -5%,rgba(31,224,255,.22),transparent 45%),radial-gradient(circle at 0% 25%,rgba(255,46,126,.18),transparent 45%),radial-gradient(circle at 50% 120%,rgba(182,255,58,.10),transparent 50%),#0a0e1a}
+.grid{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.4;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:42px 42px;mask-image:linear-gradient(180deg,#000,transparent 70%)}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(182,255,58,.5)}50%{box-shadow:0 0 0 7px rgba(182,255,58,0)}}
+@keyframes fsu{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes slide{to{background-position:200% 0}}
+.wrap{position:relative;z-index:10;font-family:'Archivo',sans-serif}
 
-  .hdr{position:relative;z-index:10;padding:28px 24px 0}
-  .logo{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:6px;color:#c9a84c;opacity:.85}
-  .ttl{font-family:'Bebas Neue',sans-serif;font-size:clamp(42px,10vw,72px);line-height:.92;color:#f0ead8;margin-top:6px}
-  .ttl span{color:#c9a84c}
-  .sub{font-size:11px;letter-spacing:3px;color:#8a9db5;margin-top:10px;text-transform:uppercase}
+.hdr{padding:30px 22px 0;animation:fsu .5s ease both}
+.kick{display:inline-block;font-size:11px;font-weight:800;letter-spacing:3px;color:var(--c1);text-transform:uppercase;border:1px solid rgba(31,224,255,.35);border-radius:100px;padding:5px 12px}
+.ttl{font-family:'Anton',sans-serif;font-size:clamp(64px,21vw,118px);line-height:.82;letter-spacing:-1px;margin-top:14px;text-transform:uppercase;background:linear-gradient(100deg,#fff 10%,var(--c1) 45%,var(--c2) 90%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.sub{font-size:12px;font-weight:600;letter-spacing:1px;color:var(--mut);margin-top:8px}
+.livestrip{display:inline-flex;align-items:center;gap:7px;margin-top:14px;font-size:11px;font-weight:700;letter-spacing:1.5px;color:var(--c3);text-transform:uppercase}
+.ldot{width:8px;height:8px;border-radius:50%;background:var(--c3);animation:pulse 1.3s infinite}
 
-  .live-banner{margin:24px 24px 0;background:linear-gradient(135deg,#0d2218,#0a1c14);border:1px solid rgba(16,180,100,.35);border-radius:12px;padding:16px 20px;position:relative;z-index:10;animation:fsu .6s ease both}
-  .ldot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;margin-right:8px;box-shadow:0 0 0 3px rgba(34,197,94,.25);animation:pulse 1.4s ease infinite}
-  .llbl{font-size:11px;letter-spacing:3px;color:#22c55e;text-transform:uppercase;display:flex;align-items:center}
-  .lteams{font-family:'Bebas Neue',sans-serif;font-size:28px;color:#f0ead8;margin-top:4px;letter-spacing:1px}
-  .lscore{font-family:'Bebas Neue',sans-serif;font-size:36px;color:#c9a84c}
-  .pbar{height:3px;background:rgba(255,255,255,.08);border-radius:2px;margin-top:10px;overflow:hidden}
-  .pfill{height:100%;background:linear-gradient(90deg,#22c55e,#c9a84c);border-radius:2px;transition:width 1s ease}
+.cd{margin:22px 22px 0;background:linear-gradient(135deg,rgba(31,224,255,.14),rgba(255,46,126,.10));border:1px solid var(--line);border-radius:22px;padding:22px;animation:fsu .6s ease both;position:relative;overflow:hidden}
+.cd::before{content:"";position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:conic-gradient(from 0deg,transparent,rgba(31,224,255,.06),transparent 30%);animation:spin 12s linear infinite}
+.cd>*{position:relative}
+.cd-l{font-size:11px;font-weight:800;letter-spacing:3px;color:var(--c1);text-transform:uppercase;text-align:center}
+.cd-m{font-family:'Anton',sans-serif;font-size:26px;color:var(--ink);text-align:center;margin-top:6px;letter-spacing:.5px}
+.cd-row{display:flex;justify-content:center;gap:8px;margin-top:18px}
+.cd-c{flex:1;max-width:78px;background:rgba(8,12,24,.55);border:1px solid var(--line);border-radius:16px;padding:14px 0;text-align:center}
+.cd-n{font-family:'Anton',sans-serif;font-size:38px;color:var(--c1);line-height:1}
+.cd-u{font-size:9px;font-weight:700;letter-spacing:2px;color:var(--mut);text-transform:uppercase;margin-top:5px}
+.cd-v{font-size:11px;color:var(--mut);text-align:center;margin-top:16px;font-weight:500}
 
-  .tabrow{display:flex;padding:20px 24px 0;position:relative;z-index:10;border-bottom:1px solid rgba(255,255,255,.06);overflow-x:auto;scrollbar-width:none}
-  .tabrow::-webkit-scrollbar{display:none}
-  .tbtn{background:none;border:none;color:#4a6080;font-family:inherit;font-size:11px;letter-spacing:2px;text-transform:uppercase;padding:10px 14px;cursor:pointer;position:relative;transition:color .2s;white-space:nowrap}
-  .tbtn.on{color:#c9a84c}.tbtn.on::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:2px;background:#c9a84c}
-  .tbtn:hover:not(.on){color:#8a9db5}
+.tabrow{display:flex;gap:4px;padding:22px 16px 0;overflow-x:auto;scrollbar-width:none}
+.tabrow::-webkit-scrollbar{display:none}
+.tb{flex-shrink:0;background:none;border:none;color:var(--dim);font-family:'Archivo';font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:11px 14px;cursor:pointer;border-radius:12px;transition:.2s}
+.tb.on{color:#06101e;background:linear-gradient(120deg,var(--c1),#56ecff)}
+.tb:hover:not(.on){color:var(--ink)}
 
-  .frow{display:flex;gap:8px;padding:16px 24px;overflow-x:auto;scrollbar-width:none;position:relative;z-index:10}
-  .frow::-webkit-scrollbar{display:none}
-  .chip{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:#6a8098;font-family:inherit;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;padding:7px 14px;border-radius:20px;cursor:pointer;white-space:nowrap;transition:all .2s}
-  .chip.on{background:rgba(201,168,76,.15);border-color:rgba(201,168,76,.5);color:#c9a84c}
+.frow{display:flex;gap:8px;padding:18px 22px;overflow-x:auto;scrollbar-width:none}
+.frow::-webkit-scrollbar{display:none}
+.chip{flex-shrink:0;background:var(--card);border:1px solid var(--line);color:var(--mut);font-family:'Archivo';font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:9px 16px;border-radius:100px;cursor:pointer;transition:.2s}
+.chip.on{background:var(--c2);border-color:var(--c2);color:#fff}
 
-  .mlist{padding:0 16px 100px;position:relative;z-index:10}
-  .dhdr{font-size:10px;letter-spacing:3px;color:#3a5070;text-transform:uppercase;padding:16px 8px 8px}
-  .mc{background:linear-gradient(135deg,rgba(255,255,255,.04),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;transition:all .25s;animation:fsu .4s ease both}
-  .mc:hover{border-color:rgba(201,168,76,.2);background:linear-gradient(135deg,rgba(201,168,76,.06),rgba(255,255,255,.03));transform:translateY(-1px)}
-  .mc.live{border-color:rgba(34,197,94,.3);background:linear-gradient(135deg,rgba(16,80,40,.3),rgba(8,30,18,.5))}
-  .mc.done{opacity:.65}
-  .gbdg{font-size:9px;letter-spacing:2px;color:#3a5070;background:rgba(255,255,255,.04);border-radius:4px;padding:2px 6px;min-width:26px;text-align:center;text-transform:uppercase}
-  .mteams{flex:1}
-  .trow{display:flex;align-items:center;justify-content:space-between;padding:3px 0}
-  .tnm{font-size:13px;color:#c8d8e8;letter-spacing:.5px;display:flex;align-items:center;gap:8px}
-  .tsc{font-family:'Bebas Neue',sans-serif;font-size:20px;color:#f0ead8;min-width:16px;text-align:right}
-  .tsc.w{color:#c9a84c}
-  .mdiv{height:1px;background:rgba(255,255,255,.05);margin:4px 0}
-  .mmeta{font-size:10px;color:#3a5070;margin-top:6px;display:flex;gap:10px;flex-wrap:wrap}
-  .sbdg{font-size:9px;letter-spacing:2px;text-transform:uppercase;padding:3px 8px;border-radius:10px}
-  .slive{background:rgba(34,197,94,.2);color:#22c55e;border:1px solid rgba(34,197,94,.3);animation:pulse 2s ease infinite}
-  .sfinal{background:rgba(255,255,255,.06);color:#4a6080;border:1px solid rgba(255,255,255,.1)}
-  .sup{background:rgba(201,168,76,.1);color:#c9a84c;border:1px solid rgba(201,168,76,.2)}
-  .cact{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0}
-  .abtn{background:none;border:1px solid rgba(255,255,255,.1);border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;font-size:14px}
-  .abtn:hover{border-color:rgba(201,168,76,.4);background:rgba(201,168,76,.08)}
-  .abtn.on{border-color:rgba(201,168,76,.6);background:rgba(201,168,76,.15)}
-  .aibtn{background:linear-gradient(135deg,rgba(99,60,180,.3),rgba(60,100,200,.2));border:1px solid rgba(120,80,220,.4);border-radius:8px;padding:4px 8px;color:#a080ff;font-family:inherit;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:all .2s;white-space:nowrap}
-  .aibtn:hover{background:linear-gradient(135deg,rgba(99,60,180,.5),rgba(60,100,200,.35))}
+.list{padding:0 16px 110px}
+.dh{font-size:12px;font-weight:800;letter-spacing:2px;color:var(--c1);text-transform:uppercase;padding:18px 6px 10px;display:flex;align-items:center;gap:8px}
+.dh::after{content:"";flex:1;height:1px;background:var(--line)}
+.mc{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;margin-bottom:12px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:.22s;animation:fsu .4s ease both}
+.mc:hover{border-color:rgba(31,224,255,.4);transform:translateY(-2px);box-shadow:0 10px 30px -12px rgba(31,224,255,.3)}
+.mc.live{border-color:rgba(182,255,58,.4);background:linear-gradient(135deg,rgba(182,255,58,.08),var(--card))}
+.mc.done{opacity:.65}
+.gb{font-family:'Anton',sans-serif;font-size:13px;color:#06101e;background:linear-gradient(135deg,var(--c1),#56ecff);border-radius:10px;padding:7px 5px;min-width:42px;text-align:center;letter-spacing:.5px;line-height:1}
+.gb small{display:block;font-size:7px;font-family:'Archivo';font-weight:800;letter-spacing:1px;opacity:.7}
+.tms{flex:1;min-width:0}
+.tr{display:flex;align-items:center;justify-content:space-between;padding:4px 0}
+.tn{font-size:16px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:10px;min-width:0}
+.tn span{font-size:20px;flex-shrink:0}
+.sc{font-family:'Anton',sans-serif;font-size:26px;color:var(--ink);min-width:18px;text-align:right}
+.sc.w{color:var(--c1)}
+.md{height:1px;background:var(--line);margin:5px 0}
+.meta{font-size:11px;color:var(--mut);margin-top:9px;display:flex;gap:12px;flex-wrap:wrap;font-weight:500}
+.act{display:flex;flex-direction:column;align-items:flex-end;gap:7px;flex-shrink:0}
+.bdg{font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;padding:4px 9px;border-radius:8px}
+.b-live{background:var(--c3);color:#06101e;animation:pulse 2s infinite}
+.b-fin{background:rgba(255,255,255,.08);color:var(--dim)}
+.b-up{background:rgba(31,224,255,.12);color:var(--c1);border:1px solid rgba(31,224,255,.3)}
+.ab{background:none;border:1px solid var(--line);border-radius:10px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;transition:.2s}
+.ab.on{border-color:var(--c3);background:rgba(182,255,58,.15)}
+.vb{background:rgba(31,224,255,.1);border:1px solid rgba(31,224,255,.3);border-radius:10px;padding:5px 10px;color:var(--c1);font-family:'Archivo';font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;cursor:pointer;white-space:nowrap}
 
-  /* Markets */
-  .mwrap{padding:16px 16px 100px;position:relative;z-index:10}
-  .mtog{display:flex;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:3px;margin-bottom:20px}
-  .mtbtn{flex:1;background:none;border:none;color:#4a6080;font-family:inherit;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:8px;border-radius:8px;cursor:pointer;transition:all .2s}
-  .mtbtn.on{background:rgba(201,168,76,.2);color:#c9a84c}
-  .mhdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-  .mtitle{font-family:'Bebas Neue',sans-serif;font-size:22px;color:#f0ead8;letter-spacing:1px}
-  .mvol{font-size:10px;color:#3a5070;letter-spacing:1px}
-  .oc{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:14px 16px;margin-bottom:8px;transition:all .2s;animation:fsu .35s ease both}
-  .oc:hover{border-color:rgba(201,168,76,.15);background:rgba(255,255,255,.05)}
-  .orow{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-  .ork{font-size:11px;color:#2a4060;width:18px;flex-shrink:0}
-  .oteam{font-size:13px;color:#c8d8e8;flex:1;display:flex;align-items:center;gap:8px}
-  .oprice{font-family:'Bebas Neue',sans-serif;font-size:20px;color:#f0ead8}
-  .omv{font-size:11px;padding:2px 6px;border-radius:6px}
-  .omv.up{color:#22c55e;background:rgba(34,197,94,.1)}
-  .omv.dn{color:#ff6060;background:rgba(255,80,80,.1)}
-  .pbarw{display:flex;align-items:center;gap:8px}
-  .pbar2{flex:1;height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden}
-  .pfill2{height:100%;background:linear-gradient(90deg,#c9a84c,#e8c870);border-radius:2px;transition:width 1.2s ease}
-  .ppct{font-size:11px;color:#5a7090;width:36px;text-align:right}
-  .stag{font-size:9px;letter-spacing:2px;color:#2a4060;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:4px;padding:2px 6px}
-  .moc{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:16px;margin-bottom:10px}
-  .motitle{font-size:12px;color:#8a9db5;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
-  .tw3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
-  .obox{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:10px 6px;text-align:center;cursor:pointer;transition:all .2s}
-  .obox:hover{background:rgba(201,168,76,.1);border-color:rgba(201,168,76,.3)}
-  .oblbl{font-size:9px;letter-spacing:1.5px;color:#3a5070;text-transform:uppercase;margin-bottom:4px}
-  .obprice{font-family:'Bebas Neue',sans-serif;font-size:18px;color:#f0ead8}
-  .obpct{font-size:10px;color:#5a7090;margin-top:2px}
-  .bg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:10px}
-  .mb{height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden}
-  .mfh{height:100%;background:#22c55e;border-radius:2px}
-  .mfd{height:100%;background:#c9a84c;border-radius:2px}
-  .mfa{height:100%;background:#6080ff;border-radius:2px}
-  .disc{font-size:9px;color:#1a3050;letter-spacing:1px;margin-top:16px;line-height:1.7;padding:12px;background:rgba(255,255,255,.02);border-radius:8px;border:1px solid rgba(255,255,255,.04)}
+.mbg{position:fixed;inset:0;z-index:500;background:rgba(4,7,14,.78);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;animation:fsu .25s ease}
+.mod{background:#0c1222;border:1px solid var(--line);border-top:3px solid var(--c1);border-radius:26px 26px 0 0;width:100%;max-width:480px;max-height:92vh;overflow-y:auto;padding:0 0 44px;animation:fsu .3s ease}
+.mh{position:sticky;top:0;background:linear-gradient(180deg,#101830,#0c1222);border-bottom:1px solid var(--line);padding:20px;z-index:2}
+.mx{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.07);border:none;color:var(--mut);width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer}
+.mvs{display:flex;align-items:center;justify-content:space-around;gap:10px}
+.mt{text-align:center;flex:1}
+.mf{font-size:40px}
+.mtn{font-size:14px;font-weight:700;color:var(--ink);margin-top:6px}
+.mfm{font-size:11px;color:var(--mut);margin-top:3px;font-weight:600;letter-spacing:1px}
+.mmid{font-size:12px;color:var(--mut);text-align:center;font-weight:600}
+.msc{font-family:'Anton',sans-serif;font-size:38px;color:var(--c1)}
+.stag{display:inline-block;margin:16px 20px 0;font-size:10px;font-weight:700;letter-spacing:1px;color:var(--c3);background:rgba(182,255,58,.1);border:1px solid rgba(182,255,58,.3);border-radius:8px;padding:5px 10px;text-transform:uppercase}
+.sec{padding:20px 20px 0}
+.st{font-size:11px;font-weight:800;letter-spacing:2.5px;color:var(--c1);text-transform:uppercase;margin-bottom:15px}
+.stat{margin-bottom:15px}
+.statt{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.statt b{font-family:'Anton',sans-serif;font-size:18px;font-weight:400}
+.statl{font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--mut);text-transform:uppercase}
+.sbar{display:flex;height:7px;border-radius:4px;overflow:hidden;background:rgba(255,255,255,.06);gap:3px}
+.sbh{background:linear-gradient(90deg,#0e9fb8,var(--c1));transition:width 1s ease}
+.sba{background:linear-gradient(90deg,var(--c2),#ff77a8);transition:width 1s ease}
+.lu{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.lct{font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.pl{display:flex;align-items:center;gap:9px;padding:8px 10px;background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:11px;margin-bottom:6px}
+.pln{font-family:'Anton',sans-serif;font-size:15px;color:var(--c1);width:24px;text-align:center;flex-shrink:0}
+.plnm{font-size:12px;font-weight:600;color:var(--ink);flex:1;line-height:1.2}
+.plp{font-size:8px;font-weight:800;letter-spacing:1px;color:var(--dim);background:rgba(255,255,255,.05);padding:2px 5px;border-radius:4px}
+.ev{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid var(--line)}
+.evm{font-family:'Anton',sans-serif;font-size:16px;color:var(--mut);width:36px;flex-shrink:0}
+.evi{font-size:15px;width:22px;text-align:center}
+.evt{font-size:13px;font-weight:600;color:var(--ink)}
+.evd{font-size:11px;color:var(--mut)}
 
-  /* Kalshi live indicator */
-  .klive{display:flex;align-items:center;gap:6px;font-size:10px;color:#22c55e;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;animation:fsu .3s ease}
-  .kdot{width:6px;height:6px;border-radius:50%;background:#22c55e;animation:pulse 1.2s ease infinite;flex-shrink:0}
-  .kerr{font-size:11px;color:#ff6060;letter-spacing:1px;padding:12px;background:rgba(255,40,40,.06);border:1px solid rgba(255,40,40,.15);border-radius:10px;margin-bottom:12px}
-  .kload{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 20px;gap:12px}
-  .kspin{width:28px;height:28px;border:3px solid rgba(201,168,76,.2);border-top-color:#c9a84c;border-radius:50%;animation:spin .8s linear infinite}
-  .kltext{font-size:11px;color:#4a6020;letter-spacing:2px;text-transform:uppercase;animation:shimmer 1.5s ease infinite}
-  .knodata{text-align:center;padding:40px 20px;color:#2a4060;font-size:11px;letter-spacing:2px;text-transform:uppercase;line-height:2}
+.pad{padding:18px 16px 110px}
+.note{font-size:11px;font-weight:600;color:var(--mut);letter-spacing:.5px;margin-bottom:16px;text-transform:uppercase}
+.gtabs{display:flex;flex-wrap:wrap;gap:7px;padding-bottom:18px}
+.gt{background:var(--card);border:1px solid var(--line);color:var(--mut);font-family:'Archivo';font-size:12px;font-weight:700;letter-spacing:1px;padding:8px 14px;border-radius:10px;cursor:pointer;transition:.2s}
+.gt.on{background:linear-gradient(120deg,var(--c1),#56ecff);border-color:transparent;color:#06101e}
+.tbl{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.tbl th{font-size:10px;font-weight:800;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase;padding:12px;text-align:left;border-bottom:1px solid var(--line)}
+.tbl td{font-size:14px;color:var(--mut);padding:14px 12px;border-bottom:1px solid var(--line);font-weight:600}
+.tc{display:flex;align-items:center;gap:10px;color:var(--ink);font-weight:700}
+.tc span{font-size:19px}
 
-  /* AI */
-  .aiwrap{padding:16px 16px 100px;position:relative;z-index:10}
-  .aihdr{font-family:'Bebas Neue',sans-serif;font-size:32px;color:#f0ead8}
-  .aisub{font-size:11px;color:#3a5060;letter-spacing:2px;text-transform:uppercase;margin-top:4px;margin-bottom:20px}
-  .aimatch{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;transition:all .2s;animation:fsu .3s ease both}
-  .aimatch:hover{border-color:rgba(120,80,220,.3);background:rgba(80,40,160,.1);transform:translateY(-1px)}
-  .aimatch.sel{border-color:rgba(120,80,220,.5);background:rgba(80,40,160,.15)}
-  .airesult{background:linear-gradient(135deg,rgba(60,30,120,.4),rgba(30,20,80,.6));border:1px solid rgba(120,80,220,.4);border-radius:16px;padding:20px;margin-top:16px;animation:fsu .4s ease}
-  .aivrd{font-family:'Bebas Neue',sans-serif;font-size:36px;color:#c9a84c;line-height:1}
-  .aisc{font-family:'Bebas Neue',sans-serif;font-size:24px;color:#a080ff;margin-top:2px}
-  .aicbar{height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;margin:12px 0 4px}
-  .aicfill{height:100%;background:linear-gradient(90deg,#6040c0,#a080ff);border-radius:3px;transition:width .8s ease}
-  .aiclbl{font-size:10px;color:#6050a0;letter-spacing:1.5px;text-transform:uppercase}
-  .aidr{display:flex;gap:8px;margin-top:12px}
-  .aidb{flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px}
-  .aidlbl{font-size:9px;letter-spacing:2px;color:#4a3080;text-transform:uppercase;margin-bottom:4px}
-  .aidtxt{font-size:11px;color:#9090c0;line-height:1.5}
-  .aitip{margin-top:12px;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);border-radius:10px;padding:12px}
-  .aitlbl{font-size:9px;letter-spacing:2px;color:#c9a84c;text-transform:uppercase;margin-bottom:4px}
-  .aittxt{font-size:12px;color:#d8c880;line-height:1.5}
-  .aispin{width:32px;height:32px;border:3px solid rgba(120,80,220,.2);border-top-color:#a080ff;border-radius:50%;animation:spin .8s linear infinite}
-  .ailoading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;gap:12px}
-  .ailtxt{font-size:11px;color:#5040a0;letter-spacing:2px;text-transform:uppercase}
+.mtitle{font-family:'Anton',sans-serif;font-size:30px;color:var(--ink);letter-spacing:.5px;text-transform:uppercase}
+.mhd{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px}
+.mvol{font-size:11px;color:var(--mut);font-weight:600}
+.oc{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:10px;animation:fsu .35s ease both}
+.or{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.ork{font-family:'Anton',sans-serif;font-size:18px;color:var(--dim);width:24px}
+.ot{font-size:15px;font-weight:700;color:var(--ink);flex:1;display:flex;align-items:center;gap:10px}
+.ot span{font-size:20px}
+.op{font-family:'Anton',sans-serif;font-size:24px;color:var(--ink)}
+.pbw{display:flex;align-items:center;gap:10px}
+.pb{flex:1;height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden}
+.pf{height:100%;background:linear-gradient(90deg,var(--c1),var(--c2));transition:width 1.2s ease}
+.pp{font-size:13px;font-weight:700;color:var(--ink);width:40px;text-align:right}
+.tag{font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--dim);background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:6px;padding:3px 8px}
+.disc{font-size:10px;color:var(--dim);letter-spacing:.3px;margin-top:18px;line-height:1.7;padding:14px;background:rgba(255,255,255,.02);border-radius:12px;border:1px solid var(--line)}
+.cta{display:block;margin-top:14px;text-align:center;font-size:12px;font-weight:800;letter-spacing:1.5px;color:#06101e;text-decoration:none;padding:14px;border-radius:14px;background:linear-gradient(120deg,var(--c1),#56ecff);text-transform:uppercase}
 
-  /* Standings */
-  .swrap{padding:16px 16px 100px;position:relative;z-index:10}
-  .gtabs{display:flex;flex-wrap:wrap;gap:6px;padding-bottom:16px}
-  .gtab{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:#4a6080;font-family:inherit;font-size:11px;letter-spacing:2px;padding:6px 12px;border-radius:6px;cursor:pointer;transition:all .2s}
-  .gtab.on{background:rgba(201,168,76,.15);border-color:rgba(201,168,76,.4);color:#c9a84c}
-  .stable{width:100%;border-collapse:collapse}
-  .stable th{font-size:9px;letter-spacing:2px;color:#2a4060;text-transform:uppercase;padding:8px 10px;text-align:left;border-bottom:1px solid rgba(255,255,255,.05)}
-  .stable td{font-size:12px;color:#8a9db5;padding:11px 10px;border-bottom:1px solid rgba(255,255,255,.04)}
-  .spos{color:#3a5070;font-size:11px;width:20px}
-  .stcell{display:flex;align-items:center;gap:8px;color:#c8d8e8}
-  .spts{font-family:'Bebas Neue',sans-serif;font-size:18px;color:#c9a84c;text-align:right}
-  .qdot{width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block;margin-right:6px}
-  .mdot{width:6px;height:6px;border-radius:50%;background:#c9a84c;display:inline-block;margin-right:6px}
+.aih{font-family:'Anton',sans-serif;font-size:42px;color:var(--ink);text-transform:uppercase;letter-spacing:.5px}
+.ais{font-size:12px;color:var(--c2);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-top:4px;margin-bottom:20px}
+.aim{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:9px;display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;transition:.2s;animation:fsu .3s ease both}
+.aim:hover{border-color:rgba(255,46,126,.4);transform:translateY(-1px)}
+.aim.sel{border-color:var(--c2);background:rgba(255,46,126,.08)}
+.air{background:linear-gradient(140deg,rgba(255,46,126,.14),rgba(31,224,255,.08));border:1px solid rgba(255,46,126,.35);border-radius:20px;padding:22px;margin-top:18px;animation:fsu .4s ease}
+.aiv{font-family:'Anton',sans-serif;font-size:42px;color:var(--c3);line-height:.95;text-transform:uppercase}
+.aip{font-family:'Anton',sans-serif;font-size:26px;color:var(--c1);margin-top:4px}
+.aicb{height:8px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;margin:14px 0 5px}
+.aicf{height:100%;background:linear-gradient(90deg,var(--c2),#ff77a8);transition:width .8s ease}
+.aicl{font-size:11px;color:var(--mut);font-weight:700;letter-spacing:1.5px;text-transform:uppercase}
+.aidr{display:flex;gap:9px;margin-top:14px}
+.aidb{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:12px;padding:12px}
+.aidl{font-size:9px;font-weight:800;letter-spacing:1.5px;color:var(--c1);text-transform:uppercase;margin-bottom:5px}
+.aidt{font-size:12px;color:var(--mut);line-height:1.5;font-weight:500}
+.ait{margin-top:14px;background:rgba(182,255,58,.08);border:1px solid rgba(182,255,58,.3);border-radius:12px;padding:14px}
+.aitl{font-size:9px;font-weight:800;letter-spacing:1.5px;color:var(--c3);text-transform:uppercase;margin-bottom:5px}
+.aitt{font-size:13px;color:#dcefb0;line-height:1.5;font-weight:500}
+.spin{width:34px;height:34px;border:3px solid rgba(255,46,126,.2);border-top-color:var(--c2);border-radius:50%;animation:spin .8s linear infinite}
+.aild{display:flex;flex-direction:column;align-items:center;padding:44px;gap:14px}
+.aildt{font-size:12px;color:var(--c2);font-weight:700;letter-spacing:2px;text-transform:uppercase}
+.kspin{width:28px;height:28px;border:3px solid rgba(31,224,255,.2);border-top-color:var(--c1);border-radius:50%;animation:spin .8s linear infinite;margin:34px auto}
 
-  /* Alerts */
-  .alwrap{padding:16px 16px 100px;position:relative;z-index:10}
-  .alcnt{font-family:'Bebas Neue',sans-serif;font-size:64px;color:#c9a84c;line-height:1}
-  .empty{text-align:center;padding:60px 20px;color:#2a4060}
-  .emico{font-size:48px;margin-bottom:16px;opacity:.5}
-  .emtxt{font-size:12px;letter-spacing:2px;text-transform:uppercase}
+.bigc{font-family:'Anton',sans-serif;font-size:80px;color:var(--c3);line-height:1}
+.empty{text-align:center;padding:64px 20px;color:var(--dim)}
+.emi{font-size:52px;margin-bottom:18px;opacity:.6}
+.emt{font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase}
 
-  .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#0d1e30;border:1px solid rgba(201,168,76,.4);color:#c9a84c;font-size:12px;letter-spacing:1px;padding:12px 20px;border-radius:10px;z-index:999;white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,.5);animation:fsu .3s ease}
-  .toast.rm{border-color:rgba(255,80,80,.3);color:#ff8080}
-  .bnav{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(5,10,20,.95);backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,.07);display:flex;padding:8px 0}
-  .ni{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;cursor:pointer;padding:8px 4px;transition:all .2s;position:relative}
-  .nico{font-size:18px}
-  .nlbl{font-family:inherit;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#2a4060}
-  .ni.on .nlbl{color:#c9a84c}
-  .ni.on .nico{filter:drop-shadow(0 0 6px rgba(201,168,76,.6))}
-  .nbdg{position:absolute;top:4px;right:calc(50% - 18px);background:#c9a84c;color:#050a14;font-size:9px;border-radius:8px;padding:1px 5px;font-weight:700}
+.toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%);background:#0e1830;border:1px solid var(--c1);color:var(--c1);font-size:13px;font-weight:600;padding:13px 22px;border-radius:14px;z-index:999;white-space:nowrap;box-shadow:0 10px 40px rgba(0,0,0,.5);animation:fsu .3s ease}
+.toast.rm{border-color:var(--c2);color:var(--c2)}
+.nav{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(8,12,22,.92);backdrop-filter:blur(22px);border-top:1px solid var(--line);display:flex;padding:10px 0 max(10px,env(safe-area-inset-bottom))}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:none;cursor:pointer;padding:6px 4px;position:relative}
+.nico{font-size:20px;transition:.2s}
+.nl{font-family:'Archivo';font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--dim)}
+.ni.on .nl{color:var(--c1)}
+.ni.on .nico{transform:scale(1.15);filter:drop-shadow(0 0 8px rgba(31,224,255,.7))}
+.nb{position:absolute;top:0;right:calc(50% - 20px);background:var(--c2);color:#fff;font-size:9px;font-weight:800;border-radius:8px;padding:1px 5px}
 `;
 
-// ── MAIN APP ────────────────────────────────────────────────────────────────
-export default function App() {
-  const [tab, setTab]               = useState("schedule");
-  const [filter, setFilter]         = useState("all");
-  const [alerts, setAlerts]         = useState({});
-  const [toast, setToast]           = useState(null);
-  const [liveMin, setLiveMin]       = useState(67);
-  const [selGroup, setSelGroup]     = useState("A");
-  const [mktView, setMktView]       = useState("winner");
+export default function App(){
+  const [tab,setTab]=useState("schedule");
+  const [filter,setFilter]=useState("all");
+  const [alerts,setAlerts]=useState({});
+  const [toast,setToast]=useState(null);
+  const [selGroup,setSelGroup]=useState("A");
+  const [detail,setDetail]=useState(null);
+  const [detailData,setDetailData]=useState(null);
+  const [detailLoading,setDetailLoading]=useState(false);
+  const [cd,setCd]=useState(getCountdown());
+  const [matches,setMatches]=useState(FALLBACK_MATCHES);
+  const [standings,setStandings]=useState(FALLBACK_STANDINGS);
+  const [isLive,setIsLive]=useState(false);
+  const [kWinner,setKWinner]=useState(null);
+  const [aiMatch,setAiMatch]=useState(null);
+  const [aiLoading,setAiLoading]=useState(false);
+  const [aiResult,setAiResult]=useState(null);
+  const [aiError,setAiError]=useState(null);
+  const toastRef=useRef(null);
 
-  // Kalshi live data
-  const [kalshiWinner, setKalshiWinner]   = useState(null);
-  const [kalshiGames, setKalshiGames]     = useState(null);
-  const [kalshiLoading, setKalshiLoading] = useState(false);
-  const [kalshiErr, setKalshiErr]         = useState(null);
-  const [kalshiTs, setKalshiTs]           = useState(null);
+  useEffect(()=>{const iv=setInterval(()=>setCd(getCountdown()),1000);return()=>clearInterval(iv);},[]);
 
-  // AI state
-  const [aiMatch, setAiMatch]   = useState(null);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiResult, setAiResult] = useState(null);
-  const [aiError, setAiError]   = useState(null);
+  const loadLive=useCallback(async()=>{
+    try{const fx=await api("fixtures");if(fx?.configured&&fx.response){const m=mapFixtures(fx.response);if(m){setMatches(m);setIsLive(true);}}}catch{}
+    try{const st=await api("standings");if(st?.configured&&st.response){const m=mapStandings(st.response);if(m)setStandings(m);}}catch{}
+  },[]);
+  useEffect(()=>{loadLive();const iv=setInterval(loadLive,60000);return()=>clearInterval(iv);},[loadLive]);
 
-  const toastRef = useRef(null);
+  useEffect(()=>{
+    if(!detail){setDetailData(null);return;}
+    if(!detail.apiId){setDetailData(SAMPLE_DETAIL);return;}
+    let cancelled=false;setDetailLoading(true);setDetailData(null);
+    (async()=>{
+      try{
+        const [lu,ev,stx]=await Promise.all([api("lineups",detail.apiId).catch(()=>null),api("events",detail.apiId).catch(()=>null),api("statistics",detail.apiId).catch(()=>null)]);
+        if(cancelled)return;
+        const has=lu?.response?.length>=2;
+        setDetailData(has||ev?.response?.length||stx?.response?.length?mapDetail(lu?.response,ev?.response,stx?.response):SAMPLE_DETAIL);
+      }catch{if(!cancelled)setDetailData(SAMPLE_DETAIL);}
+      if(!cancelled)setDetailLoading(false);
+    })();
+    return()=>{cancelled=true;};
+  },[detail]);
 
-  useEffect(() => {
-    const iv = setInterval(() => setLiveMin(m => Math.min(m + 1, 90)), 8000);
-    return () => clearInterval(iv);
-  }, []);
+  const showToast=(msg,type="ok")=>{if(toastRef.current)clearTimeout(toastRef.current);setToast({msg,type});toastRef.current=setTimeout(()=>setToast(null),3000);};
+  const toggleAlert=(id,m,e)=>{e?.stopPropagation();setAlerts(p=>{const n={...p};if(n[id]){delete n[id];showToast("Alert removed","rm");}else{n[id]=true;showToast(`🔔 Alert set — ${m.home} v ${m.away}`);}return n;});};
 
-  // ── Kalshi loader ─────────────────────────────────────────────────────────
-  const loadKalshi = useCallback(async () => {
-    setKalshiLoading(true);
-    setKalshiErr(null);
-    try {
-      // Try multiple ticker strategies for World Cup winner market
-      let winnerMarkets = [];
-      const strategies = [
-        () => kalshiFetch("/markets?series_ticker=FIFAWC&status=open&limit=50"),
-        () => kalshiFetch("/markets?series_ticker=WCWINNER&status=open&limit=50"),
-        () => kalshiFetch("/markets?series_ticker=FIFA26&status=open&limit=50"),
-        () => kalshiFetch("/events?series_ticker=FIFAWC&limit=20"),
-      ];
+  const FW=[{team:"France",flag:"🇫🇷",prob:17,odds:"+489"},{team:"Spain",flag:"🇪🇸",prob:16,odds:"+526"},{team:"England",flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",prob:11,odds:"+810"},{team:"Argentina",flag:"🇦🇷",prob:10,odds:"+900"},{team:"Brazil",flag:"🇧🇷",prob:10,odds:"+920"},{team:"Germany",flag:"🇩🇪",prob:8,odds:"+1120"},{team:"Portugal",flag:"🇵🇹",prob:6,odds:"+1460"},{team:"Netherlands",flag:"🇳🇱",prob:5,odds:"+1860"},{team:"USA",flag:"🇺🇸",prob:4,odds:"+2230"},{team:"Belgium",flag:"🇧🇪",prob:3,odds:"+3350"}];
+  const loadKalshi=useCallback(async()=>{try{for(const t of["FIFAWC","WCWINNER","FIFA26"]){try{const d=await kalshiFetch(`/markets?series_ticker=${t}&status=open&limit=50`);const mk=d.markets||[];if(mk.length){const p=mk.filter(m=>m.yes_bid_dollars||m.last_price).map(m=>{const pr=m.yes_bid_dollars||(m.last_price?m.last_price/100:0);const pc=Math.round(pr*100);const tm=(m.title||"").replace(/will |win the |world cup|2026|fifa|\?/gi,"").trim();return{team:tm,flag:flagOf(tm),prob:pc,odds:pc>0?`+${Math.round((100-pc)/pc*100)}`:"N/A"};}).filter(m=>m.prob>0).sort((a,b)=>b.prob-a.prob).slice(0,12);if(p.length){setKWinner(p);break;}}}catch(_){}}}catch(_){}},[]);
+  useEffect(()=>{if(tab==="markets")loadKalshi();},[tab]);
+  const winnerData=kWinner||FW;
 
-      for (const fn of strategies) {
-        try {
-          const data = await fn();
-          const mkts = data.markets || data.events || [];
-          if (mkts.length > 0) { winnerMarkets = mkts; break; }
-        } catch (_) {}
-      }
+  const getAi=async(m)=>{setAiMatch(m);setAiLoading(true);setAiResult(null);setAiError(null);try{const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:`World Cup 2026 analyst. Respond ONLY valid JSON:{"verdict":"Home Win"|"Draw"|"Away Win","confidence":1-100,"predictedScore":"X-Y","keyFactor":"sentence","homeStrength":"sentence","awayStrength":"sentence","tip":"max 20 words"}`,messages:[{role:"user",content:`Predict ${m.home} vs ${m.away}, Group ${m.group}.`}]})});const data=await res.json();const txt=data.content?.find(b=>b.type==="text")?.text||"";setAiResult(JSON.parse(txt.replace(/```json|```/g,"").trim()));}catch{setAiError("Prediction failed — try again.");}setAiLoading(false);};
 
-      // If no direct series hit, search broadly
-      if (winnerMarkets.length === 0) {
-        try {
-          // Get all open markets with soccer category or large volume
-          const data = await kalshiFetch("/markets?status=open&limit=200&category=sports");
-          const allMkts = data.markets || [];
-          winnerMarkets = allMkts.filter(m => {
-            const title = (m.title || "").toLowerCase();
-            const ticker = (m.ticker || "").toLowerCase();
-            return WC_SEARCH_TERMS.some(t => title.includes(t) || ticker.includes(t));
-          });
-        } catch (_) {}
-      }
+  const alertCount=Object.keys(alerts).length;
+  const upcoming=matches.filter(m=>m.status==="upcoming");
+  const filtered=matches.filter(m=>filter==="alerts"?alerts[m.id]:filter==="live"?m.status==="live":filter==="upcoming"?m.status==="upcoming":true);
+  const dd=detailData;
 
-      // Parse winner futures
-      if (winnerMarkets.length > 0) {
-        const parsed = winnerMarkets
-          .filter(m => m.yes_bid || m.yes_ask || m.last_price || m.yes_bid_dollars)
-          .map(m => {
-            const price = m.yes_bid_dollars || (m.yes_bid ? m.yes_bid / 100 : null) || (m.last_price ? m.last_price / 100 : null) || 0;
-            const pct   = Math.round(price * 100);
-            const title = m.title || m.ticker || "Unknown";
-            const team  = title.replace(/will |win the |world cup|2026|fifa|\?/gi, "").trim();
-            return {
-              team,
-              flag:    getFlagForTeam(team),
-              prob:    pct,
-              odds:    pct > 0 ? `+${Math.round((100 - pct) / pct * 100)}` : "N/A",
-              volume:  m.volume_fp || m.volume || 0,
-              ticker:  m.ticker,
-              move:    m.price_change_fp || m.previous_price ? ((price - (m.previous_price || price) / 100) * 100).toFixed(1) : 0,
-            };
-          })
-          .filter(m => m.prob > 0)
-          .sort((a, b) => b.prob - a.prob)
-          .slice(0, 12);
-
-        if (parsed.length > 0) setKalshiWinner(parsed);
-      }
-
-      // Fetch individual match / game markets
-      let gameMkts = [];
-      try {
-        const data = await kalshiFetch("/markets?status=open&limit=200&series_ticker=FIFAWCG");
-        gameMkts = data.markets || [];
-      } catch (_) {}
-
-      if (gameMkts.length === 0) {
-        try {
-          const data = await kalshiFetch("/markets?status=open&limit=200&category=sports");
-          const all = data.markets || [];
-          gameMkts = all.filter(m => {
-            const title = (m.title || "").toLowerCase();
-            return (title.includes("vs") || title.includes(" v ")) &&
-              (title.includes("world cup") || title.includes("fifa") || title.includes("wc"));
-          });
-        } catch (_) {}
-      }
-
-      if (gameMkts.length > 0) setKalshiGames(gameMkts);
-      setKalshiTs(new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}));
-
-    } catch (e) {
-      setKalshiErr("Kalshi API unavailable. Showing estimated data.");
-    }
-    setKalshiLoading(false);
-  }, []);
-
-  useEffect(() => {
-    if (tab === "markets") loadKalshi();
-  }, [tab]);
-
-  // Fallback winner data modelled on real Kalshi prices
-  const FALLBACK_WINNER = [
-    { team:"France",     flag:"🇫🇷", prob:17, odds:"+489", volume:"89.4M", move:+1.2 },
-    { team:"Spain",      flag:"🇪🇸", prob:16, odds:"+526", volume:"76.1M", move:-0.8 },
-    { team:"England",    flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", prob:11, odds:"+810", volume:"54.2M", move:+0.3 },
-    { team:"Argentina",  flag:"🇦🇷", prob:10, odds:"+900", volume:"48.7M", move:-1.1 },
-    { team:"Brazil",     flag:"🇧🇷", prob:10, odds:"+920", volume:"44.3M", move:+0.6 },
-    { team:"Germany",    flag:"🇩🇪", prob: 8, odds:"+1120",volume:"38.9M", move:+0.2 },
-    { team:"Portugal",   flag:"🇵🇹", prob: 6, odds:"+1460",volume:"29.1M", move:-0.4 },
-    { team:"Netherlands",flag:"🇳🇱", prob: 5, odds:"+1860",volume:"22.6M", move:+0.1 },
-    { team:"USA",        flag:"🇺🇸", prob: 4, odds:"+2230",volume:"19.4M", move:+1.8 },
-    { team:"Belgium",    flag:"🇧🇪", prob: 3, odds:"+3350",volume:"13.2M", move:-0.2 },
-  ];
-
-  const winnerData = kalshiWinner || FALLBACK_WINNER;
-  const isLiveKalshi = !!kalshiWinner;
-
-  // ── AI Prediction ─────────────────────────────────────────────────────────
-  const getAiPrediction = async (match) => {
-    setAiMatch(match);
-    setAiLoading(true);
-    setAiResult(null);
-    setAiError(null);
-    // Find any Kalshi odds for this match
-    const matchOdds = kalshiGames?.find(m => {
-      const t = (m.title || "").toLowerCase();
-      return t.includes(match.home.toLowerCase()) || t.includes(match.away.toLowerCase());
-    });
-    const oddsNote = matchOdds
-      ? `Kalshi market: "${matchOdds.title}" — Yes price $${matchOdds.yes_bid_dollars || "N/A"}`
-      : "No live Kalshi match market found.";
-    try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          system: `You are a sharp World Cup 2026 analyst. Respond ONLY with valid JSON, no extra text:
-{"verdict":"Home Win"|"Draw"|"Away Win","confidence":number 1-100,"predictedScore":"X-Y","keyFactor":"one sentence","homeStrength":"one sentence","awayStrength":"one sentence","tip":"max 20 words sharp betting insight"}`,
-          messages: [{ role:"user", content:`Predict: ${match.homeFlag} ${match.home} vs ${match.awayFlag} ${match.away}. Group ${match.group}. ${match.city}. ${oddsNote}` }]
-        })
-      });
-      const data = await res.json();
-      const text = data.content?.find(b => b.type === "text")?.text || "";
-      setAiResult(JSON.parse(text.replace(/```json|```/g,"").trim()));
-    } catch(e) { setAiError("Prediction failed — please try again."); }
-    setAiLoading(false);
-  };
-
-  // ── Helpers ───────────────────────────────────────────────────────────────
-  const showToast = (msg, type="success") => {
-    if (toastRef.current) clearTimeout(toastRef.current);
-    setToast({msg, type});
-    toastRef.current = setTimeout(() => setToast(null), 3000);
-  };
-
-  const toggleAlert = (id, match) => {
-    setAlerts(prev => {
-      const n = {...prev};
-      if (n[id]) { delete n[id]; showToast("Alert removed","rm"); }
-      else { n[id]=true; showToast(`🔔 Alert set — ${match.home} vs ${match.away}`); }
-      return n;
-    });
-  };
-
-  const liveMatch  = WC_MATCHES.find(m => m.status === "live");
-  const alertCount = Object.keys(alerts).length;
-  const filtered   = WC_MATCHES.filter(m => {
-    if (filter==="live") return m.status==="live";
-    if (filter==="today") return m.date==="2026-06-13";
-    if (filter==="upcoming") return m.status==="upcoming";
-    if (filter==="alerts") return alerts[m.id];
-    return true;
-  });
-
-  // ── RENDER ─────────────────────────────────────────────────────────────────
   return (
-    <div style={{minHeight:"100vh",background:"#050a14",fontFamily:"'DM Mono','Courier New',monospace",color:"#e8e0d0",overflowX:"hidden"}}>
+    <div style={{minHeight:"100vh",background:"#0a0e1a",color:"var(--ink)",overflowX:"hidden"}}>
       <style>{CSS}</style>
-      <div className="bg"/>
+      <div className="bg"/><div className="grid"/>
+      <div className="wrap">
 
-      {/* Header */}
-      <div className="hdr" style={{animation:"fsu .5s ease both"}}>
-        <div className="logo">FIFA World Cup</div>
-        <div className="ttl">WC<span>26</span></div>
-        <div className="sub">Schedule · Standings · Kalshi Markets · AI Picks</div>
-      </div>
-
-      {/* Live Banner */}
-      {liveMatch && (
-        <div className="live-banner">
-          <div className="llbl"><span className="ldot"/>Live Now · {liveMin}'</div>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:8}}>
-            <div className="lteams">{liveMatch.homeFlag} {liveMatch.home}<br/>{liveMatch.awayFlag} {liveMatch.away}</div>
-            <div style={{textAlign:"right"}}>
-              <div className="lscore">{liveMatch.homeScore} – {liveMatch.awayScore}</div>
-              <div style={{fontSize:11,color:"#5a7090",marginTop:6,letterSpacing:1}}>Group {liveMatch.group} · {liveMatch.city}</div>
-            </div>
-          </div>
-          <div className="pbar"><div className="pfill" style={{width:`${(liveMin/90)*100}%`}}/></div>
+        <div className="hdr">
+          <div className="kick">⚽ June 11 – July 19, 2026</div>
+          <div className="ttl">WC26</div>
+          <div className="sub">SCHEDULE · LINEUPS · STATS · KALSHI · AI PICKS</div>
+          {isLive && <div className="livestrip"><span className="ldot"/>Live data connected</div>}
         </div>
-      )}
 
-      {/* Tab row */}
-      <div className="tabrow">
-        {[["schedule","📅 Schedule"],["standings","📊 Standings"],["markets","📈 Kalshi"],["ai","🤖 AI Picks"],["myalerts","🔔 Alerts"]].map(([k,l]) => (
-          <button key={k} className={`tbtn${tab===k?" on":""}`} onClick={() => setTab(k)}>
-            {l}
-            {k==="myalerts" && alertCount>0 && <span style={{marginLeft:6,background:"#c9a84c",color:"#050a14",fontSize:9,borderRadius:8,padding:"1px 5px",fontWeight:700}}>{alertCount}</span>}
-          </button>
-        ))}
-      </div>
-
-      {/* ── SCHEDULE ── */}
-      {tab==="schedule" && (
-        <>
-          <div className="frow">
-            {[["all","All"],["live","🔴 Live"],["today","Today"],["upcoming","Upcoming"],["alerts","Alerts"]].map(([k,l]) => (
-              <button key={k} className={`chip${filter===k?" on":""}`} onClick={() => setFilter(k)}>{l}</button>
-            ))}
+        {cd && (
+          <div className="cd">
+            <div className="cd-l">⚡ Kick-off in</div>
+            <div className="cd-m">🇲🇽 MEXICO vs SOUTH AFRICA 🇿🇦</div>
+            <div className="cd-row">{[["d",cd.d,"Days"],["h",cd.h,"Hrs"],["m",cd.m,"Min"],["s",cd.s,"Sec"]].map(([k,v,u])=>(<div key={k} className="cd-c"><div className="cd-n">{String(v).padStart(2,"0")}</div><div className="cd-u">{u}</div></div>))}</div>
+            <div className="cd-v">📍 Estadio Azteca, Mexico City</div>
           </div>
-          <div className="mlist">
-            {filtered.length===0 && <div className="empty"><div className="emico">⚽</div><div className="emtxt">No matches found</div></div>}
-            {filtered.reduce((acc,m,i) => {
-              const pd = i>0 ? filtered[i-1].date : null;
-              if (m.date!==pd) { const d=new Date(m.date+"T12:00:00"); acc.push(<div key={`d-${m.date}`} className="dhdr">{d.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</div>); }
-              const hw=m.homeScore>m.awayScore, aw=m.awayScore>m.homeScore;
+        )}
+
+        <div className="tabrow">{[["schedule","Schedule"],["standings","Standings"],["markets","Kalshi"],["ai","AI Picks"],["myalerts","Alerts"]].map(([k,l])=>(<button key={k} className={`tb${tab===k?" on":""}`} onClick={()=>setTab(k)}>{l}{k==="myalerts"&&alertCount>0?` ${alertCount}`:""}</button>))}</div>
+
+        {tab==="schedule" && (<>
+          <div className="frow">{[["all","All"],["live","🔴 Live"],["upcoming","Upcoming"],["alerts","Alerts"]].map(([k,l])=>(<button key={k} className={`chip${filter===k?" on":""}`} onClick={()=>setFilter(k)}>{l}</button>))}</div>
+          <div className="list">
+            {filtered.length===0&&<div className="empty"><div className="emi">⚽</div><div className="emt">No matches</div></div>}
+            {filtered.reduce((acc,m,i)=>{
+              const pd=i>0?filtered[i-1].date:null;
+              if(m.date!==pd&&m.date){const d=new Date(m.date+"T12:00:00");acc.push(<div key={`d${m.date}${i}`} className="dh">{d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</div>);}
+              const hw=m.homeScore>m.awayScore,aw=m.awayScore>m.homeScore,played=m.status!=="upcoming";
               acc.push(
-                <div key={m.id} className={`mc${m.status==="live"?" live":""}${m.status==="final"?" done":""}`} style={{animationDelay:`${(i%6)*.05}s`}}>
-                  <div className="gbdg">GRP {m.group}</div>
-                  <div className="mteams">
-                    <div className="trow"><div className="tnm"><span style={{fontSize:16}}>{m.homeFlag}</span>{m.home}</div>{m.status!=="upcoming"&&<div className={`tsc${hw?" w":""}`}>{m.homeScore}</div>}</div>
-                    <div className="mdiv"/>
-                    <div className="trow"><div className="tnm"><span style={{fontSize:16}}>{m.awayFlag}</span>{m.away}</div>{m.status!=="upcoming"&&<div className={`tsc${aw?" w":""}`}>{m.awayScore}</div>}</div>
-                    <div className="mmeta"><span>🕐 {m.time}</span><span>📍 {m.city}</span></div>
+                <div key={m.id} className={`mc${m.status==="live"?" live":""}${m.status==="final"?" done":""}`} style={{animationDelay:`${(i%6)*.05}s`}} onClick={()=>setDetail(m)}>
+                  <div className="gb">{m.group}<small>GRP</small></div>
+                  <div className="tms">
+                    <div className="tr"><div className="tn"><span>{m.homeFlag}</span>{m.home}</div>{played&&<div className={`sc${hw?" w":""}`}>{m.homeScore}</div>}</div>
+                    <div className="md"/>
+                    <div className="tr"><div className="tn"><span>{m.awayFlag}</span>{m.away}</div>{played&&<div className={`sc${aw?" w":""}`}>{m.awayScore}</div>}</div>
+                    <div className="meta"><span>🕐 {m.time}</span>{m.city&&<span>📍 {m.city}</span>}</div>
                   </div>
-                  <div className="cact">
-                    {m.status==="live"&&<span className="sbdg slive">{liveMin}'</span>}
-                    {m.status==="final"&&<span className="sbdg sfinal">FT</span>}
-                    {m.status==="upcoming"&&<span className="sbdg sup">Soon</span>}
-                    {m.status==="upcoming"&&<>
-                      <button className={`abtn${alerts[m.id]?" on":""}`} onClick={() => toggleAlert(m.id,m)}>{alerts[m.id]?"🔔":"🔕"}</button>
-                      <button className="aibtn" onClick={() => { setTab("ai"); getAiPrediction(m); }}>AI Pick</button>
-                    </>}
+                  <div className="act">
+                    {m.status==="live"&&<span className="bdg b-live">{m.liveMin?`${m.liveMin}'`:"LIVE"}</span>}
+                    {m.status==="final"&&<span className="bdg b-fin">FT</span>}
+                    {m.status==="upcoming"&&<span className="bdg b-up">Soon</span>}
+                    <button className={`ab${alerts[m.id]?" on":""}`} onClick={(e)=>toggleAlert(m.id,m,e)}>{alerts[m.id]?"🔔":"🔕"}</button>
+                    <button className="vb" onClick={(e)=>{e.stopPropagation();setDetail(m);}}>Details</button>
                   </div>
                 </div>
               );
               return acc;
             },[])}
           </div>
-        </>
-      )}
+        </>)}
 
-      {/* ── STANDINGS ── */}
-      {tab==="standings" && (
-        <div className="swrap">
-          <div className="gtabs">{GROUPS.map(g=><button key={g} className={`gtab${selGroup===g?" on":""}`} onClick={()=>setSelGroup(g)}>Group {g}</button>)}</div>
-          <div style={{background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.07)",borderRadius:14,overflow:"hidden"}}>
-            <table className="stable">
-              <thead><tr><th>#</th><th>Team</th><th style={{textAlign:"center"}}>W</th><th style={{textAlign:"center"}}>D</th><th style={{textAlign:"center"}}>L</th><th style={{textAlign:"right"}}>PTS</th></tr></thead>
-              <tbody>
-                {[...GROUP_TEAMS[selGroup]].sort((a,b)=>b.pts-a.pts).map((t,i)=>(
-                  <tr key={t.name}>
-                    <td className="spos">{i+1}</td>
-                    <td><div className="stcell">{i<2?<span className="qdot"/>:i===2?<span className="mdot"/>:<span style={{width:12,display:"inline-block"}}/>}<span style={{fontSize:16}}>{t.flag}</span>{t.name}</div></td>
-                    <td style={{textAlign:"center"}}>{t.w}</td><td style={{textAlign:"center"}}>{t.d}</td><td style={{textAlign:"center"}}>{t.l}</td>
-                    <td className="spts">{t.pts}</td>
-                  </tr>
-                ))}
-              </tbody>
+        {tab==="standings" && (
+          <div className="pad">
+            {!isLive&&<div className="note">Group stage begins June 11 — updates live once games start</div>}
+            <div className="gtabs">{GROUPS.map(g=><button key={g} className={`gt${selGroup===g?" on":""}`} onClick={()=>setSelGroup(g)}>{g}</button>)}</div>
+            <table className="tbl">
+              <thead><tr><th>#</th><th>Team</th><th style={{textAlign:"center"}}>P</th><th style={{textAlign:"center"}}>W</th><th style={{textAlign:"center"}}>D</th><th style={{textAlign:"center"}}>L</th><th style={{textAlign:"right"}}>PTS</th></tr></thead>
+              <tbody>{(standings[selGroup]||[]).map((t,i)=>(<tr key={t.name}><td style={{color:"var(--dim)"}}>{i+1}</td><td><div className="tc"><span>{t.flag}</span>{t.name}</div></td><td style={{textAlign:"center"}}>{t.played}</td><td style={{textAlign:"center"}}>{t.w}</td><td style={{textAlign:"center"}}>{t.d}</td><td style={{textAlign:"center"}}>{t.l}</td><td style={{textAlign:"right",fontFamily:"'Anton',sans-serif",fontSize:20,color:"var(--c1)"}}>{t.pts}</td></tr>))}</tbody>
             </table>
           </div>
-          <div style={{marginTop:12,display:"flex",gap:16,fontSize:10,letterSpacing:1.5,color:"#2a4060",textTransform:"uppercase"}}>
-            <span><span className="qdot" style={{display:"inline-block"}}/>Advances</span>
-            <span><span className="mdot" style={{display:"inline-block"}}/>Possible 3rd</span>
+        )}
+
+        {tab==="markets" && (
+          <div className="pad">
+            <div className="note" style={{color:kWinner?"var(--c3)":"var(--mut)"}}>{kWinner?"● Live Kalshi data":"Estimated — recent Kalshi prices"}</div>
+            <div className="mhd"><div className="mtitle">Win The Cup</div><div className="mvol">Kalshi Market</div></div>
+            <div style={{display:"flex",gap:8,marginBottom:16}}><span className="tag">KALSHI</span><span className="tag">CFTC REGULATED</span></div>
+            {winnerData.map((it,i)=>(<div key={it.team+i} className="oc" style={{animationDelay:`${i*.04}s`}}><div className="or"><span className="ork">{i+1}</span><span className="ot"><span>{it.flag}</span>{it.team}</span><span className="op">{it.odds}</span></div><div className="pbw"><div className="pb"><div className="pf" style={{width:`${(it.prob/(winnerData[0]?.prob||17))*100}%`}}/></div><span className="pp">{it.prob}%</span></div></div>))}
+            <a className="cta" href="https://kalshi.com/category/sports/soccer/fifa-world-cup" target="_blank" rel="noopener noreferrer">Trade on Kalshi →</a>
+            <div className="disc">⚠ Prediction-market data from Kalshi (CFTC-regulated). Trading involves risk. 18+ US only. Not financial advice.</div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ── KALSHI MARKETS ── */}
-      {tab==="markets" && (
-        <div className="mwrap">
-          <div className="mtog">
-            {[["winner","🏆 Tournament Winner"],["games","⚽ Match Markets"]].map(([k,l])=>(
-              <button key={k} className={`mtbtn${mktView===k?" on":""}`} onClick={()=>setMktView(k)}>{l}</button>
-            ))}
+        {tab==="ai" && (
+          <div className="pad">
+            <div className="aih">AI Picks</div>
+            <div className="ais">Claude · Form & Matchup Analysis</div>
+            {(upcoming.length?upcoming:matches).slice(0,10).map((m,i)=>(<div key={m.id} className={`aim${aiMatch?.id===m.id?" sel":""}`} style={{animationDelay:`${i*.04}s`}} onClick={()=>getAi(m)}><div><div style={{fontSize:15,fontWeight:700,color:"var(--ink)"}}>{m.homeFlag} {m.home} <span style={{color:"var(--dim)"}}>v</span> {m.awayFlag} {m.away}</div><div style={{fontSize:11,color:"var(--mut)",marginTop:3,fontWeight:600}}>Group {m.group} · {m.time}</div></div><span style={{color:"var(--c2)",fontSize:20}}>→</span></div>))}
+            {aiLoading&&<div className="air"><div className="aild"><div className="spin"/><div className="aildt">Analysing…</div></div></div>}
+            {aiError&&!aiLoading&&<div className="air" style={{borderColor:"rgba(255,80,80,.4)"}}><div style={{color:"#ff8080",fontSize:13}}>{aiError}</div></div>}
+            {aiResult&&!aiLoading&&aiMatch&&(<div className="air"><div style={{fontSize:11,color:"var(--c1)",fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",marginBottom:10}}>{aiMatch.homeFlag} {aiMatch.home} v {aiMatch.awayFlag} {aiMatch.away}</div><div className="aiv">{aiResult.verdict}</div><div className="aip">Predicted {aiResult.predictedScore}</div><div className="aicb"><div className="aicf" style={{width:`${aiResult.confidence}%`}}/></div><div className="aicl">Confidence {aiResult.confidence}%</div><div style={{marginTop:14,padding:"12px 14px",background:"rgba(255,255,255,.04)",border:"1px solid var(--line)",borderRadius:12}}><div style={{fontSize:9,fontWeight:800,color:"var(--c1)",letterSpacing:1.5,textTransform:"uppercase",marginBottom:5}}>Key Factor</div><div style={{fontSize:13,color:"var(--mut)",lineHeight:1.6,fontWeight:500}}>{aiResult.keyFactor}</div></div><div className="aidr"><div className="aidb"><div className="aidl">{aiMatch.homeFlag} {aiMatch.home}</div><div className="aidt">{aiResult.homeStrength}</div></div><div className="aidb"><div className="aidl">{aiMatch.awayFlag} {aiMatch.away}</div><div className="aidt">{aiResult.awayStrength}</div></div></div>{aiResult.tip&&<div className="ait"><div className="aitl">💡 Insight</div><div className="aitt">{aiResult.tip}</div></div>}<div style={{marginTop:14,fontSize:10,color:"var(--dim)",letterSpacing:.5}}>⚠ For entertainment only. Not betting advice.</div></div>)}
+            {!aiMatch&&!aiLoading&&<div className="empty" style={{marginTop:8}}><div className="emi">🤖</div><div className="emt">Tap a match for a prediction</div></div>}
           </div>
+        )}
 
-          {/* Live / loading status */}
-          {kalshiLoading && <div className="kload"><div className="kspin"/><div className="kltext">Fetching Kalshi live data…</div></div>}
-          {!kalshiLoading && isLiveKalshi && <div className="klive"><span className="kdot"/>Live Kalshi data · Updated {kalshiTs} <button onClick={loadKalshi} style={{marginLeft:"auto",background:"none",border:"1px solid rgba(34,197,94,.25)",borderRadius:6,color:"#22c55e",padding:"2px 8px",fontSize:9,cursor:"pointer",letterSpacing:1}}>↻ Refresh</button></div>}
-          {!kalshiLoading && kalshiErr && <div className="kerr">⚠ {kalshiErr} <button onClick={loadKalshi} style={{marginLeft:8,background:"none",border:"1px solid rgba(255,80,80,.3)",borderRadius:6,color:"#ff8080",padding:"2px 8px",fontSize:9,cursor:"pointer"}}>Retry</button></div>}
-          {!kalshiLoading && !isLiveKalshi && !kalshiErr && <div style={{fontSize:9,color:"#3a5060",letterSpacing:1.5,marginBottom:12}}>ESTIMATED — Based on recent Kalshi prices</div>}
+        {tab==="myalerts" && (
+          <div className="pad">
+            <div className="bigc">{alertCount}</div>
+            <div className="note" style={{marginTop:8}}>Active Alerts</div>
+            {alertCount===0?<div className="empty"><div className="emi">🔕</div><div className="emt">No alerts yet</div><div style={{fontSize:12,color:"var(--dim)",marginTop:12,fontWeight:600}}>Tap 🔕 on any fixture</div></div>
+            :matches.filter(m=>alerts[m.id]).map((m,i)=>(<div key={m.id} className="mc" style={{animationDelay:`${i*.07}s`}} onClick={()=>setDetail(m)}><div className="gb">{m.group}<small>GRP</small></div><div className="tms"><div className="tr"><div className="tn"><span>{m.homeFlag}</span>{m.home}</div></div><div className="md"/><div className="tr"><div className="tn"><span>{m.awayFlag}</span>{m.away}</div></div><div className="meta"><span>🕐 {m.time}</span>{m.city&&<span>📍 {m.city}</span>}</div></div><button className="ab on" onClick={(e)=>toggleAlert(m.id,m,e)}>🔔</button></div>))}
+          </div>
+        )}
 
-          {!kalshiLoading && mktView==="winner" && (
-            <>
-              <div className="mhdr">
-                <div className="mtitle">Win The World Cup</div>
-                <div className="mvol">Kalshi Prediction Market</div>
-              </div>
-              <div style={{display:"flex",gap:8,marginBottom:16}}>
-                <span className="stag">KALSHI</span>
-                <span className="stag">CFTC REGULATED</span>
-                <span style={{fontSize:9,color:"#1a3050",letterSpacing:1,alignSelf:"center"}}>YES PRICE ODDS</span>
-              </div>
-              {winnerData.map((item,i)=>(
-                <div key={item.team} className="oc" style={{animationDelay:`${i*.04}s`}}>
-                  <div className="orow">
-                    <span className="ork">{i+1}</span>
-                    <span className="oteam"><span style={{fontSize:18}}>{item.flag}</span>{item.team}</span>
-                    {item.move !== 0 && <span className={`omv ${Number(item.move)>=0?"up":"dn"}`}>{Number(item.move)>=0?"▲":"▼"}{Math.abs(item.move)}%</span>}
-                    <span className="oprice">{item.odds}</span>
-                  </div>
-                  <div className="pbarw">
-                    <div className="pbar2"><div className="pfill2" style={{width:`${(item.prob/(winnerData[0]?.prob||17))*100}%`}}/></div>
-                    <span className="ppct">{item.prob}%</span>
-                  </div>
-                  {item.volume > 0 && <div style={{fontSize:10,color:"#2a4060",marginTop:6,letterSpacing:1}}>${typeof item.volume==="string"?item.volume:Number(item.volume).toLocaleString()} vol</div>}
+        {detail && (
+          <div className="mbg" onClick={()=>setDetail(null)}>
+            <div className="mod" onClick={e=>e.stopPropagation()}>
+              <div className="mh">
+                <button className="mx" onClick={()=>setDetail(null)}>✕</button>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:1.5,color:"var(--dim)",textTransform:"uppercase",textAlign:"center",marginBottom:14}}>Group {detail.group}{detail.venue?` · ${detail.venue}`:""}</div>
+                <div className="mvs">
+                  <div className="mt"><div className="mf">{detail.homeFlag}</div><div className="mtn">{detail.home}</div><div className="mfm">{dd?.homeFormation}</div></div>
+                  <div className="mmid">{detail.status!=="upcoming"?<div className="msc">{detail.homeScore} – {detail.awayScore}</div>:<>{detail.time}<br/>{detail.date&&new Date(detail.date+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"})}</>}</div>
+                  <div className="mt"><div className="mf">{detail.awayFlag}</div><div className="mtn">{detail.away}</div><div className="mfm">{dd?.awayFormation}</div></div>
                 </div>
-              ))}
-              <a href="https://kalshi.com/category/sports/soccer/fifa-world-cup" target="_blank" rel="noopener noreferrer" style={{display:"block",marginTop:12,textAlign:"center",fontSize:10,color:"#c9a84c",letterSpacing:2,textDecoration:"none",padding:"10px",border:"1px solid rgba(201,168,76,.2)",borderRadius:10,background:"rgba(201,168,76,.05)"}}>
-                Trade on Kalshi.com →
-              </a>
-              <div className="disc">⚠ Prediction market data from Kalshi (CFTC-regulated). Odds reflect YES contract prices. Trading involves risk. 18+ US only. Not financial advice.</div>
-            </>
-          )}
-
-          {!kalshiLoading && mktView==="games" && (
-            <>
-              <div className="mhdr">
-                <div className="mtitle">Match Markets</div>
-                <div className="mvol">{kalshiGames ? `${kalshiGames.length} live markets` : "Estimated"}</div>
               </div>
-              {(kalshiGames && kalshiGames.length > 0) ? (
-                kalshiGames.slice(0,10).map((m,i) => {
-                  const yesP = m.yes_bid_dollars || 0;
-                  const noP  = m.no_bid_dollars  || (1 - yesP);
-                  return (
-                    <div key={m.ticker} className="moc" style={{animationDelay:`${i*.05}s`,animation:"fsu .35s ease both"}}>
-                      <div className="motitle">
-                        <span style={{fontSize:12,color:"#8a9db5"}}>{m.title}</span>
-                        <span className="stag">KALSHI</span>
-                      </div>
-                      <div className="tw3">
-                        <div className="obox"><div className="oblbl">YES</div><div className="obprice">${yesP.toFixed(2)}</div><div className="obpct">{Math.round(yesP*100)}%</div></div>
-                        <div className="obox"><div className="oblbl">Volume</div><div className="obprice" style={{fontSize:14}}>{m.volume_fp||m.volume||"—"}</div><div className="obpct">trades</div></div>
-                        <div className="obox"><div className="oblbl">NO</div><div className="obprice">${noP.toFixed(2)}</div><div className="obpct">{Math.round(noP*100)}%</div></div>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                // fallback estimated match odds
-                WC_MATCHES.filter(m=>m.status==="upcoming").slice(0,6).map((match,i) => {
-                  const hp=55+Math.floor(Math.random()*20), dp=20, ap=100-hp-dp;
-                  return (
-                    <div key={match.id} className="moc" style={{animationDelay:`${i*.05}s`,animation:"fsu .35s ease both"}}>
-                      <div className="motitle"><span>{match.homeFlag} {match.home} vs {match.awayFlag} {match.away}</span><span className="stag">EST.</span></div>
-                      <div className="tw3">
-                        {[{l:match.home.slice(0,8),p:`+${Math.round((100-hp)/hp*100)}`,pct:hp},{l:"Draw",p:"+220",pct:dp},{l:match.away.slice(0,8),p:`+${Math.round((100-ap)/ap*100)}`,pct:ap}].map(b=>(
-                          <div key={b.l} className="obox"><div className="oblbl" style={{fontSize:8}}>{b.l}</div><div className="obprice">{b.p}</div><div className="obpct">{b.pct}%</div></div>
-                        ))}
-                      </div>
-                      <div className="bg3"><div className="mb"><div className="mfh" style={{width:`${hp}%`}}/></div><div className="mb"><div className="mfd" style={{width:`${dp}%`}}/></div><div className="mb"><div className="mfa" style={{width:`${ap}%`}}/></div></div>
-                      <div style={{marginTop:8,textAlign:"right"}}><button className="aibtn" onClick={()=>{setTab("ai");getAiPrediction(match);}}>Get AI Pick ✦</button></div>
-                    </div>
-                  );
-                })
-              )}
-              <a href="https://kalshi.com/category/sports/soccer/fifa-world-cup/game" target="_blank" rel="noopener noreferrer" style={{display:"block",marginTop:12,textAlign:"center",fontSize:10,color:"#c9a84c",letterSpacing:2,textDecoration:"none",padding:"10px",border:"1px solid rgba(201,168,76,.2)",borderRadius:10,background:"rgba(201,168,76,.05)"}}>
-                See all match markets on Kalshi →
-              </a>
-              <div className="disc">⚠ Prediction market data from Kalshi (CFTC-regulated). Trading involves risk. 18+ US only. Not financial advice.</div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ── AI PICKS ── */}
-      {tab==="ai" && (
-        <div className="aiwrap">
-          <div className="aihdr">AI MATCH PICKS</div>
-          <div className="aisub">Claude · Kalshi Odds · Team Form</div>
-          {WC_MATCHES.filter(m=>m.status==="upcoming").slice(0,10).map((m,i)=>(
-            <div key={m.id} className={`aimatch${aiMatch?.id===m.id?" sel":""}`} style={{animationDelay:`${i*.04}s`}} onClick={()=>getAiPrediction(m)}>
-              <div>
-                <div style={{fontSize:13,color:"#c8d8e8"}}>{m.homeFlag} {m.home} <span style={{color:"#2a4060"}}>vs</span> {m.awayFlag} {m.away}</div>
-                <div style={{fontSize:10,color:"#3a5070",marginTop:3}}>Group {m.group} · {m.city} · {m.time}</div>
-              </div>
-              <span style={{color:"#a080ff",fontSize:18}}>→</span>
+              {detailLoading&&<div className="kspin"/>}
+              {!detailLoading&&dd&&(<>
+                {dd===SAMPLE_DETAIL&&<div className="stag">⚠ Sample preview — live data appears at kickoff</div>}
+                <div className="sec"><div className="st">Starting XI</div><div className="lu"><div><div className="lct">{detail.homeFlag} {detail.home}</div>{dd.homeXI.map((p,i)=>(<div key={i} className="pl"><span className="pln">{p.n}</span><span className="plnm">{p.name}</span>{p.pos&&<span className="plp">{p.pos}</span>}</div>))}</div><div><div className="lct">{detail.awayFlag} {detail.away}</div>{dd.awayXI.map((p,i)=>(<div key={i} className="pl"><span className="pln">{p.n}</span><span className="plnm">{p.name}</span>{p.pos&&<span className="plp">{p.pos}</span>}</div>))}</div></div></div>
+                <div className="sec"><div className="st">Match Stats</div>{dd.stats.map(s=>{const tot=s.home+s.away||1;return(<div key={s.label} className="stat"><div className="statt"><b style={{color:"var(--c1)"}}>{s.home}{s.unit}</b><span className="statl">{s.label}</span><b style={{color:"var(--c2)"}}>{s.away}{s.unit}</b></div><div className="sbar"><div className="sbh" style={{width:`${s.home/tot*100}%`}}/><div className="sba" style={{width:`${s.away/tot*100}%`}}/></div></div>);})}</div>
+                <div className="sec"><div className="st">Match Events</div>{dd.events.map((ev,i)=>{const ico=ev.type==="goal"?"⚽":ev.type==="yellow"?"🟨":ev.type==="red"?"🟥":ev.type==="subst"?"🔁":"ℹ️";return(<div key={i} className="ev"><span className="evm">{ev.min}{typeof ev.min==="number"?"'":""}</span><span className="evi">{ico}</span><div><div className="evt">{ev.player}{ev.teamName?` (${ev.teamName})`:""}</div><div className="evd">{ev.detail}</div></div></div>);})}</div>
+                <div className="sec"><button onClick={(e)=>toggleAlert(detail.id,detail,e)} style={{width:"100%",padding:14,background:alerts[detail.id]?"rgba(182,255,58,.15)":"rgba(255,255,255,.04)",border:`1px solid ${alerts[detail.id]?"var(--c3)":"var(--line)"}`,borderRadius:14,color:alerts[detail.id]?"var(--c3)":"var(--ink)",fontFamily:"'Archivo'",fontSize:12,fontWeight:800,letterSpacing:1.5,textTransform:"uppercase",cursor:"pointer"}}>{alerts[detail.id]?"🔔 Alert Set — Tap to Remove":"🔕 Set Kickoff Alert"}</button></div>
+              </>)}
             </div>
-          ))}
-          {aiLoading && <div className="airesult"><div className="ailoading"><div className="aispin"/><div className="ailtxt">Analysing match data…</div></div></div>}
-          {aiError && !aiLoading && <div className="airesult" style={{borderColor:"rgba(255,80,80,.3)"}}><div style={{color:"#ff8080",fontSize:12}}>{aiError}</div></div>}
-          {aiResult && !aiLoading && aiMatch && (
-            <div className="airesult">
-              <div style={{fontSize:10,color:"#5040a0",letterSpacing:2,textTransform:"uppercase",marginBottom:8}}>{aiMatch.homeFlag} {aiMatch.home} vs {aiMatch.awayFlag} {aiMatch.away}</div>
-              <div className="aivrd">{aiResult.verdict}</div>
-              <div className="aisc">Predicted: {aiResult.predictedScore}</div>
-              <div className="aicbar"><div className="aicfill" style={{width:`${aiResult.confidence}%`}}/></div>
-              <div className="aiclbl">Confidence: {aiResult.confidence}%</div>
-              <div style={{marginTop:12,padding:"10px 12px",background:"rgba(255,255,255,.04)",border:"1px solid rgba(255,255,255,.07)",borderRadius:10}}>
-                <div style={{fontSize:9,color:"#4a3080",letterSpacing:2,textTransform:"uppercase",marginBottom:4}}>Key Factor</div>
-                <div style={{fontSize:12,color:"#9090c0",lineHeight:1.6}}>{aiResult.keyFactor}</div>
-              </div>
-              <div className="aidr">
-                <div className="aidb"><div className="aidlbl">{aiMatch.homeFlag} {aiMatch.home}</div><div className="aidtxt">{aiResult.homeStrength}</div></div>
-                <div className="aidb"><div className="aidlbl">{aiMatch.awayFlag} {aiMatch.away}</div><div className="aidtxt">{aiResult.awayStrength}</div></div>
-              </div>
-              {aiResult.tip && <div className="aitip"><div className="aitlbl">💡 Insight</div><div className="aittxt">{aiResult.tip}</div></div>}
-              <div style={{marginTop:12,fontSize:9,color:"#2a3060",letterSpacing:1,lineHeight:1.7}}>⚠ AI predictions are for entertainment only. Not betting advice.</div>
-            </div>
-          )}
-          {!aiMatch && !aiLoading && <div className="empty" style={{marginTop:8}}><div className="emico">🤖</div><div className="emtxt">Tap any match above<br/>for an AI prediction</div></div>}
-        </div>
-      )}
+          </div>
+        )}
 
-      {/* ── MY ALERTS ── */}
-      {tab==="myalerts" && (
-        <div className="alwrap">
-          <div className="alcnt">{alertCount}</div>
-          <div style={{fontSize:11,letterSpacing:3,color:"#3a5070",textTransform:"uppercase",marginBottom:24}}>Active Alerts</div>
-          {alertCount===0 ? (
-            <div className="empty"><div className="emico">🔕</div><div className="emtxt">No alerts set yet</div><div style={{fontSize:11,color:"#1a3050",marginTop:10,letterSpacing:1,lineHeight:1.8}}>Go to Schedule and tap 🔕<br/>on any upcoming match</div></div>
-          ) : WC_MATCHES.filter(m=>alerts[m.id]).map((m,i)=>(
-            <div key={m.id} className="mc" style={{animationDelay:`${i*.07}s`}}>
-              <div className="gbdg">GRP {m.group}</div>
-              <div className="mteams">
-                <div className="trow"><div className="tnm"><span style={{fontSize:16}}>{m.homeFlag}</span>{m.home}</div></div>
-                <div className="mdiv"/>
-                <div className="trow"><div className="tnm"><span style={{fontSize:16}}>{m.awayFlag}</span>{m.away}</div></div>
-                <div className="mmeta"><span>🕐 {m.time}</span><span>📍 {m.city}</span></div>
-              </div>
-              <button className="abtn on" onClick={()=>toggleAlert(m.id,m)}>🔔</button>
-            </div>
-          ))}
-        </div>
-      )}
+        {toast&&<div className={`toast${toast.type==="rm"?" rm":""}`}>{toast.msg}</div>}
 
-      {toast && <div className={`toast${toast.type==="rm"?" rm":""}`}>{toast.msg}</div>}
-
-      <div className="bnav">
-        {[["schedule","📅","Schedule"],["standings","📊","Standings"],["markets","📈","Kalshi"],["ai","🤖","AI Picks"],["myalerts","🔔","Alerts"]].map(([k,ic,lb])=>(
-          <button key={k} className={`ni${tab===k?" on":""}`} onClick={()=>setTab(k)}>
-            <span className="nico">{ic}</span>
-            <span className="nlbl">{lb}</span>
-            {k==="myalerts" && alertCount>0 && <span className="nbdg">{alertCount}</span>}
-          </button>
-        ))}
+        <div className="nav">{[["schedule","📅","Schedule"],["standings","📊","Table"],["markets","📈","Kalshi"],["ai","🤖","AI"],["myalerts","🔔","Alerts"]].map(([k,ic,l])=>(<button key={k} className={`ni${tab===k?" on":""}`} onClick={()=>setTab(k)}><span className="nico">{ic}</span><span className="nl">{l}</span>{k==="myalerts"&&alertCount>0&&<span className="nb">{alertCount}</span>}</button>))}</div>
       </div>
     </div>
   );
