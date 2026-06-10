@@ -193,6 +193,16 @@ const CSS = `
 .legend{display:flex;gap:18px;margin-top:14px;font-size:10px;font-weight:700;letter-spacing:1px;color:var(--dim);text-transform:uppercase;align-items:center}
 .legend span{display:flex;align-items:center;gap:6px}
 .handle{width:44px;height:5px;border-radius:3px;background:rgba(255,255,255,.18);margin:0 auto 14px}
+.mtabs{display:flex;gap:5px;padding:16px 20px 0;position:sticky;top:0;z-index:1}
+.mtb{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--line);color:var(--mut);font-family:'Archivo';font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:10px 4px;border-radius:11px;cursor:pointer;transition:.2s}
+.mtb.on{background:linear-gradient(120deg,var(--c1),#56ecff);border-color:transparent;color:#06101e}
+.oddsrow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px}
+.oddsbox{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:14px;padding:14px 6px;text-align:center}
+.oddsbox .ol{font-size:9px;font-weight:800;letter-spacing:1px;color:var(--mut);text-transform:uppercase}
+.oddsbox .ov{font-family:'Anton',sans-serif;font-size:26px;color:var(--ink);margin-top:4px}
+.oddsbox .op2{font-size:10px;color:var(--dim);margin-top:2px;font-weight:700}
+.spot.live2{background:linear-gradient(135deg,rgba(182,255,58,.16),rgba(31,224,255,.10));border-color:var(--c3)}
+.spot-sc{font-family:'Anton',sans-serif;font-size:40px;color:var(--c3)}
 
 .list{padding:0 16px 110px}
 .dh{font-size:12px;font-weight:800;letter-spacing:2px;color:var(--c1);text-transform:uppercase;padding:18px 6px 10px;display:flex;align-items:center;gap:8px}
@@ -330,11 +340,14 @@ export default function App(){
   const [selGroup,setSelGroup]=useState("A");
   const [detail,setDetail]=useState(null);
   const [detailData,setDetailData]=useState(null);
+  const [detailOdds,setDetailOdds]=useState(null);
+  const [mtab,setMtab]=useState("lineups");
   const [detailLoading,setDetailLoading]=useState(false);
   const [cd,setCd]=useState(getCountdown());
   const [matches,setMatches]=useState(FALLBACK_MATCHES);
   const [standings,setStandings]=useState(FALLBACK_STANDINGS);
   const [isLive,setIsLive]=useState(false);
+  const [lastSync,setLastSync]=useState(null);
   const [kWinner,setKWinner]=useState(null);
   const [aiMatch,setAiMatch]=useState(null);
   const [aiResult,setAiResult]=useState(null);
@@ -344,25 +357,42 @@ export default function App(){
   useEffect(()=>{const iv=setInterval(()=>setCd(getCountdown()),1000);return()=>clearInterval(iv);},[]);
 
   const loadLive=useCallback(async()=>{
-    try{const fx=await api("fixtures");if(fx?.configured&&fx.response){const m=mapFixtures(fx.response);if(m){setMatches(m);setIsLive(true);}}}catch{}
+    try{const fx=await api("fixtures");if(fx?.configured&&fx.response){const m=mapFixtures(fx.response);if(m){setMatches(m);setIsLive(true);setLastSync(new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));}}}catch{}
     try{const st=await api("standings");if(st?.configured&&st.response){const m=mapStandings(st.response);if(m)setStandings(m);}}catch{}
   },[]);
   useEffect(()=>{loadLive();const iv=setInterval(loadLive,60000);return()=>clearInterval(iv);},[loadLive]);
 
   useEffect(()=>{
-    if(!detail){setDetailData(null);return;}
-    if(!detail.apiId){setDetailData(SAMPLE_DETAIL);return;}
-    let cancelled=false;setDetailLoading(true);setDetailData(null);
-    (async()=>{
+    if(!detail){setDetailData(null);setDetailOdds(null);return;}
+    setMtab("lineups");
+    if(!detail.apiId){setDetailData(SAMPLE_DETAIL);setDetailOdds(null);return;}
+    let cancelled=false;setDetailLoading(true);setDetailData(null);setDetailOdds(null);
+    const load=async(first)=>{
       try{
         const [lu,ev,stx]=await Promise.all([api("lineups",detail.apiId).catch(()=>null),api("events",detail.apiId).catch(()=>null),api("statistics",detail.apiId).catch(()=>null)]);
         if(cancelled)return;
         const has=lu?.response?.length>=2;
         setDetailData(has||ev?.response?.length||stx?.response?.length?mapDetail(lu?.response,ev?.response,stx?.response):SAMPLE_DETAIL);
-      }catch{if(!cancelled)setDetailData(SAMPLE_DETAIL);}
-      if(!cancelled)setDetailLoading(false);
-    })();
-    return()=>{cancelled=true;};
+      }catch{if(!cancelled&&first)setDetailData(SAMPLE_DETAIL);}
+      if(first){
+        try{
+          const od=await api("odds",detail.apiId);
+          if(cancelled)return;
+          const bm=od?.response?.[0]?.bookmakers?.[0];
+          const bet=bm?.bets?.find(b=>/match winner|1x2/i.test(b.name||""));
+          if(bet?.values?.length>=3){
+            const get=v=>bet.values.find(x=>new RegExp(v,"i").test(x.value||""))?.odd;
+            const h=get("home"),d=get("draw"),a=get("away");
+            if(h&&d&&a)setDetailOdds({h,d,a,book:bm.name||"Bookmaker"});
+          }
+        }catch{}
+      }
+      if(!cancelled&&first)setDetailLoading(false);
+    };
+    load(true);
+    // Match engine: keep events/stats fresh while the match is live
+    const iv=detail.status==="live"?setInterval(()=>load(false),60000):null;
+    return()=>{cancelled=true;if(iv)clearInterval(iv);};
   },[detail]);
 
   const showToast=(msg,type="ok")=>{if(toastRef.current)clearTimeout(toastRef.current);setToast({msg,type});toastRef.current=setTimeout(()=>setToast(null),3000);};
@@ -377,6 +407,7 @@ export default function App(){
 
   const alertCount=Object.keys(alerts).length;
   const upcoming=matches.filter(m=>m.status==="upcoming");
+  const liveNow=matches.find(m=>m.status==="live")||null;
   const ql=q.trim().toLowerCase();
   const filtered=matches.filter(m=>(filter==="alerts"?alerts[m.id]:filter==="live"?m.status==="live":filter==="upcoming"?m.status==="upcoming":true)&&(ql?`${m.home} ${m.away}`.toLowerCase().includes(ql):true));
   const dd=detailData;
@@ -391,7 +422,7 @@ export default function App(){
           <div className="kick">⚽ June 11 – July 19, 2026</div>
           <div className="ttl">WC26</div>
           <div className="sub">SCHEDULE · LINEUPS · STATS · KALSHI · PREDICTIONS</div>
-          {isLive && <div className="livestrip"><span className="ldot"/>Live data connected</div>}
+          {isLive && <div className="livestrip"><span className="ldot"/>Live engine · refreshes every 60s{lastSync?` · synced ${lastSync}`:""}</div>}
         </div>
 
         {cd && (
@@ -403,18 +434,20 @@ export default function App(){
           </div>
         )}
 
-        {!cd && upcoming[0] && (()=>{const n=upcoming[0];return (
-          <div className="spot">
-            <div className="spot-l"><span className="ldot"/>Next match</div>
+        {(liveNow||(!cd&&upcoming[0]))&&(()=>{const n=liveNow||upcoming[0];const isL=!!liveNow;return (
+          <div className={`spot${isL?" live2":""}`}>
+            <div className="spot-l"><span className="ldot"/>{isL?`Live now · ${n.liveMin?`${n.liveMin}'`:""}`:"Next match"}</div>
             <div className="spot-vs">
               <div className="spot-t"><div className="spot-f">{n.homeFlag}</div><div className="spot-n">{n.home}</div></div>
-              <div className="spot-mid">VS</div>
+              {isL?<div className="spot-sc">{n.homeScore} – {n.awayScore}</div>:<div className="spot-mid">VS</div>}
               <div className="spot-t"><div className="spot-f">{n.awayFlag}</div><div className="spot-n">{n.away}</div></div>
             </div>
-            <div className="spot-meta">🕐 {n.time}{n.city?` · 📍 ${n.city}`:""} · Group {n.group}</div>
+            <div className="spot-meta">{isL?`Group ${n.group}${n.city?` · 📍 ${n.city}`:""} · Updates every minute`:`🕐 ${n.time}${n.city?` · 📍 ${n.city}`:""} · Group ${n.group}`}</div>
             <div className="spot-row">
-              <button className="spot-btn pri" onClick={(e)=>toggleAlert(n.id,n,e)}>{alerts[n.id]?"🔔 Alert set":"🔕 Set alert"}</button>
-              <button className="spot-btn" onClick={()=>setDetail(n)}>Match details</button>
+              {isL
+                ?<button className="spot-btn pri" onClick={()=>setDetail(n)}>⚡ Live match centre</button>
+                :<><button className="spot-btn pri" onClick={(e)=>toggleAlert(n.id,n,e)}>{alerts[n.id]?"🔔 Alert set":"🔕 Set alert"}</button>
+                  <button className="spot-btn" onClick={()=>setDetail(n)}>Match details</button></>}
             </div>
           </div>
         );})()}
@@ -487,7 +520,7 @@ export default function App(){
             <div className="aih">Predictions</div>
             <div className="ais">Model · Team Ratings & Home Edge</div>
             {(upcoming.length?upcoming:matches).slice(0,10).map((m,i)=>(<div key={m.id} className={`aim${aiMatch?.id===m.id?" sel":""}`} style={{animationDelay:`${i*.04}s`}} onClick={()=>getAi(m)}><div><div style={{fontSize:15,fontWeight:700,color:"var(--ink)"}}>{m.homeFlag} {m.home} <span style={{color:"var(--dim)"}}>v</span> {m.awayFlag} {m.away}</div><div style={{fontSize:11,color:"var(--mut)",marginTop:3,fontWeight:600}}>Group {m.group} · {m.time}</div></div><span style={{color:"var(--c2)",fontSize:20}}>→</span></div>))}
-            {aiResult&&aiMatch&&(<div className="air"><div style={{fontSize:11,color:"var(--c1)",fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",marginBottom:10}}>{aiMatch.homeFlag} {aiMatch.home} v {aiMatch.awayFlag} {aiMatch.away}</div><div className="aiv">{aiResult.verdict}</div><div className="aip">Predicted {aiResult.predictedScore}</div><div style={{display:"flex",gap:6,margin:"14px 0 4px"}}>{[["Home",aiResult.probs.ph,"var(--c1)"],["Draw",aiResult.probs.pd,"var(--mut)"],["Away",aiResult.probs.pa,"var(--c2)"]].map(([l,v,c])=>(<div key={l} style={{flex:1,textAlign:"center",background:"rgba(255,255,255,.04)",border:"1px solid var(--line)",borderRadius:10,padding:"8px 4px"}}><div style={{fontFamily:"'Anton',sans-serif",fontSize:20,color:c}}>{v}%</div><div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:"var(--mut)",textTransform:"uppercase"}}>{l}</div></div>))}</div><div className="aicl" style={{marginTop:6}}>Confidence {aiResult.confidence}%</div><div style={{marginTop:14,padding:"12px 14px",background:"rgba(255,255,255,.04)",border:"1px solid var(--line)",borderRadius:12}}><div style={{fontSize:9,fontWeight:800,color:"var(--c1)",letterSpacing:1.5,textTransform:"uppercase",marginBottom:5}}>Key Factor</div><div style={{fontSize:13,color:"var(--mut)",lineHeight:1.6,fontWeight:500}}>{aiResult.keyFactor}</div></div><div className="aidr"><div className="aidb"><div className="aidl">{aiMatch.homeFlag} {aiMatch.home}</div><div className="aidt">{aiResult.homeStrength}</div></div><div className="aidb"><div className="aidl">{aiMatch.awayFlag} {aiMatch.away}</div><div className="aidt">{aiResult.awayStrength}</div></div></div>{aiResult.tip&&<div className="ait"><div className="aitl">💡 Insight</div><div className="aitt">{aiResult.tip}</div></div>}<div style={{marginTop:14,fontSize:10,color:"var(--dim)",letterSpacing:.5}}>⚠ Model estimate for entertainment only. Not betting advice.</div></div>)}
+            {aiResult&&aiMatch&&(<div className="air"><div style={{fontSize:11,color:"var(--c1)",fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",marginBottom:10}}>{aiMatch.homeFlag} {aiMatch.home} v {aiMatch.awayFlag} {aiMatch.away}</div><div className="aiv">{aiResult.verdict}</div><div className="aip">Predicted {aiResult.predictedScore}</div><div style={{display:"flex",gap:6,margin:"14px 0 4px"}}>{[["Home",aiResult.probs.ph,"var(--c1)"],["Draw",aiResult.probs.pd,"var(--mut)"],["Away",aiResult.probs.pa,"var(--c2)"]].map(([l,v,c])=>(<div key={l} style={{flex:1,textAlign:"center",background:"rgba(255,255,255,.04)",border:"1px solid var(--line)",borderRadius:10,padding:"8px 4px"}}><div style={{fontFamily:"'Anton',sans-serif",fontSize:20,color:c}}>{v}%</div><div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:"var(--mut)",textTransform:"uppercase"}}>{l}</div><div style={{fontSize:11,fontWeight:700,color:"var(--ink)",marginTop:3,opacity:.85}}>{v>0?(100/v).toFixed(2):"—"}</div></div>))}</div><div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:"var(--dim)",textTransform:"uppercase",textAlign:"center"}}>Win % · fair decimal odds (model)</div>{(()=>{const rh=RATINGS[aiMatch.home]??70,ra=RATINGS[aiMatch.away]??70,tot=rh+ra;return(<div style={{marginTop:14}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}><b style={{fontFamily:"'Anton',sans-serif",fontSize:17,color:"var(--c1)"}}>{rh}</b><span style={{fontSize:9,fontWeight:800,letterSpacing:1.5,color:"var(--mut)",textTransform:"uppercase",alignSelf:"center"}}>Power Rating</span><b style={{fontFamily:"'Anton',sans-serif",fontSize:17,color:"var(--c2)"}}>{ra}</b></div><div style={{display:"flex",height:7,borderRadius:4,overflow:"hidden",gap:3,background:"rgba(255,255,255,.06)"}}><div style={{width:`${rh/tot*100}%`,background:"linear-gradient(90deg,#0e9fb8,var(--c1))"}}/><div style={{width:`${ra/tot*100}%`,background:"linear-gradient(90deg,var(--c2),#ff77a8)"}}/></div></div>);})()}<div className="aicl" style={{marginTop:6}}>Confidence {aiResult.confidence}%</div><div style={{marginTop:14,padding:"12px 14px",background:"rgba(255,255,255,.04)",border:"1px solid var(--line)",borderRadius:12}}><div style={{fontSize:9,fontWeight:800,color:"var(--c1)",letterSpacing:1.5,textTransform:"uppercase",marginBottom:5}}>Key Factor</div><div style={{fontSize:13,color:"var(--mut)",lineHeight:1.6,fontWeight:500}}>{aiResult.keyFactor}</div></div><div className="aidr"><div className="aidb"><div className="aidl">{aiMatch.homeFlag} {aiMatch.home}</div><div className="aidt">{aiResult.homeStrength}</div></div><div className="aidb"><div className="aidl">{aiMatch.awayFlag} {aiMatch.away}</div><div className="aidt">{aiResult.awayStrength}</div></div></div>{aiResult.tip&&<div className="ait"><div className="aitl">💡 Insight</div><div className="aitt">{aiResult.tip}</div></div>}<div style={{marginTop:14,fontSize:10,color:"var(--dim)",letterSpacing:.5}}>⚠ Model estimate for entertainment only. Not betting advice.</div></div>)}
             {!aiMatch&&<div className="empty" style={{marginTop:8}}><div className="emi">🔮</div><div className="emt">Tap a match for a prediction</div></div>}
           </div>
         )}
@@ -515,13 +548,55 @@ export default function App(){
                 </div>
               </div>
               {detailLoading&&<div className="kspin"/>}
-              {!detailLoading&&dd&&(<>
+              {!detailLoading&&dd&&(()=>{const an=predict(detail);const mo=detailOdds||{h:(100/an.probs.ph).toFixed(2),d:(100/an.probs.pd).toFixed(2),a:(100/an.probs.pa).toFixed(2),book:null};return(<>
                 {dd===SAMPLE_DETAIL&&<div className="stag">⚠ Sample preview — live data appears at kickoff</div>}
-                <div className="sec"><div className="st">Starting XI</div><div className="lu"><div><div className="lct">{detail.homeFlag} {detail.home}</div>{dd.homeXI.map((p,i)=>(<div key={i} className="pl"><span className="pln">{p.n}</span><span className="plnm">{p.name}</span>{p.pos&&<span className="plp">{p.pos}</span>}</div>))}</div><div><div className="lct">{detail.awayFlag} {detail.away}</div>{dd.awayXI.map((p,i)=>(<div key={i} className="pl"><span className="pln">{p.n}</span><span className="plnm">{p.name}</span>{p.pos&&<span className="plp">{p.pos}</span>}</div>))}</div></div></div>
-                <div className="sec"><div className="st">Match Stats</div>{dd.stats.map(s=>{const tot=s.home+s.away||1;return(<div key={s.label} className="stat"><div className="statt"><b style={{color:"var(--c1)"}}>{s.home}{s.unit}</b><span className="statl">{s.label}</span><b style={{color:"var(--c2)"}}>{s.away}{s.unit}</b></div><div className="sbar"><div className="sbh" style={{width:`${s.home/tot*100}%`}}/><div className="sba" style={{width:`${s.away/tot*100}%`}}/></div></div>);})}</div>
-                <div className="sec"><div className="st">Match Events</div>{dd.events.map((ev,i)=>{const ico=ev.type==="goal"?"⚽":ev.type==="yellow"?"🟨":ev.type==="red"?"🟥":ev.type==="subst"?"🔁":"ℹ️";return(<div key={i} className="ev"><span className="evm">{ev.min}{typeof ev.min==="number"?"'":""}</span><span className="evi">{ico}</span><div><div className="evt">{ev.player}{ev.teamName?` (${ev.teamName})`:""}</div><div className="evd">{ev.detail}</div></div></div>);})}</div>
+                {detail.status==="upcoming"&&(()=>{const p=predict(detail);return(
+                  <div className="sec">
+                    <div className="st">Pre-Match Analysis</div>
+                    <div style={{display:"flex",alignItems:"baseline",gap:10,marginBottom:10}}>
+                      <span style={{fontFamily:"'Anton',sans-serif",fontSize:26,color:"var(--c3)",textTransform:"uppercase"}}>{p.verdict}</span>
+                      <span style={{fontFamily:"'Anton',sans-serif",fontSize:18,color:"var(--c1)"}}>{p.predictedScore}</span>
+                    </div>
+                    <div style={{display:"flex",gap:6,marginBottom:8}}>{[["Home",p.probs.ph,"var(--c1)"],["Draw",p.probs.pd,"var(--mut)"],["Away",p.probs.pa,"var(--c2)"]].map(([l,v,c])=>(<div key={l} style={{flex:1,textAlign:"center",background:"rgba(255,255,255,.04)",border:"1px solid var(--line)",borderRadius:10,padding:"7px 4px"}}><div style={{fontFamily:"'Anton',sans-serif",fontSize:17,color:c}}>{v}%</div><div style={{fontSize:8,fontWeight:800,letterSpacing:1,color:"var(--mut)",textTransform:"uppercase"}}>{l}</div><div style={{fontSize:10,fontWeight:700,color:"var(--ink)",marginTop:2,opacity:.8}}>{v>0?(100/v).toFixed(2):"—"}</div></div>))}</div>
+                    <div style={{fontSize:12,color:"var(--mut)",lineHeight:1.6,fontWeight:500}}>{p.keyFactor}</div>
+                    <div style={{marginTop:8,fontSize:9,color:"var(--dim)",letterSpacing:.5}}>Model estimate · fair odds shown · not betting advice</div>
+                  </div>
+                );})()}
+                <div className="mtabs">{[["lineups","Lineups"],["stats","Stats"],["events","Events"],["analysis","Analysis"]].map(([k,l])=>(<button key={k} className={`mtb${mtab===k?" on":""}`} onClick={()=>setMtab(k)}>{l}</button>))}</div>
+
+                {mtab==="lineups"&&<div className="sec"><div className="st">Starting XI</div><div className="lu"><div><div className="lct">{detail.homeFlag} {detail.home}</div>{dd.homeXI.map((p,i)=>(<div key={i} className="pl"><span className="pln">{p.n}</span><span className="plnm">{p.name}</span>{p.pos&&<span className="plp">{p.pos}</span>}</div>))}</div><div><div className="lct">{detail.awayFlag} {detail.away}</div>{dd.awayXI.map((p,i)=>(<div key={i} className="pl"><span className="pln">{p.n}</span><span className="plnm">{p.name}</span>{p.pos&&<span className="plp">{p.pos}</span>}</div>))}</div></div></div>}
+
+                {mtab==="stats"&&<div className="sec"><div className="st">Match Stats{detail.status==="live"?" · Live":""}</div>{dd.stats.map(s=>{const tot=s.home+s.away||1;return(<div key={s.label} className="stat"><div className="statt"><b style={{color:"var(--c1)"}}>{s.home}{s.unit}</b><span className="statl">{s.label}</span><b style={{color:"var(--c2)"}}>{s.away}{s.unit}</b></div><div className="sbar"><div className="sbh" style={{width:`${s.home/tot*100}%`}}/><div className="sba" style={{width:`${s.away/tot*100}%`}}/></div></div>);})}</div>}
+
+                {mtab==="events"&&<div className="sec"><div className="st">Match Events{detail.status==="live"?" · Updating live":""}</div>{dd.events.map((ev,i)=>{const ico=ev.type==="goal"?"⚽":ev.type==="yellow"?"🟨":ev.type==="red"?"🟥":ev.type==="subst"?"🔁":"ℹ️";return(<div key={i} className="ev"><span className="evm">{ev.min}{typeof ev.min==="number"?"'":""}</span><span className="evi">{ico}</span><div><div className="evt">{ev.player}{ev.teamName?` (${ev.teamName})`:""}</div><div className="evd">{ev.detail}</div></div></div>);})}</div>}
+
+                {mtab==="analysis"&&<>
+                  <div className="sec">
+                    <div className="st">Verdict</div>
+                    <div className="aiv" style={{fontSize:34}}>{an.verdict}</div>
+                    <div className="aip" style={{fontSize:22}}>Predicted {an.predictedScore}</div>
+                    <div style={{display:"flex",gap:6,marginTop:14}}>{[[detail.home,an.probs.ph,"var(--c1)"],["Draw",an.probs.pd,"var(--mut)"],[detail.away,an.probs.pa,"var(--c2)"]].map(([l,v,c])=>(<div key={l} style={{flex:1,textAlign:"center",background:"rgba(255,255,255,.04)",border:"1px solid var(--line)",borderRadius:10,padding:"8px 4px"}}><div style={{fontFamily:"'Anton',sans-serif",fontSize:20,color:c}}>{v}%</div><div style={{fontSize:8,fontWeight:700,letterSpacing:.5,color:"var(--mut)",textTransform:"uppercase",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",padding:"0 2px"}}>{l}</div></div>))}</div>
+                  </div>
+                  <div className="sec">
+                    <div className="st">{mo.book?`Odds · ${mo.book}`:"Model-Implied Odds"}</div>
+                    <div className="oddsrow">
+                      <div className="oddsbox"><div className="ol">{detail.home.length>9?detail.home.slice(0,9)+"…":detail.home}</div><div className="ov">{mo.h}</div><div className="op2">{an.probs.ph}%</div></div>
+                      <div className="oddsbox"><div className="ol">Draw</div><div className="ov">{mo.d}</div><div className="op2">{an.probs.pd}%</div></div>
+                      <div className="oddsbox"><div className="ol">{detail.away.length>9?detail.away.slice(0,9)+"…":detail.away}</div><div className="ov">{mo.a}</div><div className="op2">{an.probs.pa}%</div></div>
+                    </div>
+                    <div style={{marginTop:10,fontSize:10,color:"var(--dim)",lineHeight:1.6}}>{mo.book?"Decimal odds from a live bookmaker feed.":"Decimal odds derived from our model's probabilities — live bookmaker odds appear when available."} 18+ · Please gamble responsibly · BeGambleAware.org</div>
+                  </div>
+                  <div className="sec">
+                    <div className="st">Key Factor</div>
+                    <div style={{fontSize:13,color:"var(--mut)",lineHeight:1.6,fontWeight:500}}>{an.keyFactor}</div>
+                    <div className="aidr"><div className="aidb"><div className="aidl">{detail.homeFlag} {detail.home}</div><div className="aidt">{an.homeStrength}</div></div><div className="aidb"><div className="aidl">{detail.awayFlag} {detail.away}</div><div className="aidt">{an.awayStrength}</div></div></div>
+                    {an.tip&&<div className="ait"><div className="aitl">💡 Insight</div><div className="aitt">{an.tip}</div></div>}
+                    <div style={{marginTop:12,fontSize:10,color:"var(--dim)"}}>⚠ Model estimate for entertainment only. Not betting advice.</div>
+                  </div>
+                </>}
+
                 <div className="sec"><button onClick={(e)=>toggleAlert(detail.id,detail,e)} style={{width:"100%",padding:14,background:alerts[detail.id]?"rgba(182,255,58,.15)":"rgba(255,255,255,.04)",border:`1px solid ${alerts[detail.id]?"var(--c3)":"var(--line)"}`,borderRadius:14,color:alerts[detail.id]?"var(--c3)":"var(--ink)",fontFamily:"'Archivo'",fontSize:12,fontWeight:800,letterSpacing:1.5,textTransform:"uppercase",cursor:"pointer"}}>{alerts[detail.id]?"🔔 Alert Set — Tap to Remove":"🔕 Set Kickoff Alert"}</button></div>
-              </>)}
+              </>);})()}
             </div>
           </div>
         )}
