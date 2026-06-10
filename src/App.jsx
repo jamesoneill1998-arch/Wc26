@@ -173,6 +173,26 @@ const CSS = `
 .frow::-webkit-scrollbar{display:none}
 .chip{flex-shrink:0;background:var(--card);border:1px solid var(--line);color:var(--mut);font-family:'Archivo';font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:9px 16px;border-radius:100px;cursor:pointer;transition:.2s}
 .chip.on{background:var(--c2);border-color:var(--c2);color:#fff}
+.search{display:flex;align-items:center;gap:10px;margin:0 22px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 16px}
+.search input{flex:1;background:none;border:none;outline:none;color:var(--ink);font-family:'Archivo';font-size:15px;font-weight:600}
+.search input::placeholder{color:var(--dim)}
+.search .clr{background:none;border:none;color:var(--dim);font-size:15px;cursor:pointer;padding:2px 6px}
+.spot{margin:22px 22px 0;background:linear-gradient(135deg,rgba(182,255,58,.10),rgba(31,224,255,.08));border:1px solid rgba(182,255,58,.3);border-radius:22px;padding:20px;animation:fsu .6s ease both}
+.spot-l{font-size:11px;font-weight:800;letter-spacing:3px;color:var(--c3);text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.spot-vs{display:flex;align-items:center;justify-content:space-between;margin-top:14px;gap:10px}
+.spot-t{text-align:center;flex:1}
+.spot-f{font-size:36px}
+.spot-n{font-size:13px;font-weight:700;color:var(--ink);margin-top:5px}
+.spot-mid{font-family:'Anton',sans-serif;font-size:22px;color:var(--mut)}
+.spot-meta{font-size:11px;color:var(--mut);text-align:center;margin-top:12px;font-weight:600}
+.spot-row{display:flex;gap:8px;margin-top:14px}
+.spot-btn{flex:1;padding:11px;border-radius:12px;font-family:'Archivo';font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--ink)}
+.spot-btn.pri{background:linear-gradient(120deg,var(--c3),#d4ff7a);border-color:transparent;color:#06101e}
+.qd{width:7px;height:7px;border-radius:50%;background:var(--c3);display:inline-block;flex-shrink:0}
+.pd2{width:7px;height:7px;border-radius:50%;background:var(--c1);display:inline-block;flex-shrink:0}
+.legend{display:flex;gap:18px;margin-top:14px;font-size:10px;font-weight:700;letter-spacing:1px;color:var(--dim);text-transform:uppercase;align-items:center}
+.legend span{display:flex;align-items:center;gap:6px}
+.handle{width:44px;height:5px;border-radius:3px;background:rgba(255,255,255,.18);margin:0 auto 14px}
 
 .list{padding:0 16px 110px}
 .dh{font-size:12px;font-weight:800;letter-spacing:2px;color:var(--c1);text-transform:uppercase;padding:18px 6px 10px;display:flex;align-items:center;gap:8px}
@@ -303,6 +323,8 @@ const CSS = `
 export default function App(){
   const [tab,setTab]=useState("schedule");
   const [filter,setFilter]=useState("all");
+  const [q,setQ]=useState("");
+  const go=(k)=>{setTab(k);window.scrollTo({top:0,behavior:"smooth"});};
   const [alerts,setAlerts]=useState({});
   const [toast,setToast]=useState(null);
   const [selGroup,setSelGroup]=useState("A");
@@ -355,7 +377,8 @@ export default function App(){
 
   const alertCount=Object.keys(alerts).length;
   const upcoming=matches.filter(m=>m.status==="upcoming");
-  const filtered=matches.filter(m=>filter==="alerts"?alerts[m.id]:filter==="live"?m.status==="live":filter==="upcoming"?m.status==="upcoming":true);
+  const ql=q.trim().toLowerCase();
+  const filtered=matches.filter(m=>(filter==="alerts"?alerts[m.id]:filter==="live"?m.status==="live":filter==="upcoming"?m.status==="upcoming":true)&&(ql?`${m.home} ${m.away}`.toLowerCase().includes(ql):true));
   const dd=detailData;
 
   return (
@@ -380,9 +403,32 @@ export default function App(){
           </div>
         )}
 
-        <div className="tabrow">{[["schedule","Schedule"],["standings","Standings"],["markets","Kalshi"],["ai","Predict"],["myalerts","Alerts"]].map(([k,l])=>(<button key={k} className={`tb${tab===k?" on":""}`} onClick={()=>setTab(k)}>{l}{k==="myalerts"&&alertCount>0?` ${alertCount}`:""}</button>))}</div>
+        {!cd && upcoming[0] && (()=>{const n=upcoming[0];return (
+          <div className="spot">
+            <div className="spot-l"><span className="ldot"/>Next match</div>
+            <div className="spot-vs">
+              <div className="spot-t"><div className="spot-f">{n.homeFlag}</div><div className="spot-n">{n.home}</div></div>
+              <div className="spot-mid">VS</div>
+              <div className="spot-t"><div className="spot-f">{n.awayFlag}</div><div className="spot-n">{n.away}</div></div>
+            </div>
+            <div className="spot-meta">🕐 {n.time}{n.city?` · 📍 ${n.city}`:""} · Group {n.group}</div>
+            <div className="spot-row">
+              <button className="spot-btn pri" onClick={(e)=>toggleAlert(n.id,n,e)}>{alerts[n.id]?"🔔 Alert set":"🔕 Set alert"}</button>
+              <button className="spot-btn" onClick={()=>setDetail(n)}>Match details</button>
+            </div>
+          </div>
+        );})()}
+
+        <div className="tabrow">{[["schedule","Schedule"],["standings","Standings"],["markets","Kalshi"],["ai","Predict"],["myalerts","Alerts"]].map(([k,l])=>(<button key={k} className={`tb${tab===k?" on":""}`} onClick={()=>go(k)}>{l}{k==="myalerts"&&alertCount>0?` ${alertCount}`:""}</button>))}</div>
 
         {tab==="schedule" && (<>
+          <div style={{padding:"18px 0 0"}}>
+            <div className="search">
+              <span style={{color:"var(--dim)"}}>🔍</span>
+              <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search a team — e.g. England" />
+              {q && <button className="clr" onClick={()=>setQ("")}>✕</button>}
+            </div>
+          </div>
           <div className="frow">{[["all","All"],["live","🔴 Live"],["upcoming","Upcoming"],["alerts","Alerts"]].map(([k,l])=>(<button key={k} className={`chip${filter===k?" on":""}`} onClick={()=>setFilter(k)}>{l}</button>))}</div>
           <div className="list">
             {filtered.length===0&&<div className="empty"><div className="emi">⚽</div><div className="emt">No matches</div></div>}
@@ -419,8 +465,9 @@ export default function App(){
             <div className="gtabs">{GROUPS.map(g=><button key={g} className={`gt${selGroup===g?" on":""}`} onClick={()=>setSelGroup(g)}>{g}</button>)}</div>
             <table className="tbl">
               <thead><tr><th>#</th><th>Team</th><th style={{textAlign:"center"}}>P</th><th style={{textAlign:"center"}}>W</th><th style={{textAlign:"center"}}>D</th><th style={{textAlign:"center"}}>L</th><th style={{textAlign:"right"}}>PTS</th></tr></thead>
-              <tbody>{(standings[selGroup]||[]).map((t,i)=>(<tr key={t.name}><td style={{color:"var(--dim)"}}>{i+1}</td><td><div className="tc"><span>{t.flag}</span>{t.name}</div></td><td style={{textAlign:"center"}}>{t.played}</td><td style={{textAlign:"center"}}>{t.w}</td><td style={{textAlign:"center"}}>{t.d}</td><td style={{textAlign:"center"}}>{t.l}</td><td style={{textAlign:"right",fontFamily:"'Anton',sans-serif",fontSize:20,color:"var(--c1)"}}>{t.pts}</td></tr>))}</tbody>
+              <tbody>{(standings[selGroup]||[]).map((t,i)=>(<tr key={t.name}><td style={{color:"var(--dim)"}}>{i+1}</td><td><div className="tc">{i<2?<span className="qd"/>:i===2?<span className="pd2"/>:<span style={{width:7,display:"inline-block",flexShrink:0}}/>}<span>{t.flag}</span>{t.name}</div></td><td style={{textAlign:"center"}}>{t.played}</td><td style={{textAlign:"center"}}>{t.w}</td><td style={{textAlign:"center"}}>{t.d}</td><td style={{textAlign:"center"}}>{t.l}</td><td style={{textAlign:"right",fontFamily:"'Anton',sans-serif",fontSize:20,color:"var(--c1)"}}>{t.pts}</td></tr>))}</tbody>
             </table>
+            <div className="legend"><span><span className="qd"/>Advances</span><span><span className="pd2"/>Possible 3rd place</span></div>
           </div>
         )}
 
@@ -458,6 +505,7 @@ export default function App(){
           <div className="mbg" onClick={()=>setDetail(null)}>
             <div className="mod" onClick={e=>e.stopPropagation()}>
               <div className="mh">
+                <div className="handle"/>
                 <button className="mx" onClick={()=>setDetail(null)}>✕</button>
                 <div style={{fontSize:10,fontWeight:700,letterSpacing:1.5,color:"var(--dim)",textTransform:"uppercase",textAlign:"center",marginBottom:14}}>Group {detail.group}{detail.venue?` · ${detail.venue}`:""}</div>
                 <div className="mvs">
@@ -480,7 +528,7 @@ export default function App(){
 
         {toast&&<div className={`toast${toast.type==="rm"?" rm":""}`}>{toast.msg}</div>}
 
-        <div className="nav">{[["schedule","📅","Schedule"],["standings","📊","Table"],["markets","📈","Kalshi"],["ai","🔮","Predict"],["myalerts","🔔","Alerts"]].map(([k,ic,l])=>(<button key={k} className={`ni${tab===k?" on":""}`} onClick={()=>setTab(k)}><span className="nico">{ic}</span><span className="nl">{l}</span>{k==="myalerts"&&alertCount>0&&<span className="nb">{alertCount}</span>}</button>))}</div>
+        <div className="nav">{[["schedule","📅","Schedule"],["standings","📊","Table"],["markets","📈","Kalshi"],["ai","🔮","Predict"],["myalerts","🔔","Alerts"]].map(([k,ic,l])=>(<button key={k} className={`ni${tab===k?" on":""}`} onClick={()=>go(k)}><span className="nico">{ic}</span><span className="nl">{l}</span>{k==="myalerts"&&alertCount>0&&<span className="nb">{alertCount}</span>}</button>))}</div>
       </div>
     </div>
   );
