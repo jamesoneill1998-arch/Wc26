@@ -1,10 +1,47 @@
 import { fmtDate, fmtMoney, fmtPct } from "../catalog.js";
 import { BarChart, LineChart, StatTile } from "../charts.jsx";
 
-export default function Dashboard({ binder, onOpen }) {
+export default function Dashboard({ binder, catalog, onOpen, onGo }) {
   const { stats, spendSeries, bySet, byRarity, holdings } = binder;
   const up = stats.gain >= 0;
-  const liveCount = binder.cards.filter((c) => c.live).length;
+
+  if (holdings.length === 0) {
+    return (
+      <>
+        <div className="view-head">
+          <div>
+            <h2>Dashboard</h2>
+            <p className="sub">Your collection is empty — everything here fills in as you add cards.</p>
+          </div>
+        </div>
+
+        <div className="stat-row">
+          <StatTile hero label="Collection value" value="$0" />
+          <StatTile label="Total invested" value="$0" />
+          <StatTile label="Cards held" value="0" />
+          <StatTile label="Unique cards" value="0" />
+        </div>
+
+        <div className="empty-state start">
+          <h3>Add your first card</h3>
+          <p className="sub">
+            {catalog.live
+              ? `Search all ${catalog.sets.length} sets in the Market tab, open a card, and use “Log a purchase”.`
+              : "Open the Market tab, pick a card, and use “Log a purchase”."}{" "}
+            Value, gain/loss, set completion and the buy planner all follow from what you log.
+          </p>
+          <div className="head-actions">
+            <button type="button" className="primary-btn" onClick={() => onGo("market")}>
+              Browse the Market
+            </button>
+            <button type="button" className="ghost-btn" onClick={() => onGo("sets")}>
+              Browse by set
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -12,8 +49,8 @@ export default function Dashboard({ binder, onOpen }) {
         <div>
           <h2>Dashboard</h2>
           <p className="sub">
-            Everything below is computed from the purchases you have logged
-            {liveCount > 0 ? " and live market prices." : " and the built-in sample prices."}
+            Computed from the purchases you have logged
+            {catalog.live ? " and live market prices." : " and the built-in sample prices."}
           </p>
         </div>
       </div>

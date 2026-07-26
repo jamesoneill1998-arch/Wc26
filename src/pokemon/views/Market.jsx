@@ -1,72 +1,97 @@
-import { useMemo, useState } from "react";
-import { RARITIES, SETS, TYPES, fmtMoney } from "../catalog.js";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { API_RARITIES, RARITIES, TYPES, fmtMoney } from "../catalog.js";
 import { CardTile } from "../components.jsx";
-import { fetchPrices, searchCards } from "../api.js";
+import { fetchPrices } from "../api.js";
 
 const SORTS = {
+  default:      { label: "Newest set first", fn: null },
   "price-desc": { label: "Price: high → low", fn: (a, b) => b.price - a.price },
   "price-asc":  { label: "Price: low → high", fn: (a, b) => a.price - b.price },
-  "name":       { label: "Name A → Z",        fn: (a, b) => a.name.localeCompare(b.name) },
-  "year-asc":   { label: "Oldest first",      fn: (a, b) => a.year - b.year || a.num - b.num },
-  "year-desc":  { label: "Newest first",      fn: (a, b) => b.year - a.year || a.num - b.num },
+  name:         { label: "Name A → Z",        fn: (a, b) => a.name.localeCompare(b.name) },
 };
 
-export default function Market({ binder, onOpen }) {
-  const [q, setQ] = useState("");
-  const [set, setSet] = useState("all");
-  const [rarity, setRarity] = useState("all");
-  const [type, setType] = useState("all");
-  const [maxPrice, setMaxPrice] = useState(1000);
+export default function Market({ binder, catalog, onOpen }) {
+  const [text, setText] = useState("");
+  const [query, setQuery] = useState("");       // debounced copy of `text`
+  const [setId, setSetId] = useState("");
+  const [rarity, setRarity] = useState("");
+  const [type, setType] = useState("");
   const [owned, setOwned] = useState("all");
-  const [sort, setSort] = useState("price-desc");
+  const [sort, setSort] = useState("default");
 
-  const [sync, setSync] = useState({ state: "idle", msg: "" });
-  const [remote, setRemote] = useState(null);
+  const [items, setItems] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [notice, setNotice] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const requestId = useRef(0);
 
-  const results = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return binder.cards
-      .filter((c) => {
-        if (needle && !`${c.name} ${c.setName}`.toLowerCase().includes(needle)) return false;
-        if (set !== "all" && c.set !== set) return false;
-        if (rarity !== "all" && c.rarity !== rarity) return false;
-        if (type !== "all" && c.type !== type) return false;
-        if (c.price > maxPrice) return false;
-        if (owned === "owned" && !binder.ownedIds.has(c.id)) return false;
-        if (owned === "missing" && binder.ownedIds.has(c.id)) return false;
-        return true;
-      })
-      .sort(SORTS[sort].fn);
-  }, [binder.cards, binder.ownedIds, q, set, rarity, type, maxPrice, owned, sort]);
+  useEffect(() => {
+    const t = setTimeout(() => setQuery(text), 400);
+    return () => clearTimeout(t);
+  }, [text]);
 
-  const anyLive = binder.cards.some((c) => c.live);
+  const run = useCallback(
+    async (nextPage) => {
+      const id = ++requestId.current;
+      setLoading(true);
+      const res = await catalog.search({ text: query, setId, rarity, type, page: nextPage });
+      if (id !== requestId.current) return;          // a newer query already landed
+      setItems((prev) => (nextPage === 1 ? res.cards : [...prev, ...res.cards]));
+      setTotal(res.totalCount);
+      setPage(res.page);
+      setLoading(false);
+      if (res.degraded) setNotice(`Live search failed (${res.degraded}) — showing built-in cards.`);
+    },
+    [catalog, query, setId, rarity, type]
+  );
+
+  // Refetch whenever the query or a filter changes; reset to page 1.
+  useEffect(() => {
+    if (catalog.status === "loading") return;
+    setNotice("");
+    run(1);
+  }, [run, catalog.status]);
+
+  const shown = useMemo(() => {
+    const filtered = items.filter((c) => {
+      if (owned === "owned") return binder.ownedIds.has(c.id);
+      if (owned === "missing") return !binder.ownedIds.has(c.id);
+      return true;
+    });
+    const fn = SORTS[sort].fn;
+    return fn ? [...filtered].sort(fn) : filtered;
+  }, [items, owned, sort, binder.ownedIds]);
+
+  // Sets grouped by series for the picker.
+  const setGroups = useMemo(() => {
+    const m = new Map();
+    for (const s of catalog.sets) {
+      if (!m.has(s.series)) m.set(s.series, []);
+      m.get(s.series).push(s);
+    }
+    return [...m.entries()];
+  }, [catalog.sets]);
+
+  const rarityOptions = catalog.live ? API_RARITIES : RARITIES;
+  const hasMore = items.length < total;
 
   async function syncPrices() {
-    setSync({ state: "loading", msg: "Fetching live prices…" });
+    setSyncing(true);
+    setNotice("Refreshing market prices…");
     try {
-      const ids = results.slice(0, 60).map((c) => c.id);
+      const ids = shown.slice(0, 60).map((c) => c.id);
       const prices = await fetchPrices(ids);
       const n = Object.keys(prices).length;
       if (!n) throw new Error("no prices returned");
       binder.setPrices(prices);
-      setSync({ state: "ok", msg: `Updated ${n} card${n === 1 ? "" : "s"} from the Pokémon TCG API.` });
+      setItems((prev) => prev.map((c) => (prices[c.id] ? { ...c, ...prices[c.id] } : c)));
+      setNotice(`Refreshed ${n} price${n === 1 ? "" : "s"} from the Pokémon TCG API.`);
     } catch (err) {
-      setSync({
-        state: "error",
-        msg: `Live prices unavailable (${err.message}). Showing the built-in sample prices.`,
-      });
-    }
-  }
-
-  async function searchLive() {
-    setSync({ state: "loading", msg: "Searching the Pokémon TCG API…" });
-    try {
-      const found = await searchCards(q.trim());
-      setRemote(found);
-      setSync({ state: "ok", msg: `${found.length} live result${found.length === 1 ? "" : "s"} for “${q.trim()}”.` });
-    } catch (err) {
-      setRemote(null);
-      setSync({ state: "error", msg: `Live search unavailable (${err.message}).` });
+      setNotice(`Could not refresh prices (${err.message}).`);
+    } finally {
+      setSyncing(false);
     }
   }
 
@@ -76,59 +101,53 @@ export default function Market({ binder, onOpen }) {
         <div>
           <h2>Market</h2>
           <p className="sub">
-            Browse the catalog, check what a copy is worth, then log what you buy.{" "}
-            {anyLive ? "Some prices are live." : "Prices are built-in samples until you sync."}
+            Search every Pokémon card ever printed, then log what you buy.
           </p>
         </div>
         <div className="head-actions">
-          <button type="button" className="ghost-btn" onClick={syncPrices} disabled={sync.state === "loading"}>
-            {sync.state === "loading" ? "Syncing…" : "Sync live prices"}
+          <button type="button" className="ghost-btn" onClick={syncPrices} disabled={syncing || !shown.length}>
+            {syncing ? "Refreshing…" : "Refresh prices"}
           </button>
-          {anyLive && (
-            <button type="button" className="ghost-btn sm" onClick={binder.clearPrices}>
-              Reset to sample
-            </button>
-          )}
         </div>
       </div>
 
-      {sync.msg && (
-        <p className={`notice ${sync.state}`} role="status">
-          {sync.msg}
-        </p>
-      )}
+      <DatabaseBanner catalog={catalog} />
+      {notice && <p className="notice" role="status">{notice}</p>}
 
-      {/* One filter row above everything it scopes. */}
       <div className="filter-row">
         <label className="filter grow">
           <span>Search</span>
           <input
             type="search"
-            value={q}
-            onChange={(e) => { setQ(e.target.value); setRemote(null); }}
-            placeholder="Charizard, Jungle, Lugia…"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Charizard, Mew, Iono…"
           />
         </label>
         <label className="filter">
           <span>Set</span>
-          <select value={set} onChange={(e) => setSet(e.target.value)}>
-            <option value="all">All sets</option>
-            {Object.entries(SETS).map(([id, s]) => (
-              <option key={id} value={id}>{s.name} ({s.year})</option>
+          <select value={setId} onChange={(e) => setSetId(e.target.value)}>
+            <option value="">All sets</option>
+            {setGroups.map(([series, list]) => (
+              <optgroup key={series} label={series}>
+                {list.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name} ({s.year || "—"})</option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </label>
         <label className="filter">
           <span>Rarity</span>
           <select value={rarity} onChange={(e) => setRarity(e.target.value)}>
-            <option value="all">All rarities</option>
-            {RARITIES.map((r) => <option key={r} value={r}>{r}</option>)}
+            <option value="">All rarities</option>
+            {rarityOptions.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         </label>
         <label className="filter">
           <span>Type</span>
           <select value={type} onChange={(e) => setType(e.target.value)}>
-            <option value="all">All types</option>
+            <option value="">All types</option>
             {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         </label>
@@ -141,39 +160,28 @@ export default function Market({ binder, onOpen }) {
           </select>
         </label>
         <label className="filter">
-          <span>Sort</span>
+          <span>Sort loaded</span>
           <select value={sort} onChange={(e) => setSort(e.target.value)}>
             {Object.entries(SORTS).map(([k, s]) => <option key={k} value={k}>{s.label}</option>)}
           </select>
         </label>
-        <label className="filter range">
-          <span>Under {fmtMoney(maxPrice, { cents: 0 })}</span>
-          <input
-            type="range" min="5" max="1000" step="5"
-            value={maxPrice}
-            onChange={(e) => setMaxPrice(Number(e.target.value))}
-          />
-        </label>
       </div>
 
       <p className="result-count">
-        {results.length} card{results.length === 1 ? "" : "s"}
-        {results.length > 0 && ` · ${fmtMoney(results.reduce((s, c) => s + c.price, 0), { compact: true })} to buy one of each`}
+        {loading && items.length === 0
+          ? "Searching…"
+          : `${total.toLocaleString()} match${total === 1 ? "" : "es"} · showing ${shown.length.toLocaleString()}`}
       </p>
 
-      {results.length === 0 && (
+      {!loading && shown.length === 0 && (
         <div className="empty-state">
-          <p>Nothing in the built-in catalog matches that.</p>
-          {q.trim().length > 1 && (
-            <button type="button" className="primary-btn" onClick={searchLive}>
-              Search the live Pokémon TCG API for “{q.trim()}”
-            </button>
-          )}
+          <p>Nothing matches those filters.</p>
+          <p className="sub">Try a different name, or clear the set and rarity filters.</p>
         </div>
       )}
 
-      <div className="card-grid">
-        {results.map((c) => (
+      <div className={`card-grid${loading && items.length ? " refreshing" : ""}`}>
+        {shown.map((c) => (
           <CardTile
             key={c.id}
             card={c}
@@ -184,22 +192,38 @@ export default function Market({ binder, onOpen }) {
         ))}
       </div>
 
-      {remote && remote.length > 0 && (
-        <>
-          <h3 className="section-head">Live results from the Pokémon TCG API</h3>
-          <div className="card-grid">
-            {remote.map((c) => (
-              <CardTile
-                key={c.id}
-                card={c}
-                owned={binder.ownedIds.has(c.id)}
-                wished={binder.wishedIds.has(c.id)}
-                onOpen={onOpen}
-              />
-            ))}
-          </div>
-        </>
+      {hasMore && (
+        <div className="load-more">
+          <button type="button" className="ghost-btn" onClick={() => run(page + 1)} disabled={loading}>
+            {loading ? "Loading…" : `Load more (${(total - items.length).toLocaleString()} left)`}
+          </button>
+        </div>
       )}
     </>
+  );
+}
+
+/** Says plainly which database the cards on screen came from. */
+export function DatabaseBanner({ catalog }) {
+  if (catalog.status === "loading") {
+    return <p className="notice loading" role="status">Loading the card database…</p>;
+  }
+  if (catalog.status === "live") {
+    return (
+      <p className="notice ok" role="status">
+        <strong>Live database</strong> — {catalog.sets.length} sets from the Pokémon TCG API, with
+        real scans and market prices.
+      </p>
+    );
+  }
+  return (
+    <p className="notice error" role="status">
+      <strong>Offline</strong> — the Pokémon TCG API could not be reached
+      {catalog.error ? ` (${catalog.error})` : ""}. Showing the small built-in catalog with sample
+      prices.{" "}
+      <button type="button" className="link-btn" onClick={() => catalog.reload({ force: true })}>
+        Try again
+      </button>
+    </p>
   );
 }

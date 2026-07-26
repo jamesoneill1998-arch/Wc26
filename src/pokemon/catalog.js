@@ -1,10 +1,13 @@
 // ════════════════════════════════════════════════════════════════════════════
-//  Built-in card catalog.
+//  Built-in fallback catalog.
 //
-//  Prices here are SAMPLE guide prices (near-mint, raw, USD) shipped with the
-//  app so it works with zero network. They are illustrative, not live market
-//  data — the Market view can pull real prices from the Pokémon TCG API
-//  (see api.js) and will label them "live" once it does.
+//  The app's real database is the Pokémon TCG API (see api.js / data.js) —
+//  every set, every card, live prices. This file is what it falls back to when
+//  that API can't be reached: a small cross-section of notable cards so the app
+//  still browses, searches and tracks a collection with no network at all.
+//
+//  Prices here are SAMPLE guide prices (near-mint, raw, USD) and the UI labels
+//  them as such. They are illustrative, never presented as live market data.
 //
 //  Card art is loaded from images.pokemontcg.io using the standard
 //  `{setId}/{number}.png` pattern; anything that fails to load falls back to
@@ -37,7 +40,11 @@ export const RARITIES = [
   "Secret Rare",
 ];
 
-export const TYPES = ["Grass", "Fire", "Water", "Lightning", "Psychic", "Fighting", "Colorless", "Darkness"];
+// Energy types as the Pokémon TCG API spells them.
+export const TYPES = [
+  "Grass", "Fire", "Water", "Lightning", "Psychic", "Fighting",
+  "Darkness", "Metal", "Dragon", "Fairy", "Colorless",
+];
 
 // Energy glyph + accent used by the fallback card face.
 export const TYPE_META = {
@@ -47,9 +54,21 @@ export const TYPE_META = {
   Lightning: { glyph: "⚡", tint: "#eda100" },
   Psychic:   { glyph: "🔮", tint: "#9085e9" },
   Fighting:  { glyph: "✊", tint: "#c1642a" },
-  Colorless: { glyph: "★", tint: "#c9c6b8" },
   Darkness:  { glyph: "🌑", tint: "#4a4a52" },
+  Metal:     { glyph: "⚙", tint: "#8a949c" },
+  Dragon:    { glyph: "🐉", tint: "#c9a227" },
+  Fairy:     { glyph: "✿", tint: "#e87ba4" },
+  Colorless: { glyph: "★", tint: "#c9c6b8" },
 };
+
+/** Rarity values the live API uses, for the Market filter. */
+export const API_RARITIES = [
+  "Common", "Uncommon", "Rare", "Rare Holo", "Rare Holo EX", "Rare Holo GX",
+  "Rare Holo V", "Rare Holo VMAX", "Rare Holo VSTAR", "Double Rare",
+  "Illustration Rare", "Special Illustration Rare", "Ultra Rare", "Hyper Rare",
+  "Rare Ultra", "Rare Secret", "Rare Rainbow", "Radiant Rare", "Amazing Rare",
+  "ACE SPEC Rare", "Shiny Rare", "Promo",
+];
 
 // id, name, set, num, rarity, type, hp, price (sample NM raw, USD)
 const RAW = [
@@ -145,6 +164,22 @@ export const CARDS = RAW.map(([set, num, name, rarity, type, hp, price]) => ({
 
 export const CARDS_BY_ID = Object.fromEntries(CARDS.map((c) => [c.id, c]));
 
+/** The fallback sets, in the same shape the live API's sets are mapped to. */
+export const LOCAL_SET_LIST = Object.entries(SETS)
+  .map(([id, s]) => ({
+    id,
+    name: s.name,
+    series: s.series,
+    year: s.year,
+    releaseDate: `${s.year}-01-01`,
+    total: s.printedTotal,
+    printedTotal: s.printedTotal,
+    symbol: null,
+    logo: null,
+    remote: false,
+  }))
+  .sort((a, b) => b.year - a.year || a.name.localeCompare(b.name));
+
 // ── Condition & grading model ───────────────────────────────────────────────
 // Multipliers applied to a card's near-mint raw price to estimate what a
 // specific copy is worth. Rough industry rules of thumb, not appraisals.
@@ -190,7 +225,9 @@ export const todayISO = () => new Date().toISOString().slice(0, 10);
 
 /** Outbound search links — the app tracks purchases, the buying happens here. */
 export function buyLinks(card) {
-  const q = encodeURIComponent(`${card.name} ${SETS[card.set].name} ${card.num}`);
+  // `card` may come from the live API, whose set ids are not all in SETS.
+  const setName = card.setName ?? SETS[card.set]?.name ?? "";
+  const q = encodeURIComponent(`${card.name} ${setName} ${card.num}`.trim());
   return [
     { label: "TCGplayer", href: `https://www.tcgplayer.com/search/pokemon/product?q=${q}` },
     { label: "eBay",      href: `https://www.ebay.com/sch/i.html?_nkw=${q}+pokemon+card` },

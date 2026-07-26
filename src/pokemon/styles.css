@@ -177,6 +177,18 @@
   padding: 32px; text-align: center; display: grid; gap: 12px; justify-items: center;
   color: var(--ink-2);
 }
+.empty-state.start { padding: 40px 32px; background: var(--surface-1); border-style: solid; }
+.empty-state.start .sub { max-width: 52ch; }
+
+.link-btn {
+  background: none; border: 0; padding: 0; font: inherit; cursor: pointer;
+  color: var(--series-1); text-decoration: underline;
+}
+
+.load-more { display: flex; justify-content: center; margin-top: 20px; }
+
+/* Hold the previous render at reduced opacity while the next page loads. */
+.card-grid.refreshing { opacity: 0.55; transition: opacity 150ms ease; }
 .empty { color: var(--ink-muted); font-size: 0.85rem; padding: 16px 0; text-align: center; }
 
 /* ── Card art ───────────────────────────────────────────────────────────── */
@@ -238,8 +250,9 @@
 .pill.tone-good { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, transparent); }
 .pill.tone-accent { color: var(--series-1); border-color: color-mix(in srgb, var(--series-1) 45%, transparent); }
 
-.owned-wrap.owned .card-tile { border-color: color-mix(in srgb, var(--good) 45%, transparent); }
-.owned-wrap:not(.owned) .card-art { opacity: 0.55; filter: grayscale(0.35); }
+/* Owned cards get a ring and a badge; missing ones are left alone — dimming
+   every card you don't own washes out the whole checklist. */
+.owned-wrap.owned .card-tile { border-color: color-mix(in srgb, var(--good) 55%, transparent); }
 
 /* ── Stat tiles ─────────────────────────────────────────────────────────── */
 .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 22px; }
@@ -375,7 +388,9 @@
 .set-code {
   font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em;
   background: var(--surface-2); border-radius: 6px; padding: 6px 8px; color: var(--ink-2);
+  flex: none;
 }
+.set-symbol { width: 28px; height: 28px; object-fit: contain; flex: none; }
 .set-pct { font-size: 1.05rem; font-weight: 650; font-variant-numeric: tabular-nums; }
 .set-bottom { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.75rem; color: var(--ink-muted); }
 .set-detail { margin-top: 8px; }

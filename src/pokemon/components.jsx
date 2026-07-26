@@ -14,10 +14,11 @@ import {
  * it arrives, a CSS card face stands in — so an offline or blocked request
  * degrades to something deliberate instead of a broken image icon.
  */
-export function CardArt({ card, className = "" }) {
+export function CardArt({ card, className = "", large = false }) {
   const [loaded, setLoaded] = useState(false);
   const meta = TYPE_META[card.type] ?? TYPE_META.Colorless;
   const setMeta = SETS[card.set];
+  const src = large ? card.imgLarge ?? card.img : card.img;
 
   return (
     <div className={`card-art ${className}`} style={{ "--tint": meta.tint }}>
@@ -34,9 +35,9 @@ export function CardArt({ card, className = "" }) {
           <span className="ff-rarity">{card.rarity}</span>
         </div>
       </div>
-      {card.img && (
+      {src && (
         <img
-          src={card.img}
+          src={src}
           alt={`${card.name} — ${card.setName} #${card.num}`}
           loading="lazy"
           decoding="async"
@@ -132,7 +133,7 @@ export function CardDetail({ card, binder, onClose }) {
     <Modal onClose={onClose} labelledBy="card-detail-title">
       <div className="detail">
         <div className="detail-art">
-          <CardArt card={card} className="lg" />
+          <CardArt card={card} className="lg" large />
           <div className="buy-links">
             {buyLinks(card).map((l) => (
               <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" className="ghost-btn sm">
@@ -146,12 +147,17 @@ export function CardDetail({ card, binder, onClose }) {
           <h2 id="card-detail-title">{card.name}</h2>
           <p className="sub">
             {card.setName} · #{card.num} · {card.year || "—"} · {card.rarity}
+            {card.artist && ` · illus. ${card.artist}`}
           </p>
 
           <div className="detail-price">
-            <span className="detail-price-value">{fmtMoney(card.price)}</span>
+            <span className="detail-price-value">{card.price > 0 ? fmtMoney(card.price) : "No price"}</span>
             <span className="detail-price-note">
-              {card.live ? "live market price (near mint)" : "sample guide price (near mint)"}
+              {card.price > 0
+                ? card.live
+                  ? "live market price (near mint)"
+                  : "sample guide price (near mint)"
+                : "no market price published for this card — enter what you paid below"}
             </span>
           </div>
 

@@ -23,8 +23,11 @@ function load() {
   }
 }
 
-/** A small starter portfolio so the dashboard has something to say on first run. */
-function seed() {
+/**
+ * An optional demo portfolio, only ever loaded when someone explicitly asks
+ * for it from the Collection tab. A new collection starts empty.
+ */
+function demo() {
   const lots = [
     ["base1-58", 1, "NM",  14.0, "2025-11-08", "First card of the binder"],
     ["base1-4",  1, "MP", 210.0, "2025-12-02", "Local card show"],
@@ -36,7 +39,7 @@ function seed() {
     ["sv3pt5-151", 2, "NM", 11.0, "2026-06-11", ""],
     ["base1-10", 1, "PSA9", 175.0, "2026-07-02", "Slabbed, came back a 9"],
   ].map(([cardId, qty, condition, pricePaid, date, note], i) => ({
-    uid: `seed-${i}`, cardId, qty, condition, pricePaid, date, note,
+    uid: `demo-${i}`, cardId, qty, condition, pricePaid, date, note,
   }));
 
   const wishlist = [
@@ -53,7 +56,7 @@ let uidCounter = 0;
 const newUid = () => `lot-${Date.now().toString(36)}-${(uidCounter++).toString(36)}`;
 
 export function useBinder() {
-  const [state, setState] = useState(() => load() ?? seed());
+  const [state, setState] = useState(() => load() ?? { ...EMPTY });
 
   useEffect(() => {
     try {
@@ -169,8 +172,8 @@ export function useBinder() {
   const clearPrices = useCallback(() => patch(() => ({ prices: {} })), [patch]);
 
   const replaceAll = useCallback((next) => setState({ ...EMPTY, ...next }), []);
-  const resetToSeed = useCallback(() => setState(seed()), []);
-  const clearAll = useCallback(() => setState({ ...EMPTY }), []);
+  const loadDemo = useCallback(() => setState((s) => ({ ...demo(), theme: s.theme })), []);
+  const clearAll = useCallback(() => setState((s) => ({ ...EMPTY, theme: s.theme })), []);
 
   // ── Derived portfolio ────────────────────────────────────────────────────
   const holdings = useMemo(() => {
@@ -247,24 +250,23 @@ export function useBinder() {
     return [...m.values()].sort((a, b) => b.value - a.value);
   }, [holdings]);
 
-  /** Per-set completion against the cards this catalog knows about. */
-  const setProgress = useMemo(() => {
-    const owned = new Set(state.lots.map((l) => l.cardId));
-    return Object.entries(SETS)
-      .map(([id, meta]) => {
-        const inCatalog = cards.filter((c) => c.set === id);
-        const have = inCatalog.filter((c) => owned.has(c.id));
-        return {
-          id,
-          ...meta,
-          tracked: inCatalog.length,
-          owned: have.length,
-          pct: inCatalog.length ? (have.length / inCatalog.length) * 100 : 0,
-          missingValue: inCatalog.filter((c) => !owned.has(c.id)).reduce((s, c) => s + c.price, 0),
-        };
-      })
-      .sort((a, b) => b.pct - a.pct || a.year - b.year);
-  }, [cards, state.lots]);
+  /**
+   * What you own per set id — unique cards, copies and value. The Sets view
+   * joins this onto the live set list to work out completion against the
+   * real printed size of each set.
+   */
+  const ownedBySet = useMemo(() => {
+    const m = new Map();
+    for (const h of holdings) {
+      const e = m.get(h.card.set) ?? { unique: 0, qty: 0, value: 0, cost: 0 };
+      e.unique += 1;
+      e.qty += h.qty;
+      e.value += h.value;
+      e.cost += h.cost;
+      m.set(h.card.set, e);
+    }
+    return m;
+  }, [holdings]);
 
   const ownedIds = useMemo(() => new Set(state.lots.map((l) => l.cardId)), [state.lots]);
   const wishedIds = useMemo(() => new Set(state.wishlist.map((w) => w.cardId)), [state.wishlist]);
@@ -279,7 +281,7 @@ export function useBinder() {
     spendSeries,
     bySet,
     byRarity,
-    setProgress,
+    ownedBySet,
     ownedIds,
     wishedIds,
     addLot,
@@ -294,7 +296,7 @@ export function useBinder() {
     setPrices,
     clearPrices,
     replaceAll,
-    resetToSeed,
+    loadDemo,
     clearAll,
   };
 }

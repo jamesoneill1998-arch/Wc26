@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import "./styles.css";
 import { useBinder } from "./store.js";
+import { useCatalog } from "./data.js";
 import { CardDetail } from "./components.jsx";
 import { fmtMoney } from "./catalog.js";
 import Dashboard from "./views/Dashboard.jsx";
@@ -26,6 +27,7 @@ const tabFromHash = () => {
 
 export default function PokemonApp() {
   const binder = useBinder();
+  const catalog = useCatalog();
   const [tab, setTab] = useState(tabFromHash);
   const [detail, setDetail] = useState(null);
 
@@ -61,9 +63,11 @@ export default function PokemonApp() {
         <div className="app-bar-stat" title="Estimated value of everything you have logged">
           <span className="cell-sub">Collection</span>
           <strong>{fmtMoney(binder.stats.value, { compact: true, cents: 0 })}</strong>
-          <span className={up ? "tone-good" : "tone-bad"}>
-            <span aria-hidden="true">{up ? "▲" : "▼"}</span> {fmtMoney(Math.abs(binder.stats.gain), { cents: 0 })}
-          </span>
+          {binder.stats.qty > 0 && (
+            <span className={up ? "tone-good" : "tone-bad"}>
+              <span aria-hidden="true">{up ? "▲" : "▼"}</span> {fmtMoney(Math.abs(binder.stats.gain), { cents: 0 })}
+            </span>
+          )}
         </div>
 
         <button
@@ -91,7 +95,7 @@ export default function PokemonApp() {
       </nav>
 
       <main className="app-main">
-        <View binder={binder} onOpen={openCard} />
+        <View binder={binder} catalog={catalog} onOpen={openCard} onGo={go} />
       </main>
 
       <footer className="app-foot">

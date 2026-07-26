@@ -112,9 +112,20 @@ export default function Collection({ binder, onOpen }) {
       </div>
 
       {lots.length === 0 ? (
-        <div className="empty-state">
-          <p>No purchases logged yet.</p>
-          <p className="sub">Open any card in the Market tab and use “Log a purchase”.</p>
+        <div className="empty-state start">
+          <h3>Nothing logged yet</h3>
+          <p className="sub">
+            Open any card in the Market or Sets tab and use “Log a purchase”. Or load a demo
+            collection to see what the dashboard looks like with data in it.
+          </p>
+          <div className="head-actions">
+            <button type="button" className="ghost-btn" onClick={binder.loadDemo}>
+              Load demo collection
+            </button>
+            <button type="button" className="ghost-btn" onClick={() => fileRef.current?.click()}>
+              Import a JSON backup
+            </button>
+          </div>
         </div>
       ) : (
         <div className="table-wrap card">
@@ -212,7 +223,11 @@ export default function Collection({ binder, onOpen }) {
       )}
 
       <div className="danger-row">
-        <button type="button" className="ghost-btn sm" onClick={binder.resetToSeed}>Reload sample collection</button>
+        {lots.length > 0 && (
+          <button type="button" className="ghost-btn sm" onClick={binder.loadDemo}>
+            Replace with demo collection
+          </button>
+        )}
         <button
           type="button"
           className="ghost-btn sm danger"

@@ -10,27 +10,38 @@ only the app they opened.
 
 | Tab | What it does |
 |---|---|
-| **Dashboard** | Collection value, invested, unrealized gain/loss, money-invested-over-time chart, value by set and rarity, top holdings |
-| **Market** | Search / filter the catalog by set, rarity, type and price; open a card for prices, buy links and a purchase form |
+| **Dashboard** | Collection value, invested, unrealized gain/loss, money-invested-over-time chart, value by set and rarity, top holdings. Empty until you log something |
+| **Market** | Search every card in the database by name, set, rarity and type, paged; open a card for prices, buy links and a purchase form |
 | **Collection** | Every purchase lot — sortable, editable in place, with JSON export / import |
 | **Wishlist** | Target prices, a monthly budget, and a "what fits this month" buy plan |
-| **Sets** | Per-set completion meters and a drill-down grid of what's still missing |
+| **Sets** | Every set with completion measured against its real printed size, and a checklist drill-down of what's still missing |
 | **Packs** | A booster-pack simulator; pulls can be logged with the pack price split across them |
 
 ## Data
 
-- **Catalog** (`catalog.js`) — ~60 cards across 11 sets, shipped with the app so
-  everything works offline. Its prices are **sample guide prices**, labelled as
-  such in the UI.
-- **Live prices** (`api.js`) — "Sync live prices" in the Market tab pulls real
-  TCGplayer/Cardmarket figures from the [Pokémon TCG API](https://pokemontcg.io/)
-  and stamps them "live". Failure is non-fatal: the app falls back to the sample
-  prices and says so. Set `VITE_POKEMONTCG_KEY` to raise the rate limit.
-- **Card art** loads from `images.pokemontcg.io`. Anything that fails to load
+The card database is the [Pokémon TCG API](https://pokemontcg.io/) — every set,
+every card, real scans and real TCGplayer/Cardmarket prices — fetched straight
+from the browser, so there is no server of our own to run.
+
+- **`api.js`** is the client: sets, per-set checklists, name search, price
+  refresh. Sets are cached in `localStorage` for a day; card pages are cached
+  in memory for the session.
+- **`data.js`** (`useCatalog`) is the layer views talk to. It serves live data
+  when the API answers and the built-in catalog when it doesn't, behind one
+  interface, and exposes a `status` of `loading` / `live` / `offline` that the
+  UI states plainly on the Market and Sets tabs.
+- **`catalog.js`** is the offline fallback: ~60 notable cards across 11 sets
+  with **sample guide prices**, always labelled as such — never presented as
+  live market data.
+- **Card art** comes from `images.pokemontcg.io`. Anything that fails to load
   falls back to a CSS card face, so a blocked or offline request never shows a
   broken image.
 - **Your data** lives in `localStorage` under `pkmn-binder-v1` — nothing is sent
-  anywhere. First run seeds a sample collection; the Collection tab can clear it.
+  anywhere. A new collection **starts empty**; the Collection tab has an
+  explicit "Load demo collection" button if you want to see the dashboard with
+  data in it.
+- `VITE_POKEMONTCG_KEY` raises the API rate limit if you want one; it is
+  optional.
 
 ## Valuation model
 
@@ -53,8 +64,9 @@ selected set of steps rather than an automatic inversion.
 ```
 PokemonApp.jsx   app shell, tab nav, theme toggle
 store.js         useBinder() — localStorage state + derived portfolio maths
-catalog.js       card catalog, sets, conditions, formatting, buy links
-api.js           optional Pokémon TCG API client (prices + search)
+data.js          useCatalog() — the card database, live with offline fallback
+api.js           Pokémon TCG API client (sets, cards, search, prices)
+catalog.js       offline fallback catalog, conditions, formatting, buy links
 charts.jsx       chart primitives
 components.jsx   card art, tiles, modal, card detail + purchase form
 styles.css       tokens and all app styling
