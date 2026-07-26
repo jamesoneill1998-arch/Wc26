@@ -11,9 +11,14 @@ wc26/
 ├── public/
 │   └── favicon.svg     ← App icon (replace with your own)
 └── src/
-    ├── main.jsx        ← React entry point
-    └── App.jsx         ← ← YOUR ENTIRE APP IS HERE
+    ├── main.jsx        ← React entry point (routes "/" vs "/pokemon")
+    ├── App.jsx         ← ← YOUR ENTIRE APP IS HERE
+    └── pokemon/        ← Binder: the Pokémon card tracker at /pokemon
 ```
+
+Two apps share this project. `/` is WC26; `/pokemon` is **Binder**, a Pokémon
+card collecting and buying dashboard. They are code-split, so a visitor only
+downloads the one they open. See `src/pokemon/README.md` for that app.
 
 ---
 
