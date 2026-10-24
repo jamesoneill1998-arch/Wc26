@@ -1,45 +1,46 @@
 # Erlang Desk
 
-Forecasting and capacity planning for contact centres, in the browser.
+Forecasting, staffing and capacity planning for contact centres, back offices and branch networks. It runs in the browser, so customer data never leaves the device.
 
-- **Forecast**: four methods (trend + weekly + annual seasonality regression, damped Holt-Winters, 6-week weekday average and same-day-last-week) are backtested on the last 28 days of your history. The most accurate one is picked automatically, and its accuracy (WAPE) and bias are shown.
-- **Intraday staffing**: each forecast day is spread across 15, 30 or 60-minute intervals using the arrival pattern learnt from your data. Erlang C then gives the agents each interval needs, with service level, ASA ceiling, occupancy cap, chat concurrency and minimum cover.
-- **Capacity plan**: 13 to 52 weeks of required FTE (after shrinkage) against available FTE (after attrition, training and nesting). It suggests hiring classes and flags any shortfall that falls inside the hiring lead time.
-- **Erlang C calculator**: a free single-interval calculator. It brings in search traffic and acts as the free tier.
-- **Private by design**: all maths runs client-side. Workspaces live in the browser's `localStorage` and can be exported or imported as JSON.
+## What it does
 
-## Run it
+| Area | Detail |
+|---|---|
+| **Channels** | Voice (Erlang A with abandonment, or Erlang C), chat (Erlang A × concurrency), back office (workload ÷ utilisation, smoothed over a turnaround SLA, with weekend work rolled forward) and branch (Erlang C per branch × number of branches, with minimum cover). |
+| **Sites** | Each site has itemised shrinkage (leave, sickness, breaks, training, meetings, other), contracted hours and attrition. Defaults are UK 35% / 37.5h and offshore 20% / 40h, all editable. |
+| **Forecast** | Trend + weekly + annual regression, damped Holt-Winters, weekday average and same-day-last-week are backtested on recent history. The most accurate is chosen automatically and its accuracy and bias are shown. Planners can add a % overlay. |
+| **Intraday** | Staff needed per 15/30/60-minute interval, with service level, abandonment, occupancy and rostered numbers. Back office gets a daily workload view instead. |
+| **Capacity** | 13–52 weeks of required FTE against available FTE, through attrition, training and nesting. Suggests hiring classes and flags shortfalls that hiring can't reach in time. |
+| **Overview** | Every service rolled up by channel and by site. |
+| **Calculator** | Free Erlang A vs C for a single interval, rostered for each site. |
+| **Accounts** | Passwordless sign-in, Stripe subscriptions (Pro and Team), and Team seat management. See [SECURITY.md](SECURITY.md). |
+
+## Run it locally
 
 ```bash
 cd erlang-desk
 npm install
-npm run dev      # http://localhost:5173
-npm test         # engine unit tests (node --test, no extra deps)
-npm run build    # production build in dist/
+npm run dev        # UI only, all features unlocked: http://localhost:5173
+npm test           # engine, Erlang A simulation check, API security and billing tests
+npm run build
 ```
 
-Click **Try it with sample data** to load two years of realistic 30-minute history.
+Then click **Load the sample operation**: four services across a UK and an offshore site.
+
+To run the API locally as well, use `npx vercel dev` with a `.env.local` copied from `.env.example`. Without `RESEND_API_KEY`, sign-in links are printed to the terminal (development only).
 
 ## Deploy (Vercel)
 
-This app lives in a subfolder of the `Wc26` repo, so give it its own Vercel project:
+1. Vercel → **Add New Project** → import this repository and set **Root Directory** to `erlang-desk`.
+2. Add the environment variables from `.env.example`. With `VITE_BILLING` left unset, the site runs as an open preview with no paywall.
+3. **Stripe**: create a product with two recurring monthly prices (Pro £59, Team £199), put their IDs in `STRIPE_PRICE_PRO` / `STRIPE_PRICE_TEAM`, and turn on the customer portal (Settings → Billing → Customer portal) with cancellation allowed.
+4. **Resend**: verify your sending domain and set `RESEND_API_KEY` and `EMAIL_FROM`.
+5. **Upstash Redis** (free tier is enough) for shared rate limiting: set `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`.
+6. Add your domain in Vercel, set `APP_URL` to it, and redeploy.
 
-1. Vercel → **Add New Project** → import this repo.
-2. Set **Root Directory** to `erlang-desk`. The framework is detected as Vite.
-3. Optional environment variables:
+Security headers (CSP, HSTS and the rest) are set in `vercel.json`.
 
-| Variable | Purpose |
-|---|---|
-| `VITE_STRIPE_PRO_URL` | Stripe Payment Link for the Pro plan's button |
-| `VITE_STRIPE_TEAM_URL` | Stripe Payment Link for the Team plan's button |
-| `VITE_CONTACT_EMAIL` | Shows a Contact link in the footer |
-| `VITE_CURRENCY_SYMBOL` | Defaults to `$`; set `£` or `€` to suit your market |
-
-Prices and plan copy are in `src/config.js`.
-
-## Data format
-
-CSV with a header row. Column names are matched loosely (`calls`, `offered` and `contacts` are all read as volume).
+## CSV format
 
 ```csv
 date,time,volume,aht
@@ -47,29 +48,31 @@ date,time,volume,aht
 2026-01-05,08:30,61,298
 ```
 
-- `time` is optional. Without it the file is read as daily totals and a default intraday curve is shaped from your opening hours.
-- `aht` is optional, in seconds. Without it the default AHT from Settings is used.
-- Dates can be `YYYY-MM-DD`, `DD/MM/YYYY` or `MM/DD/YYYY`; the order is detected from the data. Comma, semicolon and tab delimiters all work.
+`time` and `aht` (seconds) are optional. Dates can be `YYYY-MM-DD`, `DD/MM/YYYY` or `MM/DD/YYYY`. Common ACD headings such as "Calls Offered" are recognised. Comma, semicolon and tab delimiters all work.
 
 ## Code map
 
 ```
-src/engine/      pure, tested maths: no React, reusable server-side later
-  erlang.js      Erlang B/C, service level, ASA, required agents
-  forecast.js    forecasting methods, backtest, prediction band
-  profiles.js    intraday arrival and AHT profiles
-  capacity.js    interval -> weekly FTE, supply simulation, hiring recommender
-  csv.js         import/export
-  sample.js      deterministic demo data
-src/state/       workspace persistence and the derived planning model
-src/pages/       one file per screen
-src/components/  charts (SVG, no chart library) and form widgets
-test/            node:test suites for the engine
+api/                Vercel serverless functions (no npm dependencies)
+  _lib/             env, signed tokens, HTTP/cookie/CSRF helpers, rate limit, Stripe, email, sessions
+  auth/             request (send link), verify (open link), logout
+  billing/          checkout, portal
+  me.js, team.js
+src/engine/         pure maths, unit-tested, runs in a Web Worker
+  erlang.js         Erlang B/C
+  erlangA.js        Erlang A (M/M/N+M), validated against simulation
+  channels.js       channel models, sites, shrinkage
+  forecast.js       methods, backtest, prediction band
+  capacity.js       interval/back-office requirements, weekly FTE, supply simulation, hiring
+  compute.js        whole-workspace run with stage caching
+src/state/          workspace store (validated and migrated), worker hook, account, sample data
+src/pages/          one file per screen
+test/               node:test suites
 ```
 
-## Model notes and limits
+## Model notes
 
-- Erlang C assumes nobody abandons. When abandonment is high it slightly overstates the agents needed. Erlang A (with patience) is on the roadmap.
-- Chat concurrency is approximated by treating each agent as *k* servers.
-- The 80% forecast band comes from the spread of backtest errors and widens with the horizon. Treat it as an indication, not a statistical guarantee.
+- Erlang A service level is "answered within threshold ÷ (offered − abandoned within threshold)", the usual reporting convention.
+- Chat concurrency treats each agent as *k* servers.
+- The forecast's 80% band comes from backtest error and widens with the horizon. Treat it as an indication.
 - Attrition is applied evenly every week, to new starters as well as tenured staff.

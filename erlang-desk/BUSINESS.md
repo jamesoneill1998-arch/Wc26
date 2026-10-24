@@ -12,13 +12,13 @@ Contact centres with roughly 20 to 300 agents mostly plan in Excel. The big WFM 
 
 | Plan | Price | Role |
 |---|---|---|
-| Calculator | Free | Search traffic and lead capture |
-| Pro | $79 per planner per month | Core revenue: one planner, full workflow |
-| Team | $249 per month, up to 5 planners | Multi-queue operations |
+| Calculator | Free | Search traffic and lead capture: Erlang A vs C, rostered for UK and offshore |
+| Pro | £59 per planner per month | Core revenue: one planner, every channel and site |
+| Team | £199 per month, five planners | Planning teams across several sites |
 
-Annual billing at 10× monthly. Price per **planner**, not per agent; that's the clearest contrast with the incumbents.
+Both paid plans have a 14-day trial through Stripe. Price per **planner**, not per agent; that's the clearest contrast with the incumbents. Add annual prices (10× monthly) once monthly customers are converting.
 
-At $79, 130 Pro subscribers is about $10k MRR. That is achievable for a niche B2B tool with steady content and outreach.
+At £59, about 170 Pro seats (or a mix with Team) is roughly £10k MRR.
 
 ## Getting customers
 
@@ -30,27 +30,33 @@ At $79, 130 Pro subscribers is about $10k MRR. That is achievable for a niche B2
 
 "Passive" income comes once the content ranks and the product sells itself. Plan on 3 to 6 months of active outreach and support to get there.
 
-## Roadmap to a sellable v1
+## Roadmap
 
-### Must have before charging
-- [ ] **Accounts and billing**: Stripe Checkout plus the customer portal, with sign-in by magic link (Clerk, Supabase Auth or Stripe-only licence keys). Gate the forecast, staffing and capacity pages behind an active subscription and keep the calculator free.
-- [ ] **Licence check on the server**: one Vercel serverless function that checks the Stripe subscription status, so the paywall can't be bypassed in the browser.
-- [ ] **Your own domain** (e.g. erlangdesk.com), a privacy policy reviewed for your jurisdiction, and terms of service.
-- [ ] **Analytics** that never touch workspace data (Plausible or Vercel Analytics).
+### Done
+- [x] Accounts (passwordless), Stripe checkout and portal, Team seats, server-checked plans
+- [x] Security hardening: CSP, HSTS, CSRF, rate limits, validated imports. See SECURITY.md
+- [x] Erlang A (abandonment-aware staffing), shown against Erlang C
+- [x] Voice, chat, back office and branch in one workspace
+- [x] Sites with itemised shrinkage (UK 35% / offshore 20% defaults), hours and attrition
 
-### Differentiators (next 3 months)
-- [ ] **Erlang A** (abandonment-aware staffing): fewer FTE than Erlang C at the same real service level. A strong selling point.
-- [ ] **Multiple queues and skills** in one workspace, with a combined plan.
-- [ ] **Events calendar**: bank holidays and campaigns as forecast overlays on specific dates.
-- [ ] **Schedule fit**: compare required agents with a shift pattern and show the under- and over-staffing curve.
-- [ ] **Excel export** of the capacity plan, formatted for finance.
-- [ ] **Optional cloud sync** for Team (encrypted workspaces) so planners can share.
+### Before charging
+- [ ] Your own domain, Vercel env vars, Stripe prices and portal, Resend domain, Upstash (see README)
+- [ ] Have the privacy notice and terms (public/privacy.html, public/terms.html) reviewed for UK GDPR
+- [ ] Register with the ICO as a data controller (a small fee); you hold customer emails
+- [ ] Analytics that never touch workspace data (Plausible or Vercel Analytics). Update the CSP `connect-src` if needed
+
+### Next differentiators
+- [ ] Events calendar: bank holidays and campaigns as dated forecast overlays
+- [ ] Schedule fit: required staff against shift patterns, with the under/over curve
+- [ ] Skill splits: one forecast shared across UK and offshore by percentage
+- [ ] Budget view: FTE × loaded cost per site, cost per contact, the onshore/offshore mix trade-off
+- [ ] Excel export of the capacity plan, formatted for finance
+- [ ] Optional encrypted cloud sync for Team
 
 ### Later
-- [ ] Direct connectors (Genesys Cloud, Five9, Talkdesk, Amazon Connect APIs) to replace CSV upload.
-- [ ] Budget view: FTE × loaded cost, and cost per contact.
-- [ ] White-label or reseller pricing for BPO consultancies.
+- [ ] Connectors (Genesys Cloud, Five9, Amazon Connect, Zendesk) to replace CSV upload
+- [ ] White-label pricing for BPOs and WFM consultancies
 
 ## Running costs
 
-Vercel Hobby or Pro ($0–20/month), a domain (~$15/year), Stripe fees (~3%) and an email tool. All the computation runs in the customer's browser, so hosting costs stay flat as you add customers.
+Vercel Pro (about £16/month; Hobby is non-commercial), a domain (about £12/year), Stripe fees (about 1.5% + 20p for UK cards), Resend and Upstash free tiers. All the computation runs in the customer's browser, so hosting costs stay flat as you add customers.

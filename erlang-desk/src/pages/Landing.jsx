@@ -1,122 +1,277 @@
 import { useState } from 'react'
 import { BRAND, CURRENCY, PLANS } from '../config.js'
 import { requiredAgents, withShrinkage } from '../engine/erlang.js'
-import { Icon, NumberField } from '../components/ui.jsx'
-import { fmtPct, fmtSec } from '../format.js'
+import { requiredAgentsA } from '../engine/erlangA.js'
+import { defaultSites, siteShrinkage, SHRINKAGE_COMPONENTS } from '../engine/channels.js'
+import { fmtPct } from '../format.js'
+import { Mark } from '../components/ui.jsx'
 
-function HeroCalculator() {
-  const [volume, setVolume] = useState(250)
-  const [aht, setAht] = useState(300)
-  const r = requiredAgents({ volume, ahtSec: aht, intervalSec: 1800, targetSec: 20, slTarget: 0.8 })
+const [UK, OFFSHORE] = defaultSites()
+
+function Blank({ value, onChange, label, min = 0, max = 100000 }) {
   return (
-    <div className="card" style={{ padding: 22 }}>
-      <div className="row" style={{ justifyContent: 'space-between', marginBottom: 14 }}>
-        <h2>Try it: how many agents?</h2>
-        <span className="pill">80% in 20s</span>
-      </div>
-      <div className="grid grid-2" style={{ gap: 12 }}>
-        <NumberField id="hero-vol" label="Contacts per 30 min" value={volume} min={0} max={50000} onChange={setVolume} />
-        <NumberField id="hero-aht" label="Handle time" suffix="sec" value={aht} min={1} max={7200} onChange={setAht} />
-      </div>
-      <div className="grid grid-2" style={{ marginTop: 18, gap: 12 }}>
-        <div className="tile">
-          <div className="tile-label">Agents on the phones</div>
-          <div className="tile-value" style={{ fontSize: 40 }}>{r.agents}</div>
-          <div className="tile-sub">{Math.ceil(withShrinkage(r.agents, 0.32))} scheduled at 32% shrinkage</div>
-        </div>
-        <div className="stack" style={{ gap: 8, justifyContent: 'center' }}>
-          <div className="row small"><span className="muted">Service level</span><span className="spacer" /><b className="num">{fmtPct(r.serviceLevel)}</b></div>
-          <div className="row small"><span className="muted">Avg speed of answer</span><span className="spacer" /><b className="num">{fmtSec(r.asa)}</b></div>
-          <div className="row small"><span className="muted">Occupancy</span><span className="spacer" /><b className="num">{fmtPct(r.occupancy)}</b></div>
-        </div>
-      </div>
-    </div>
+    <input
+      type="number" inputMode="numeric" aria-label={label} min={min} max={max} value={value}
+      onChange={(e) => { const n = Number(e.target.value); if (e.target.value !== '' && Number.isFinite(n)) onChange(Math.min(max, Math.max(min, n))) }}
+    />
   )
 }
 
-const FEATURES = [
-  [Icon.forecast, 'Forecasts that show their working', 'Four methods compete on a backtest of your own history. The most accurate one is picked automatically, and its error is shown so you know how far to trust it.'],
-  [Icon.staffing, 'Interval staffing with Erlang C', 'Turn each day\'s forecast into agents needed per 15, 30 or 60 minutes, with service level, ASA, occupancy caps, chat concurrency and minimum cover built in.'],
-  [Icon.capacity, '52-week capacity & hiring plan', 'Project headcount through attrition, training and nesting. Erlang Desk tells you how many people to hire, and when, to cover every week.'],
-  [Icon.upload, 'Works with the data you have', 'Upload a CSV export from any ACD or telephony platform, daily or by interval. No integration project and no IT ticket.'],
-  [Icon.shield, 'Private by design', 'Calculations run in your browser. Contact history is never uploaded to a server, which takes most of the pain out of procurement and data-protection review.'],
-  [Icon.calculator, 'What-if in seconds', 'Change volume, AHT, shrinkage or attrition and watch requirements and hiring move straight away. Export any view to CSV for your finance pack.'],
+function WorkedExample() {
+  const [calls, setCalls] = useState(250)
+  const [aht, setAht] = useState(300)
+  const [patience, setPatience] = useState(120)
+  const [sl, setSl] = useState(80)
+  const [within, setWithin] = useState(20)
+  const q = { volume: calls, ahtSec: Math.max(1, aht), intervalSec: 1800, targetSec: within, slTarget: Math.min(99.9, Math.max(1, sl)) / 100 }
+  const a = requiredAgentsA({ ...q, patienceSec: Math.max(5, patience) })
+  const c = requiredAgents(q)
+  return (
+    <aside className="wallboard" aria-label="Worked example">
+      <div className="flabel">Worked example · change any figure</div>
+      <p className="sentence">
+        <Blank label="Calls per half hour" value={calls} onChange={setCalls} /> calls a half hour,{' '}
+        <Blank label="Handle time in seconds" value={aht} onChange={setAht} min={1} max={7200} /> seconds each, callers giving up after{' '}
+        <Blank label="Patience in seconds" value={patience} onChange={setPatience} min={5} max={3600} /> seconds, and a target of{' '}
+        <Blank label="Service level percent" value={sl} onChange={setSl} min={1} max={99} />% answered in{' '}
+        <Blank label="Seconds" value={within} onChange={setWithin} max={3600} /> seconds.
+      </p>
+      <div className="readout" aria-live="polite">
+        <div>
+          <div className="flabel">Agents needed</div>
+          <div className="big">{a.agents}</div>
+          <div className="note">Erlang A, allowing for hang-ups</div>
+        </div>
+        <div>
+          <div className="flabel">Erlang C says</div>
+          <div className="mid">{c.agents}</div>
+          <div className="note">assumes nobody hangs up</div>
+        </div>
+        <div>
+          <div className="flabel">Abandon</div>
+          <div className="mid">{fmtPct(a.pAbandon)}</div>
+          <div className="note">expected at {a.agents} agents</div>
+        </div>
+      </div>
+      <div className="rostered">
+        <span>Rostered in the UK ({fmtPct(siteShrinkage(UK), 0)} shrinkage)<b>{Math.ceil(withShrinkage(a.agents, siteShrinkage(UK)))}</b></span>
+        <span>Offshore ({fmtPct(siteShrinkage(OFFSHORE), 0)})<b>{Math.ceil(withShrinkage(a.agents, siteShrinkage(OFFSHORE)))}</b></span>
+      </div>
+    </aside>
+  )
+}
+
+const CHANNEL_COPY = [
+  ['Voice', 'Erlang A', 'Callers hang up. Erlang A models that, so you staff to the service your customers actually get rather than a queue where nobody ever leaves.'],
+  ['Chat', 'Erlang A × concurrency', 'Agents run two or three sessions at once, and chat customers are more patient. Both are built into the requirement.'],
+  ['Back office', 'Workload & turnaround', 'Items don\'t queue by the minute. Hours needed are workload over utilisation, smoothed across your turnaround SLA, with weekend work rolled forward.'],
+  ['Branch', 'Erlang C per branch', 'Twenty-five branches aren\'t one big queue. Each branch is sized on its own share of footfall, with minimum cover, then added up.'],
 ]
 
-export default function Landing({ onToggleTheme }) {
+const STEPS = [
+  ['Import', 'Upload a CSV from any telephony, chat or workflow system: daily totals or intervals. It\'s read on your device.'],
+  ['Forecast', 'Four methods are tested against your own recent history and the most accurate is chosen. You see its error, and can overlay known events.'],
+  ['Staff', 'Every interval is turned into people needed, under each channel\'s own model and each site\'s shrinkage.'],
+  ['Plan', 'Fifty-two weeks of supply against demand, through attrition, training and nesting, with the hiring classes that close the gaps.'],
+]
+
+const COMPARE = [
+  ['Time to a first plan', 'Days to weeks', 'An afternoon', 'Months of implementation'],
+  ['Abandonment-aware staffing', 'Rarely', 'Erlang A, built in', 'Usually'],
+  ['Voice, chat, back office, branch', 'One model per tab', 'One workspace', 'Yes'],
+  ['UK and offshore shrinkage', 'Hard-coded', 'Itemised per site', 'Yes'],
+  ['Hiring plan with training ramp', 'Manual', 'Suggested automatically', 'Often an add-on'],
+  ['Where customer data lives', 'Your files', 'Your browser only', 'Vendor cloud'],
+  ['Cost', 'Your evenings', `From ${CURRENCY}59 a month`, 'Per agent, annual contract'],
+]
+
+const SECURITY = [
+  ['Your data stays with you', 'Contact history is processed and stored in your browser. There is no server-side copy to breach, and nothing to put in a data-processing agreement.'],
+  ['No passwords to steal', 'Sign-in is by single-use email link, valid for 15 minutes and only in the browser that asked for it.'],
+  ['Hardened sessions', 'Secure, HttpOnly, SameSite cookies with a fixed seven-day life. Every change request is checked for origin and rate limited.'],
+  ['Strict browser policy', 'A Content Security Policy that only allows our own code, HSTS, no framing, and no third-party scripts, trackers or font services.'],
+  ['Payments by Stripe', 'Card details go straight to Stripe. We never see or store them, and plan prices are fixed on our server.'],
+  ['Checked inputs', 'Imported files are size-limited and validated field by field, and exports are protected against spreadsheet formula injection.'],
+]
+
+const FAQ = [
+  ['Do I need to upload anything to try it?', 'No. Open the planner and load the sample operation: four services across a UK and an offshore site. When you import your own data, it is read in your browser and never sent to us.'],
+  ['What is Erlang A, and why does it need fewer people?', 'Erlang C assumes every caller waits until answered. In reality some hang up, which shortens the queue for everyone else. Erlang A accounts for that, typically needing 5–15% fewer agents for the same service level, and it reports the abandonment rate you should expect.'],
+  ['Can I plan UK and offshore teams together?', 'Yes. Each service belongs to a site, and each site has its own shrinkage components, contracted hours and attrition. The overview adds them up.'],
+  ['What data format do you accept?', 'A CSV with a date column, a volume column, and optionally an interval start time and average handle time. Column names from common ACDs are recognised.'],
+  ['Can colleagues share a workspace?', 'On the Team plan each planner has their own sign-in. Workspaces are exported and imported as files, so nothing sits on a shared server.'],
+  ['Can I cancel?', 'At any time, from the billing page. You keep access until the end of the period you\'ve paid for.'],
+]
+
+export default function Landing({ onToggleTheme, account }) {
+  const jump = (id) => (e) => { e.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }) }
+  const planHref = (p) => (p.id === 'free' ? '#/app/calculator' : account.billing ? `#/app/account?plan=${p.id}` : '#/app')
   return (
-    <div className="land">
-      <header className="land-nav">
-        <a className="brand" href="#/" style={{ padding: 0 }}>
-          <span className="brand-mark" aria-hidden="true">E</span>
-          <span>{BRAND.name}</span>
-        </a>
-        <nav className="links">
-          <a href="#features" className="hide-sm" onClick={(e) => { e.preventDefault(); document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' }) }}>Features</a>
-          <a href="#pricing" className="hide-sm" onClick={(e) => { e.preventDefault(); document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' }) }}>Pricing</a>
-          <button className="btn ghost sm" type="button" onClick={onToggleTheme} aria-label="Toggle theme">{Icon.moon}</button>
-          <a className="btn primary sm" href="#/app">Open app</a>
-        </nav>
-      </header>
+    <div>
+      <div className="site-top">
+        <header className="wrap masthead">
+          <a className="nameplate" href="#/"><Mark />Erlang Desk</a>
+          <nav aria-label="Site">
+            <a href="#channels" className="hide-sm" onClick={jump('channels')}>Method</a>
+            <a href="#security" className="hide-sm" onClick={jump('security')}>Security</a>
+            <a href="#pricing" className="hide-sm" onClick={jump('pricing')}>Pricing</a>
+            <button className="btn link" type="button" onClick={onToggleTheme} style={{ color: 'var(--ink-2)', textDecoration: 'none' }}>Theme</button>
+            {account.billing && !account.signedIn && <a href="#/app/account">Sign in</a>}
+            <a className="btn dark sm" href="#/app">Open the planner</a>
+          </nav>
+        </header>
+      </div>
 
-      <section className="land-hero">
-        <div>
-          <div className="eyebrow">WORKFORCE PLANNING FOR CONTACT CENTRES</div>
-          <h1>Know how many people you need, every half hour, all year.</h1>
-          <p className="lead">
-            {BRAND.name} turns your contact history into a forecast, interval staffing requirements and a hiring plan.
-            It does the job of a spreadsheet model, without the macros and without a six-figure WFM suite.
-          </p>
-          <div className="row">
-            <a className="btn primary" href="#/app/data">Try it with sample data</a>
-            <a className="btn" href="#/app/calculator">Free Erlang calculator</a>
+      <section className="lp-hero">
+        <div className="wrap">
+          <div>
+            <div className="label">Workforce planning · contact centres, back offices, branches</div>
+            <h1>The right number of people, <span>every half hour</span> of the year.</h1>
+            <p className="lede">
+              {BRAND.name} turns your contact history into a forecast, an interval staffing plan and a hiring plan, across voice, chat,
+              back office and branches, onshore and offshore. It replaces the spreadsheet model, and does the maths properly.
+            </p>
+            <div className="ctas">
+              <a className="btn primary" href="#/app">Open the planner</a>
+              <a className="btn" href="#/app/calculator">Free Erlang calculator</a>
+            </div>
+            <p className="assure">Explore a sample operation without signing up. Your own data never leaves your browser.</p>
           </div>
-          <p className="small muted" style={{ marginTop: 14 }}>No sign-up needed to try it. Your data stays on your device.</p>
+          <WorkedExample />
         </div>
-        <HeroCalculator />
       </section>
 
-      <section className="section" id="features">
-        <h2>From history to hiring plan in four steps</h2>
-        <p className="muted">Import, forecast, staff, plan. Every number can be traced back to an assumption you control.</p>
-        <div className="features">
-          {FEATURES.map(([ico, title, body]) => (
-            <div className="card feature" key={title}>
-              <div className="ico">{ico}</div>
-              <h3>{title}</h3>
-              <p className="muted small">{body}</p>
-            </div>
+      <section className="section" id="channels">
+        <div className="wrap">
+          <div className="section-head">
+            <h2>Each channel, planned the way its work behaves</h2>
+            <p>Running one Erlang formula across every queue is the commonest error in capacity models. {BRAND.name} picks the model that fits how each channel's work arrives and waits.</p>
+          </div>
+          <div className="grid-4">
+            {CHANNEL_COPY.map(([name, method, body]) => (
+              <div className="module" key={name}>
+                <div className="method">{method}</div>
+                <h3>{name}</h3>
+                <p>{body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="section alt">
+        <div className="wrap cols">
+          <div className="section-head" style={{ marginBottom: 0 }}>
+            <h2>Onshore and offshore, each on its own terms</h2>
+            <p>A UK operation typically loses about 35% of paid hours to leave, sickness, breaks and training; offshore centres nearer 20%. Each site keeps its own shrinkage, contracted hours and attrition, and the plan adds them up.</p>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Shrinkage</th><th>UK</th><th>Offshore</th></tr></thead>
+              <tbody>
+                {SHRINKAGE_COMPONENTS.map(([k, label]) => (
+                  <tr key={k}><td>{label}</td><td>{fmtPct(UK.shrinkage[k], 0)}</td><td>{fmtPct(OFFSHORE.shrinkage[k], 0)}</td></tr>
+                ))}
+                <tr className="total"><td>Total, editable per site</td><td>{fmtPct(siteShrinkage(UK), 0)}</td><td>{fmtPct(siteShrinkage(OFFSHORE), 0)}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="wrap">
+          <div className="section-head">
+            <h2>From history to hiring plan</h2>
+            <p>Four steps, and every number traces back to an assumption you can see and change.</p>
+          </div>
+          <div className="steps">
+            {STEPS.map(([t, body], i) => (
+              <div key={t}>
+                <div className="n">Step {i + 1}</div>
+                <h3>{t}</h3>
+                <p>{body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="section alt">
+        <div className="wrap">
+          <div className="section-head">
+            <h2>Between the spreadsheet and the suite</h2>
+            <p>Enterprise WFM earns its keep at thousands of agents. Below that, most teams are better served by something they can set up this afternoon.</p>
+          </div>
+          <div className="table-wrap">
+            <table className="compare">
+              <thead><tr><th /><th>Spreadsheet model</th><th className="us">{BRAND.name}</th><th>Enterprise WFM suite</th></tr></thead>
+              <tbody>
+                {COMPARE.map(([row, a, b, c]) => (
+                  <tr key={row}><td>{row}</td><td>{a}</td><td className="us">{b}</td><td>{c}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section className="section" id="security">
+        <div className="wrap">
+          <div className="section-head">
+            <h2>Security you can show procurement</h2>
+            <p>Most of the risk in a planning tool sits in the customer data it holds. {BRAND.name} is built so it holds none.</p>
+          </div>
+          <div className="grid-3">
+            {SECURITY.map(([t, body]) => (
+              <div className="module" key={t}><h3 style={{ fontSize: 19 }}>{t}</h3><p>{body}</p></div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="section alt" id="pricing">
+        <div className="wrap">
+          <div className="section-head">
+            <h2>Priced per planner, not per agent</h2>
+            <p>Fourteen-day trial on Pro and Team. Billed monthly, cancel any time. Prices exclude VAT.</p>
+          </div>
+          <div className="prices">
+            {PLANS.map((p) => (
+              <div key={p.id} className={`module price${p.featured ? ' featured' : ''}`}>
+                <h3>{p.name}</h3>
+                <div className="amt">{p.price ? `${CURRENCY}${p.price}` : 'Free'}</div>
+                <div className="per">{p.per}</div>
+                <p className="muted">{p.blurb}</p>
+                <ul>{p.features.map((f) => <li key={f}>{f}</li>)}</ul>
+                <a className={`btn${p.featured ? ' primary' : ''}`} href={planHref(p)}>{p.cta}</a>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="wrap" style={{ maxWidth: 900 }}>
+          <div className="section-head">
+            <h2>Questions planners ask</h2>
+          </div>
+          {FAQ.map(([q, a]) => (
+            <details key={q}>
+              <summary>{q}</summary>
+              <p>{a}</p>
+            </details>
           ))}
         </div>
       </section>
 
-      <section className="section" id="pricing">
-        <h2>Simple pricing</h2>
-        <p className="muted">Monthly, cancel any time. Annual billing gets two months free.</p>
-        <div className="prices">
-          {PLANS.map((p) => (
-            <div key={p.id} className={`card price${p.featured ? ' featured' : ''}`}>
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <h2>{p.name}</h2>
-                {p.featured && <span className="pill">Most popular</span>}
-              </div>
-              <div>
-                <span className="amt">{p.price ? `${CURRENCY}${p.price}` : 'Free'}</span>{' '}
-                <span className="muted small">{p.period}</span>
-              </div>
-              <p className="muted small">{p.blurb}</p>
-              <ul>{p.features.map((f) => <li key={f}>{f}</li>)}</ul>
-              <a className={`btn${p.featured ? ' primary' : ''}`} href={p.href}>{p.cta}</a>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <footer className="foot">
+      <footer className="wrap colophon">
         <span>© {new Date().getFullYear()} {BRAND.name}</span>
+        <span>Named for A. K. Erlang, who worked out the mathematics of call queues for the Copenhagen Telephone Company.</span>
         <span className="spacer" />
-        {BRAND.contactEmail && <a href={`mailto:${BRAND.contactEmail}`}>Contact</a>}
         <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        {BRAND.contactEmail && <a href={`mailto:${BRAND.contactEmail}`}>Contact</a>}
       </footer>
     </div>
   )

@@ -2,19 +2,37 @@
 // week-by-week long-term capacity plan with attrition, hiring and ramp-up.
 
 import { requiredAgents, withShrinkage } from './erlang.js'
+import { requiredAgentsA } from './erlangA.js'
 import { addDays, weekdayIndex, weekStart } from './dates.js'
-import { isOpen, slotsPerDay } from './profiles.js'
+import { isOpen, openWindow, slotsPerDay } from './profiles.js'
+
+/** Requirement for one live-queue interval under the service's chosen model. */
+function queueRequirement(volume, aht, intervalSec, s) {
+  const p = {
+    volume, ahtSec: aht, intervalSec,
+    targetSec: s.targetSec, slTarget: s.slTarget, asaTarget: s.asaTarget || null,
+    maxOccupancy: s.maxOccupancy, concurrency: s.concurrency,
+  }
+  if (s.queueModel === 'erlangA') {
+    return requiredAgentsA({ ...p, patienceSec: s.patienceSec, abandonTarget: s.abandonTarget || null })
+  }
+  return { ...requiredAgents(p), pAbandon: null }
+}
 
 /**
- * Interval-level requirements for each forecast day.
+ * Interval-level requirements for each forecast day of a live channel
+ * (voice, chat, branch). Back office is routed to `backofficeRequirements`.
  * @param {Array<{date, volume}>} days forecast points
  * @param {{volume:number[][], aht:(number|null)[][]|null}} profiles
  * @param {number[]} ahtByWeekday fallback AHT per weekday
- * @param {object} s settings
+ * @param {object} s resolved settings (see channels.resolveSettings)
  */
 export function intervalRequirements(days, profiles, ahtByWeekday, s, { ahtAdjustPct = 0 } = {}) {
+  if (s.channel === 'backoffice') return backofficeRequirements(days, ahtByWeekday, s, { ahtAdjustPct })
   const n = slotsPerDay(s.intervalMin)
   const intervalSec = s.intervalMin * 60
+  // Branch walk-ins queue at their own branch, so size one branch and multiply.
+  const sites = s.channel === 'branch' ? Math.max(1, Math.round(s.branches || 1)) : 1
   return days.map((d) => {
     const wd = weekdayIndex(d.date)
     const intervals = []
@@ -28,23 +46,55 @@ export function intervalRequirements(days, profiles, ahtByWeekday, s, { ahtAdjus
       let agents = 0
       let sl = null
       let occ = null
+      let abandon = null
       if (volume > 0.01) {
-        const r = requiredAgents({
-          volume, ahtSec: aht, intervalSec,
-          targetSec: s.targetSec, slTarget: s.slTarget, asaTarget: s.asaTarget || null,
-          maxOccupancy: s.maxOccupancy, concurrency: s.concurrency,
-        })
-        agents = r.agents
+        const r = queueRequirement(volume / sites, aht, intervalSec, s)
+        agents = r.agents * sites
         sl = r.serviceLevel
         occ = r.occupancy
+        abandon = r.pAbandon
       }
-      if (open) agents = Math.max(agents, s.minAgents ?? 0)
+      if (open) agents = Math.max(agents, (s.minAgents ?? 0) * sites)
       agentHours += (agents * s.intervalMin) / 60
       workloadHours += (volume * aht) / 3600
-      intervals.push({ time, volume, aht, agents, sl, occ, open })
+      intervals.push({ time, volume, aht, agents, sl, occ, abandon, open })
     }
     return { date: d.date, volume: d.volume, agentHours, workloadHours, intervals }
   })
+}
+
+/**
+ * Deferred work: hours needed = workload ÷ utilisation. Work landing on a
+ * closed day rolls to the next open day, and each open day's requirement is
+ * averaged over the turnaround window, since an item due in N days needn't
+ * be cleared the day it lands.
+ */
+export function backofficeRequirements(days, ahtByWeekday, s, { ahtAdjustPct = 0 } = {}) {
+  const util = Math.min(1, Math.max(0.3, s.utilisation || 0.85))
+  const window = Math.max(1, Math.round(s.slaDays || 1))
+  const open = days.map((d) => !!openWindow(s, weekdayIndex(d.date)))
+  const work = days.map((d) => (d.volume * (ahtByWeekday[weekdayIndex(d.date)] ?? s.defaultAht) * (1 + ahtAdjustPct)) / 3600)
+  const due = new Array(days.length).fill(0)
+  let carry = 0
+  days.forEach((_, i) => {
+    carry += work[i]
+    if (open[i]) { due[i] = carry; carry = 0 }
+  })
+  const openIdx = days.map((_, i) => i).filter((i) => open[i])
+  const required = new Array(days.length).fill(0)
+  openIdx.forEach((idx, j) => {
+    const from = Math.max(0, j - window + 1)
+    const span = openIdx.slice(from, j + 1)
+    required[idx] = span.reduce((t, i) => t + due[i], 0) / span.length / util
+  })
+  return days.map((d, i) => ({
+    date: d.date,
+    volume: d.volume,
+    agentHours: required[i],
+    workloadHours: work[i],
+    intervals: [],
+    open: open[i],
+  }))
 }
 
 /** Roll interval requirements up to planning weeks (Mon-Sun). */

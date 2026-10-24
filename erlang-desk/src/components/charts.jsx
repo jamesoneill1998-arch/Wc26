@@ -39,7 +39,7 @@ export function Legend({ items }) {
     <div className="legend">
       {items.map((it) => (
         <span key={it.label}>
-          <i className={it.band ? 'key-band' : 'key-line'} style={{ background: it.color }} />
+          <i className={it.band ? 'key-band' : it.block ? 'key-block' : 'key-line'} style={{ background: it.color }} />
           {it.label}
         </span>
       ))}
@@ -256,6 +256,70 @@ export function Heatmap({ rows, colLabels, onCell, selectedRow, valueLabel = 'Ag
           ) : 'Hover a cell for detail'}
         </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * Stacked columns (e.g. required FTE by channel per week) with a 2px surface
+ * gap between segments and a per-column tooltip.
+ * rows: [{x, [key]: number}], series: [{key, label, color}]
+ */
+export function StackedColumns({ rows, series, height = 260, xFormat = (x) => x, yFormat = fmtCompact, valueFormat = fmtCompact, line }) {
+  const [ref, width] = useWidth()
+  const [hover, setHover] = useState(null)
+  const m = { t: 10, r: 8, b: 26, l: 44 }
+  const iw = width - m.l - m.r
+  const ih = height - m.t - m.b
+  const totals = rows.map((r) => series.reduce((t, s) => t + (r[s.key] ?? 0), 0))
+  const ticks = niceTicks(Math.max(1, ...totals, ...(line ? rows.map((r) => r[line.key] ?? 0) : [])))
+  const top = ticks[ticks.length - 1]
+  const band = iw / Math.max(1, rows.length)
+  const bw = Math.max(3, Math.min(24, band - 3))
+  const ys = (v) => m.t + ih - (v / top) * ih
+  const tickEvery = Math.max(1, Math.ceil(rows.length / Math.max(2, Math.floor(iw / 80))))
+  const cx = (i) => m.l + i * band + band / 2
+  let linePath = ''
+  if (line) rows.forEach((r, i) => { if (r[line.key] != null) linePath += `${linePath ? 'L' : 'M'}${cx(i).toFixed(1)},${ys(r[line.key]).toFixed(1)}` })
+  return (
+    <div className="chart" ref={ref}>
+      <svg width={width} height={height} role="img" aria-label={series.map((s) => s.label).join(', ')}>
+        {ticks.map((t) => (
+          <g key={t}>
+            <line className={t === 0 ? 'axis-line' : 'grid-line'} x1={m.l} x2={width - m.r} y1={ys(t)} y2={ys(t)} />
+            <text className="tick" x={m.l - 8} y={ys(t)} dy="0.32em" textAnchor="end">{yFormat(t)}</text>
+          </g>
+        ))}
+        {rows.map((r, i) => {
+          let acc = 0
+          const x = cx(i) - bw / 2
+          const segs = series.map((s) => {
+            const v = r[s.key] ?? 0
+            const y0 = ys(acc)
+            acc += v
+            const y1 = ys(acc)
+            return { s, y: y1, h: Math.max(0, y0 - y1 - (acc > v ? 2 : 0)) }
+          })
+          return (
+            <g key={i} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} opacity={hover == null || hover === i ? 1 : 0.6}>
+              <rect x={m.l + i * band} y={m.t} width={band} height={ih} fill="transparent" />
+              {segs.map(({ s, y, h }) => h > 0 && <rect key={s.key} x={x} y={y} width={bw} height={h} fill={s.color} />)}
+              {i % tickEvery === 0 && <text className="tick" x={cx(i)} y={height - 6} textAnchor="middle">{xFormat(r.x)}</text>}
+            </g>
+          )
+        })}
+        {line && <path d={linePath} fill="none" stroke={line.color} strokeWidth="2" strokeLinejoin="round" pointerEvents="none" />}
+      </svg>
+      {hover != null && (
+        <Tooltip x={cx(hover)} y={m.t} width={width}>
+          <div className="tt-title">{xFormat(rows[hover].x, true)}</div>
+          {[...series].reverse().map((s) => (
+            <div className="tt-row" key={s.key}><span className="row" style={{ gap: 6 }}><i className="key-block" style={{ background: s.color }} />{s.label}</span><b>{valueFormat(rows[hover][s.key] ?? 0)}</b></div>
+          ))}
+          <div className="tt-row" style={{ borderTop: '1px solid var(--rule)', marginTop: 4, paddingTop: 4 }}><span>Total required</span><b>{valueFormat(totals[hover])}</b></div>
+          {line && rows[hover][line.key] != null && <div className="tt-row"><span className="row" style={{ gap: 6 }}><i className="key-line" style={{ background: line.color }} />{line.label}</span><b>{valueFormat(rows[hover][line.key])}</b></div>}
+        </Tooltip>
+      )}
     </div>
   )
 }

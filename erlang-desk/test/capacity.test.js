@@ -95,3 +95,14 @@ test('shortfalls inside the hiring lead time are reported, not chased with ever-
   assert.equal(recs[0].week, weeks[0].week)
   assert.equal(unfixableWeeks(simulateSupply(weeks, c, recs), c).length, 6)
 })
+
+test('CSV export neutralises formula injection but keeps negative numbers', () => {
+  const out = toCSV([{ label: 'v', get: (r) => r }], ['=HYPERLINK("http://x")', '+1+1', '@SUM(A1)', '-1.5', '-cmd'])
+  assert.equal(out, 'v\n"\'=HYPERLINK(""http://x"")"\n\'+1+1\n\'@SUM(A1)\n-1.5\n\'-cmd')
+})
+
+test('CSV import rejects absurd values', () => {
+  const r = parseHistoryCSV('date,volume,aht\n2026-01-01,99999999999,300\n2026-01-02,10,100000\n2026-01-03,10,300\n')
+  assert.equal(r.rows.length, 1)
+  assert.equal(r.errors.length, 2)
+})

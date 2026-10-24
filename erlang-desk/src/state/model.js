@@ -1,47 +1,49 @@
-// Everything derived from the workspace: forecast -> intervals -> weeks ->
-// supply -> hiring. Memoised in stages so editing a capacity assumption
-// doesn't re-run the forecast.
+// The planning model for the whole workspace, computed in a Web Worker.
+// Falls back to the main thread where workers aren't available.
 
-import { useMemo } from 'react'
-import { forecastDaily } from '../engine/forecast.js'
-import { defaultProfiles, learnProfiles, weekdayAht } from '../engine/profiles.js'
-import { intervalRequirements, weeklyRequirements, simulateSupply, recommendHires, unfixableWeeks } from '../engine/capacity.js'
-import { weekStart, addDays } from '../engine/dates.js'
+import { useEffect, useRef, useState } from 'react'
+import { computeWorkspace, createCache } from '../engine/compute.js'
 
-export function usePlanModel(ws) {
-  const { history, settings, plan, capacity, hires } = ws
-  const daily = history?.dailyRows ?? []
+const EMPTY = { services: {}, total: [], bySite: {}, byChannel: {} }
 
-  const forecast = useMemo(() => {
-    if (daily.length < 7) return null
-    // Forecast far enough to fill whole plan weeks after the last actual day.
-    const last = daily[daily.length - 1].date
-    const firstMonday = addDays(weekStart(addDays(last, 1)), weekStart(addDays(last, 1)) === addDays(last, 1) ? 0 : 7)
-    const lead = Math.round((Date.parse(firstMonday) - Date.parse(last)) / 864e5) - 1
-    return forecastDaily(daily, { horizon: lead + plan.horizonWeeks * 7, method: plan.method, adjustPct: plan.volumeAdjustPct })
-  }, [daily, plan.method, plan.horizonWeeks, plan.volumeAdjustPct])
+export function useModel(ws) {
+  const [state, setState] = useState({ result: EMPTY, busy: false, error: null })
+  const worker = useRef(null)
+  const seq = useRef(0)
+  const fallbackCache = useRef(null)
 
-  const profiles = useMemo(() => {
-    const learnt = history?.intervalRows?.length ? learnProfiles(history.intervalRows, settings.intervalMin) : null
-    return learnt ?? defaultProfiles(settings)
-  }, [history, settings])
+  useEffect(() => {
+    try {
+      worker.current = new Worker(new URL('../engine/worker.js', import.meta.url), { type: 'module' })
+      worker.current.onmessage = (e) => {
+        if (e.data.seq !== seq.current) return // a newer run is on its way
+        setState(e.data.error ? (s) => ({ ...s, busy: false, error: e.data.error }) : { result: e.data.result, busy: false, error: null })
+      }
+    } catch {
+      worker.current = null
+    }
+    return () => worker.current?.terminate()
+  }, [])
 
-  const ahtByWeekday = useMemo(() => weekdayAht(daily, settings.defaultAht), [daily, settings.defaultAht])
+  const input = { sites: ws.sites, services: ws.services }
+  useEffect(() => {
+    const id = ++seq.current
+    setState((s) => ({ ...s, busy: true }))
+    const t = setTimeout(() => {
+      if (worker.current) {
+        worker.current.postMessage({ seq: id, ws: input })
+      } else {
+        fallbackCache.current ??= createCache()
+        try {
+          const result = computeWorkspace(input, fallbackCache.current)
+          if (id === seq.current) setState({ result, busy: false, error: null })
+        } catch (err) {
+          setState((s) => ({ ...s, busy: false, error: String(err.message) }))
+        }
+      }
+    }, 120)
+    return () => clearTimeout(t)
+  }, [ws.sites, ws.services]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const dayReqs = useMemo(() => {
-    if (!forecast?.points?.length) return []
-    return intervalRequirements(forecast.points, profiles, ahtByWeekday, settings, { ahtAdjustPct: plan.ahtAdjustPct })
-  }, [forecast, profiles, ahtByWeekday, settings, plan.ahtAdjustPct])
-
-  const weeks = useMemo(() => weeklyRequirements(dayReqs, settings).filter((w) => !w.partial), [dayReqs, settings])
-
-  const supply = useMemo(() => {
-    if (!weeks.length) return { sim: [], recs: [], simWithRecs: [], unfixable: [] }
-    const sim = simulateSupply(weeks, capacity, hires)
-    const recs = recommendHires(weeks, capacity, hires)
-    const simWithRecs = recs.length ? simulateSupply(weeks, capacity, [...hires, ...recs]) : sim
-    return { sim, recs, simWithRecs, unfixable: unfixableWeeks(sim, capacity) }
-  }, [weeks, capacity, hires])
-
-  return { forecast, profiles, ahtByWeekday, dayReqs, weeks, ...supply }
+  return state
 }

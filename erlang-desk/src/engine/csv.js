@@ -66,9 +66,14 @@ function guessSlashOrder(values) {
  * Parse history CSV text.
  * @returns {{kind:'daily'|'interval', rows:Array, errors:string[]}}
  */
+export const MAX_IMPORT_BYTES = 25 * 1024 * 1024
+export const MAX_IMPORT_ROWS = 500000
+
 export function parseHistoryCSV(text) {
+  if (text.length > MAX_IMPORT_BYTES) return { kind: 'daily', rows: [], errors: ['File is larger than 25 MB. Export a shorter date range.'] }
   const lines = text.replace(/^﻿/, '').split(/\r?\n/).filter((l) => l.trim() !== '')
   if (lines.length < 2) return { kind: 'daily', rows: [], errors: ['File has no data rows.'] }
+  if (lines.length > MAX_IMPORT_ROWS + 1) return { kind: 'daily', rows: [], errors: [`File has more than ${MAX_IMPORT_ROWS.toLocaleString()} rows.`] }
   const delim = detectDelimiter(lines[0])
   const header = splitCSVLine(lines[0], delim).map((h) => h.toLowerCase().replace(/\s+/g, '_'))
   const col = {}
@@ -88,6 +93,10 @@ export function parseHistoryCSV(text) {
     const date = normaliseDate(r[col.date] ?? '', order)
     const volume = Number(String(r[col.volume] ?? '').replace(/,/g, ''))
     const aht = col.aht >= 0 && r[col.aht] !== '' ? Number(r[col.aht]) : null
+    if (volume > 1e7 || (aht != null && aht > 86400)) {
+      if (errors.length < 10) errors.push(`Row ${i + 2}: value out of range.`)
+      return
+    }
     const time = kind === 'interval' ? parseTime(r[col.time] ?? '') : null
     if (!date || !Number.isFinite(volume) || volume < 0 || (kind === 'interval' && time == null)) {
       if (errors.length < 10) errors.push(`Row ${i + 2}: could not read "${r.join(delim)}".`)
@@ -115,9 +124,14 @@ export function aggregateDaily(rows) {
     .map((d) => (d.ahtVol > 0 ? { date: d.date, volume: d.volume, aht: d.ahtWork / d.ahtVol } : { date: d.date, volume: d.volume }))
 }
 
+const NUMERIC = /^-?\d+(\.\d+)?(e[+-]?\d+)?$/i
+
 function escapeCell(v) {
-  const s = v == null ? '' : String(v)
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  let s = v == null ? '' : String(v)
+  // Neutralise spreadsheet formula injection: a cell like =HYPERLINK(...)
+  // in an exported file would otherwise execute when opened in Excel.
+  if (/^[=+\-@\t\r]/.test(s) && !NUMERIC.test(s)) s = `'${s}`
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 
 export function toCSV(columns, rows) {
