@@ -269,8 +269,8 @@ export default function Landing({ onToggleTheme, account }) {
         <span>© {new Date().getFullYear()} {BRAND.name}</span>
         <span>Named for A. K. Erlang, who worked out the mathematics of call queues for the Copenhagen Telephone Company.</span>
         <span className="spacer" />
-        <a href="/privacy.html">Privacy</a>
-        <a href="/terms.html">Terms</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
         {BRAND.contactEmail && <a href={`mailto:${BRAND.contactEmail}`}>Contact</a>}
       </footer>
     </div>
