@@ -207,12 +207,28 @@ export function ColumnChart({ rows, color = 'var(--series-1)', height = 220, xFo
 }
 
 const SEQ = ['--seq-1', '--seq-2', '--seq-3', '--seq-4', '--seq-5', '--seq-6', '--seq-7']
+const DIV_NEG = ['--div-n1', '--div-n2', '--div-n3']
+const DIV_POS = ['--div-p1', '--div-p2', '--div-p3']
 
-/** Weekday × interval heatmap. grid: rows[{label, cells:[{value, tip}]}], colLabels: string[] */
-export function Heatmap({ rows, colLabels, onCell, selectedRow, valueLabel = 'Agents' }) {
+/**
+ * Weekday × interval heatmap.
+ * rows: [{label, cells:[{value, tip}]}] — value null for closed intervals
+ * scale 'seq' (magnitude, one hue) or 'div' (polarity around 0: red below, blue above)
+ */
+export function Heatmap({ rows, colLabels, onCell, selectedRow, valueLabel = 'Agents', scale = 'seq', domain, neutral = 0, lowLabel, highLabel, format = (v) => v }) {
   const [hover, setHover] = useState(null)
-  const max = Math.max(1, ...rows.flatMap((r) => r.cells.map((c) => c.value)))
-  const step = (v) => (v <= 0 ? 'var(--seq-0)' : `var(${SEQ[Math.min(SEQ.length - 1, Math.floor((v / max) * SEQ.length - 1e-9))]})`)
+  const values = rows.flatMap((r) => r.cells.map((c) => c.value)).filter((v) => v != null)
+  const max = scale === 'div' ? domain ?? Math.max(1, ...values.map(Math.abs)) : Math.max(1, ...values)
+  const color = (v) => {
+    if (v == null) return 'var(--heat-off)'
+    if (scale === 'div') {
+      if (Math.abs(v) <= neutral) return 'var(--div-0)'
+      const t = Math.min(1, Math.abs(v) / max)
+      const ramp = v < 0 ? DIV_NEG : DIV_POS
+      return `var(${ramp[t < 1 / 3 ? 0 : t < 2 / 3 ? 1 : 2]})`
+    }
+    return v <= 0 ? 'var(--seq-0)' : `var(${SEQ[Math.min(SEQ.length - 1, Math.floor((v / max) * SEQ.length - 1e-9))]})`
+  }
   const every = Math.max(1, Math.ceil(colLabels.length / 12))
   return (
     <div className="chart">
@@ -225,11 +241,11 @@ export function Heatmap({ rows, colLabels, onCell, selectedRow, valueLabel = 'Ag
                 <div
                   key={ci}
                   className="cell"
-                  style={{ background: step(c.value), outline: hover?.r === ri && hover?.c === ci ? '2px solid var(--ink)' : undefined, cursor: onCell ? 'pointer' : 'default' }}
+                  style={{ background: color(c.value), outline: hover?.r === ri && hover?.c === ci ? '2px solid var(--ink)' : undefined, cursor: onCell ? 'pointer' : 'default' }}
                   onMouseEnter={() => setHover({ r: ri, c: ci })}
                   onMouseLeave={() => setHover(null)}
                   onClick={() => onCell?.(ri, ci)}
-                  aria-label={`${r.label} ${colLabels[ci]}: ${c.value} ${valueLabel}`}
+                  aria-label={`${r.label} ${colLabels[ci]}: ${c.value == null ? 'closed' : `${format(c.value)} ${valueLabel}`}`}
                 />
               ))}
             </div>
@@ -241,12 +257,22 @@ export function Heatmap({ rows, colLabels, onCell, selectedRow, valueLabel = 'Ag
         </div>
       </div>
       <div className="row" style={{ justifyContent: 'space-between', marginTop: 10 }}>
-        <div className="scale">
-          <span>0</span>
-          <i style={{ background: 'var(--seq-0)' }} />
-          {SEQ.map((s) => <i key={s} style={{ background: `var(${s})` }} />)}
-          <span>{max} {valueLabel.toLowerCase()}</span>
-        </div>
+        {scale === 'div' ? (
+          <div className="scale">
+            <span>{lowLabel ?? `−${format(max)}`}</span>
+            {[...DIV_NEG].reverse().map((t) => <i key={t} style={{ background: `var(${t})` }} />)}
+            <i style={{ background: 'var(--div-0)' }} />
+            {DIV_POS.map((t) => <i key={t} style={{ background: `var(${t})` }} />)}
+            <span>{highLabel ?? `+${format(max)}`}</span>
+          </div>
+        ) : (
+          <div className="scale">
+            <span>0</span>
+            <i style={{ background: 'var(--seq-0)' }} />
+            {SEQ.map((t) => <i key={t} style={{ background: `var(${t})` }} />)}
+            <span>{format(max)} {valueLabel.toLowerCase()}</span>
+          </div>
+        )}
         <div className="small muted" style={{ minHeight: 20 }}>
           {hover ? (
             <span>

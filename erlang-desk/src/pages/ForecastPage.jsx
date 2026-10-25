@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { METHODS } from '../engine/forecast.js'
-import { formatDate, weekStart, WEEKDAYS, weekdayIndex } from '../engine/dates.js'
+import { formatDate, formatTime, weekStart, WEEKDAYS, weekdayIndex } from '../engine/dates.js'
 import { toCSV } from '../engine/csv.js'
 import { CHANNELS } from '../engine/channels.js'
 import { PageHead, Figures, Figure, SelectField, NumberField, Segmented, Panel, Locked } from '../components/ui.jsx'
-import { LineChart, Legend } from '../components/charts.jsx'
+import { LineChart, Legend, Heatmap } from '../components/charts.jsx'
 import { downloadText, fmtInt, fmtPct } from '../format.js'
 import { NoServices, NeedsHistory, serviceEyebrow } from './common.jsx'
 
@@ -20,8 +20,40 @@ function byWeek(rows, keys) {
   return [...m.values()].filter((w) => w.n === 7)
 }
 
+/** Forecast contacts per interval for one week: where the day's volume actually lands. */
+function IntervalHeatmap({ dayReqs, unit, intervalMin, week, setWeek }) {
+  const weeks = []
+  for (let i = 0; i + 7 <= dayReqs.length; i++) {
+    if (weekdayIndex(dayReqs[i].date) === 0) weeks.push(dayReqs.slice(i, i + 7))
+  }
+  if (!weeks.length) return null
+  const days = weeks.find((w) => w[0].date === week) ?? weeks[0]
+  const cols = days[0].intervals.map((_, k) => k).filter((k) => days.some((d) => d.intervals[k].volume > 0.05))
+  const rows = days.map((d) => ({
+    label: WEEKDAYS[weekdayIndex(d.date)],
+    cells: cols.map((k) => {
+      const iv = d.intervals[k]
+      return { value: iv.volume, tip: `${fmtInt(iv.volume)} ${unit} · AHT ${Math.round(iv.aht)}s · ${fmtPct(iv.volume / Math.max(1, d.volume), 1)} of the day` }
+    }),
+  }))
+  return (
+    <Panel
+      title={`Forecast ${unit} by interval`}
+      aside={
+        <select aria-label="Week" value={days[0].date} onChange={(e) => setWeek(e.target.value)} style={{ width: 'auto' }}>
+          {weeks.map((w) => <option key={w[0].date} value={w[0].date}>Week of {formatDate(w[0].date, { day: 'numeric', month: 'short', year: 'numeric' })}</option>)}
+        </select>
+      }
+    >
+      <Heatmap rows={rows} colLabels={cols.map((k) => formatTime(k * intervalMin))} valueLabel={unit} format={(v) => fmtInt(v)} />
+      <p className="small faint" style={{ marginTop: 8 }}>Daily forecast spread across the intraday pattern learnt from your interval history. Staff required and roster coverage are on the next pages.</p>
+    </Panel>
+  )
+}
+
 export default function ForecastPage({ active, site, result, updateActive, replace, account }) {
   const [grain, setGrain] = useState('daily')
+  const [heatWeek, setHeatWeek] = useState(null)
   const daily = active?.history?.dailyRows ?? []
   const forecast = result?.forecast
   const chartRows = useMemo(() => {
@@ -93,6 +125,10 @@ export default function ForecastPage({ active, site, result, updateActive, repla
           markers={[{ x: chartRows.find((r) => r.forecast != null)?.x, label: 'Forecast' }]}
         />
       </Panel>
+
+      {active.channel !== 'backoffice' && result?.dayReqs?.length > 0 && (
+        <IntervalHeatmap dayReqs={result.dayReqs} unit={unit} intervalMin={result.settings.intervalMin} week={heatWeek} setWeek={setHeatWeek} />
+      )}
 
       <div className="cols">
         <Panel title="How each method did" aside={`Last ${forecast.accuracy?.holdoutDays ?? 0} days held out`}>

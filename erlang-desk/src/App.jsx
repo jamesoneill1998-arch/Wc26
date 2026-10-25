@@ -9,6 +9,7 @@ import Overview from './pages/Overview.jsx'
 import DataPage from './pages/DataPage.jsx'
 import ForecastPage from './pages/ForecastPage.jsx'
 import StaffingPage from './pages/StaffingPage.jsx'
+import CoveragePage from './pages/CoveragePage.jsx'
 import CapacityPage from './pages/CapacityPage.jsx'
 import ServicePage from './pages/ServicePage.jsx'
 import SitesPage from './pages/SitesPage.jsx'
@@ -20,6 +21,7 @@ const PAGES = {
   data: DataPage,
   forecast: ForecastPage,
   staffing: StaffingPage,
+  coverage: CoveragePage,
   capacity: CapacityPage,
   service: ServicePage,
   sites: SitesPage,
@@ -115,6 +117,8 @@ export default function App() {
           <NavLink to="data" label="Data" current={key} />
           <NavLink to="forecast" label="Forecast" current={key} />
           <NavLink to="staffing" label={active?.channel === 'backoffice' ? 'Daily workload' : 'Intraday staffing'} current={key} />
+
+          <NavLink to="coverage" label="Schedule & coverage" current={key} />
           <NavLink to="capacity" label="Capacity plan" current={key} />
           <NavLink to="service" label="Service settings" current={key} />
           <div className="group label">Tools</div>

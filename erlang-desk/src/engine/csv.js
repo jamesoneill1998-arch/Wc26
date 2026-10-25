@@ -33,13 +33,13 @@ export function splitCSVLine(line, delim = ',') {
   return out.map((s) => s.trim())
 }
 
-function detectDelimiter(header) {
+export function detectDelimiter(header) {
   const counts = [',', ';', '\t'].map((d) => [d, header.split(d).length])
   counts.sort((a, b) => b[1] - a[1])
   return counts[0][0]
 }
 
-function normaliseDate(raw, slashOrder) {
+export function normaliseDate(raw, slashOrder) {
   const s = raw.trim()
   if (parseISODate(s) != null) return s
   const m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(s)
@@ -52,7 +52,7 @@ function normaliseDate(raw, slashOrder) {
 }
 
 /** Decide DD/MM vs MM/DD by looking for a first field > 12. */
-function guessSlashOrder(values) {
+export function guessSlashOrder(values) {
   for (const v of values) {
     const m = /^(\d{1,2})[/.-](\d{1,2})[/.-]\d{4}$/.exec(v.trim())
     if (!m) continue

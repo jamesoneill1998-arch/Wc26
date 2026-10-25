@@ -8,8 +8,9 @@ Forecasting, staffing and capacity planning for contact centres, back offices an
 |---|---|
 | **Channels** | Voice (Erlang A with abandonment, or Erlang C), chat (Erlang A × concurrency), back office (workload ÷ utilisation, smoothed over a turnaround SLA, with weekend work rolled forward) and branch (Erlang C per branch × number of branches, with minimum cover). |
 | **Sites** | Each site has itemised shrinkage (leave, sickness, breaks, training, meetings, other), contracted hours and attrition. Defaults are UK 35% / 37.5h and offshore 20% / 40h, all editable. |
-| **Forecast** | Trend + weekly + annual regression, damped Holt-Winters, weekday average and same-day-last-week are backtested on recent history. The most accurate is chosen automatically and its accuracy and bias are shown. Planners can add a % overlay. |
+| **Forecast** | Contacts-by-interval heatmap for any forecast week. Trend + weekly + annual regression, damped Holt-Winters, weekday average and same-day-last-week are backtested on recent history. The most accurate is chosen automatically and its accuracy and bias are shown. Planners can add a % overlay. |
 | **Intraday** | Staff needed per 15/30/60-minute interval, with service level, abandonment, occupancy and rostered numbers. Back office gets a daily workload view instead. |
+| **Schedule & coverage** | Shift patterns (people per shift per weekday) or an imported roster CSV are turned into staff on duty per interval, after breaks and in-day shrinkage. Heatmaps show short/over, required, rostered and projected service level per interval, with figures for projected weekly service level, short and over hours, and rostered FTE. "Suggest shifts" builds a first-draft roster from the requirement. |
 | **Capacity** | 13–52 weeks of required FTE against available FTE, through attrition, training and nesting. Suggests hiring classes and flags shortfalls that hiring can't reach in time. |
 | **Overview** | Every service rolled up by channel and by site. |
 | **Calculator** | Free Erlang A vs C for a single interval, rostered for each site. |
@@ -50,6 +51,16 @@ date,time,volume,aht
 
 `time` and `aht` (seconds) are optional. Dates can be `YYYY-MM-DD`, `DD/MM/YYYY` or `MM/DD/YYYY`. Common ACD headings such as "Calls Offered" are recognised. Comma, semicolon and tab delimiters all work.
 
+## Schedule CSV format
+
+```csv
+agent,date,start,end,lunch_start,lunch_end
+A123,2026-11-02,08:00,16:30,12:00,12:30
+A124,2026-11-02,22:00,06:00,02:00,02:30
+```
+
+One row per shift. Overnight shifts are fine. Optional columns: `break_start`/`break_end`, `lunch_start`/`lunch_end`, `break_minutes` (staggered mid-shift when no times are given) and `headcount` (for aggregated rosters). Agent names and IDs are discarded on import; only times and counts are kept. Imported dates replace the shift patterns for those days.
+
 ## Code map
 
 ```
@@ -64,6 +75,7 @@ src/engine/         pure maths, unit-tested, runs in a Web Worker
   channels.js       channel models, sites, shrinkage
   forecast.js       methods, backtest, prediction band
   capacity.js       interval/back-office requirements, weekly FTE, supply simulation, hiring
+  schedule.js       rosters to interval coverage, projected service level, shift suggestions
   compute.js        whole-workspace run with stage caching
 src/state/          workspace store (validated and migrated), worker hook, account, sample data
 src/pages/          one file per screen

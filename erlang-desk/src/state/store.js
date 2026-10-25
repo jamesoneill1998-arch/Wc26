@@ -40,7 +40,12 @@ export function newService({ name, channel = 'voice', siteId = 'uk' } = {}) {
     capacity: defaultCapacity(channel),
     hires: [],
     history: null,
+    schedule: emptySchedule(),
   }
+}
+
+export function emptySchedule() {
+  return { patterns: [], shifts: [], source: null, inDayShrinkage: null }
 }
 
 export function emptyWorkspace() {
@@ -114,6 +119,37 @@ function sanitizeSettings(s, channel) {
   }
 }
 
+const MAX_SHIFTS = 200000
+
+function sanitizeSchedule(sc) {
+  if (!sc || typeof sc !== 'object') return emptySchedule()
+  const patterns = (Array.isArray(sc.patterns) ? sc.patterns : []).slice(0, 100).flatMap((p) => {
+    if (!p || !HHMM.test(p.start) || !HHMM.test(p.end) || !Array.isArray(p.counts) || p.counts.length !== 7) return []
+    return [{
+      id: typeof p.id === 'string' && /^[a-z0-9]{1,16}$/i.test(p.id) ? p.id : newId(),
+      start: p.start,
+      end: p.end,
+      breakMin: Math.round(num(p.breakMin, 0, 240, 0)),
+      counts: p.counts.map((c) => Math.round(num(c, 0, 10000, 0))),
+    }]
+  })
+  const shifts = (Array.isArray(sc.shifts) ? sc.shifts : []).slice(0, MAX_SHIFTS).flatMap((x) => {
+    if (!x || !ISO.test(x.date) || !Number.isInteger(x.start) || !Number.isInteger(x.end)) return []
+    if (x.start < 0 || x.start >= 1440 || x.end <= x.start || x.end > x.start + 1440) return []
+    const breaks = (Array.isArray(x.breaks) ? x.breaks : []).slice(0, 4).filter((b) => Array.isArray(b) && Number.isInteger(b[0]) && Number.isInteger(b[1]) && b[0] >= x.start && b[1] <= x.end && b[1] > b[0])
+    const g = x.stagger
+    const stagger = g && Number.isFinite(g.from) && Number.isFinite(g.to) && g.to > g.from && g.from >= x.start && g.to <= x.end && g.minutes > 0 && g.minutes <= g.to - g.from
+      ? { from: g.from, to: g.to, minutes: g.minutes } : null
+    return [{ date: x.date, start: x.start, end: x.end, breaks: breaks.map((b) => [b[0], b[1]]), ...(stagger ? { stagger } : {}), count: num(x.count, 0.01, 10000, 1) }]
+  })
+  return {
+    patterns,
+    shifts,
+    source: shifts.length ? str(sc.source, 120, 'Imported schedule') : null,
+    inDayShrinkage: sc.inDayShrinkage == null ? null : num(sc.inDayShrinkage, 0, 0.9, null),
+  }
+}
+
 function sanitizeService(svc, siteIds) {
   if (!svc || typeof svc !== 'object') return null
   const channel = CHANNELS[svc.channel] ? svc.channel : 'voice'
@@ -145,6 +181,7 @@ function sanitizeService(svc, siteIds) {
       ? svc.hires.filter((h) => h && ISO.test(h.week) && Number.isFinite(h.count)).slice(0, 200).map((h) => ({ week: h.week, count: Math.round(num(h.count, 1, 10000, 1)) }))
       : [],
     history: sanitizeHistory(svc.history),
+    schedule: sanitizeSchedule(svc.schedule),
   }
 }
 
