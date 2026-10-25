@@ -58,7 +58,7 @@ function Team({ account }) {
   )
 }
 
-export default function AccountPage({ account, query, replace }) {
+export default function AccountPage({ account, query, replace, ws, update }) {
   const [error, setError] = useState(null)
   const signin = query?.get('signin')
   const checkout = query?.get('checkout')
@@ -82,7 +82,7 @@ export default function AccountPage({ account, query, replace }) {
       {error && <div className="notice" role="alert">{error}</div>}
 
       {!account.billing && (
-        <div className="notice ok">This is a preview build, so every feature is unlocked and there's nothing to buy. Set <code>VITE_BILLING=on</code> in production to turn on accounts and billing.</div>
+        <div className="notice ok">Billing isn't switched on for this installation, so every feature is available.</div>
       )}
 
       {account.billing && !account.loading && !account.signedIn && <SignIn account={account} plan={wanted} />}
@@ -108,6 +108,12 @@ export default function AccountPage({ account, query, replace }) {
       )}
 
       {account.billing && account.active && account.plan === 'team' && account.role === 'owner' && <Team account={account} />}
+
+      <Panel title="Organisation">
+        <div style={{ maxWidth: 420 }}>
+          <TextField label="Name shown on plans and summaries" value={ws.name} maxLength={80} onChange={(name) => update({ name })} />
+        </div>
+      </Panel>
 
       <Panel title="Data on this device">
         <div className="stack-s">

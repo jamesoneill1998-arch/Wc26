@@ -21,12 +21,12 @@ export default function Calculator({ ws }) {
       <PageHead eyebrow="Free tool" title="Erlang calculator" lede="Staff needed for a single interval, with Erlang C (everyone waits) and Erlang A (some give up) side by side." />
       <Panel>
         <div className="fields">
-          <NumberField label="Contacts in interval" min={0} max={100000} value={p.volume} onChange={set('volume')} />
+          <NumberField label="Contacts in interval" min={0} max={100000} slider={[0, 1500]} value={p.volume} onChange={set('volume')} />
           <SelectField label="Interval" value={String(p.intervalMin)} onChange={(v) => set('intervalMin')(Number(v))} options={[15, 30, 60].map((m) => ({ value: String(m), label: `${m} minutes` }))} />
-          <NumberField label="Average handle time" suffix="sec" min={1} max={14400} value={p.ahtSec} onChange={set('ahtSec')} />
-          <NumberField label="Service level goal" pct min={1} max={99.9} value={p.slTarget} onChange={set('slTarget')} />
+          <NumberField label="Average handle time" suffix="sec" min={1} max={14400} slider={[30, 1200]} value={p.ahtSec} onChange={set('ahtSec')} />
+          <NumberField label="Service level goal" pct min={1} max={99.9} slider={[50, 99]} value={p.slTarget} onChange={set('slTarget')} />
           <NumberField label="Answered within" suffix="sec" min={0} max={3600} value={p.targetSec} onChange={set('targetSec')} />
-          <NumberField label="Average patience" suffix="sec" min={5} max={3600} value={p.patienceSec} onChange={set('patienceSec')} hint="Erlang A only" />
+          <NumberField label="Average patience" suffix="sec" min={5} max={3600} slider={[10, 600]} value={p.patienceSec} onChange={set('patienceSec')} hint="Erlang A only" />
           <NumberField label="Maximum occupancy" pct min={10} max={100} value={p.maxOccupancy} onChange={set('maxOccupancy')} />
           <NumberField label="Concurrency" min={1} max={10} step={0.5} value={p.concurrency} onChange={set('concurrency')} hint="Chats per agent; 1 for voice" />
         </div>

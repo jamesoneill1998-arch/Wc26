@@ -1,35 +1,57 @@
 import { useEffect, useState } from 'react'
 
-/** Numeric input that lets people type freely and commits valid numbers. `pct` shows fractions as %. */
-export function NumberField({ label, value, onChange, pct = false, step = 1, min, max, hint, suffix, id, disabled }) {
+const SHORT_UNITS = { sec: 's', weeks: 'wks', 'per week': 'h/wk', 'working days': 'days', months: 'mo', '% per month': '%/mo' }
+
+/**
+ * Numeric input that lets people type freely and commits valid numbers.
+ * `pct` shows fractions as %. The unit sits inside the field; `slider`
+ * adds a range control for quick what-if adjustment.
+ */
+export function NumberField({ label, value, onChange, pct = false, step = 1, min, max, hint, suffix, id, disabled, slider = false }) {
   const toText = (v) => (v == null || v === '' ? '' : String(pct ? +(v * 100).toFixed(4) : v))
   const [text, setText] = useState(toText(value))
   useEffect(() => setText(toText(value)), [value]) // eslint-disable-line react-hooks/exhaustive-deps
   const fid = id ?? `f-${label.replace(/\W+/g, '-').toLowerCase()}`
+  const unit = suffix ? SHORT_UNITS[suffix] ?? suffix : pct ? '%' : null
+  const commit = (raw) => {
+    const n = Number(raw)
+    if (raw === '' || !Number.isFinite(n)) return
+    let v = pct ? n / 100 : n
+    if (min != null) v = Math.max(pct ? min / 100 : min, v)
+    if (max != null) v = Math.min(pct ? max / 100 : max, v)
+    onChange(v)
+  }
   return (
     <div className="field">
-      <label htmlFor={fid}>{label}{suffix ? ` (${suffix})` : pct ? ' (%)' : ''}</label>
-      <input
-        id={fid}
-        type="number"
-        inputMode="decimal"
-        step={step}
-        min={min}
-        max={max}
-        value={text}
-        disabled={disabled}
-        onChange={(e) => {
-          setText(e.target.value)
-          const n = Number(e.target.value)
-          if (e.target.value !== '' && Number.isFinite(n)) {
-            let v = pct ? n / 100 : n
-            if (min != null) v = Math.max(pct ? min / 100 : min, v)
-            if (max != null) v = Math.min(pct ? max / 100 : max, v)
-            onChange(v)
-          }
-        }}
-        onBlur={() => setText(toText(value))}
-      />
+      <label htmlFor={fid}>{label}</label>
+      <div className={`input-unit${unit ? '' : ' bare'}`}>
+        <input
+          id={fid}
+          type="number"
+          inputMode="decimal"
+          step={step}
+          min={min}
+          max={max}
+          value={text}
+          disabled={disabled}
+          onChange={(e) => { setText(e.target.value); commit(e.target.value) }}
+          onBlur={() => setText(toText(value))}
+        />
+        {unit && <span className="unit" aria-hidden="true">{unit}</span>}
+      </div>
+      {slider && (Array.isArray(slider) || (min != null && max != null)) && (
+        <input
+          className="slider"
+          type="range"
+          aria-label={`${label} slider`}
+          min={Array.isArray(slider) ? slider[0] : min}
+          max={Array.isArray(slider) ? slider[1] : max}
+          step={step}
+          value={text === '' ? 0 : Number(text)}
+          disabled={disabled}
+          onChange={(e) => { setText(e.target.value); commit(e.target.value) }}
+        />
+      )}
       {hint && <span className="hint">{hint}</span>}
     </div>
   )
@@ -84,16 +106,55 @@ export function Figure({ label, value, sub, hero, text }) {
   )
 }
 
-/** Surplus/shortfall with a glyph and sign, never colour alone. */
+/**
+ * Surplus/shortfall with a glyph and sign, never colour alone. Within half
+ * a person either side counts as balanced.
+ */
 export function Gap({ value, unit = 'FTE' }) {
   if (!Number.isFinite(value)) return '–'
-  const ok = value >= -0.5
+  const state = value >= 0 ? 'good' : value > -0.5 ? 'even' : 'bad'
   return (
-    <span className={`status ${ok ? 'good' : 'bad'}`}>
-      <span className="glyph" aria-hidden="true">{ok ? '▲' : '▼'}</span>
+    <span className={`status ${state}`}>
+      <span className="glyph" aria-hidden="true">{{ good: '▲', even: '●', bad: '▼' }[state]}</span>
       {value >= 0 ? '+' : '−'}{Math.abs(value).toFixed(1)}{unit ? ` ${unit}` : ''}
-      <span className="sr-only">{ok ? 'covered' : 'short'}</span>
+      <span className="sr-only">{{ good: 'covered', even: 'roughly balanced', bad: 'short' }[state]}</span>
     </span>
+  )
+}
+
+/** Tiny trend line with a zero rule, for tables. */
+export function Sparkline({ values, width = 120, height = 28, label }) {
+  const v = values.filter(Number.isFinite)
+  if (v.length < 2) return null
+  const lo = Math.min(0, ...v)
+  const hi = Math.max(0, ...v)
+  const span = hi - lo || 1
+  const x = (i) => 2 + (i / (v.length - 1)) * (width - 6)
+  const y = (n) => 3 + (1 - (n - lo) / span) * (height - 6)
+  const d = v.map((n, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(n).toFixed(1)}`).join('')
+  const last = v[v.length - 1]
+  const worst = v.reduce((m, n, i) => (n < v[m] ? i : m), 0)
+  return (
+    <svg className="spark" width={width} height={height} role="img" aria-label={label}>
+      <line x1="0" x2={width} y1={y(0)} y2={y(0)} stroke="var(--axis)" strokeWidth="1" />
+      <path d={d} fill="none" stroke="var(--series-1)" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
+      {v[worst] < -0.5 && <circle cx={x(worst)} cy={y(v[worst])} r="2.6" fill="var(--critical)" stroke="var(--surface)" strokeWidth="1.2" />}
+      <circle cx={x(v.length - 1)} cy={y(last)} r="2.8" fill="var(--series-1)" stroke="var(--surface)" strokeWidth="1.2" />
+    </svg>
+  )
+}
+
+/** A 24-hour strip showing when a service is open. */
+export function DayTimeline({ open, close }) {
+  const toMin = (t) => { const [h, m] = (t || '0:0').split(':').map(Number); return h * 60 + m }
+  const a = open ? toMin(open) : null
+  let b = close ? toMin(close) : null
+  if (b != null && a != null && b <= a) b = 1440
+  return (
+    <div className="timeline" aria-hidden="true">
+      {[6, 12, 18].map((h) => <i key={h} style={{ left: `${(h / 24) * 100}%` }} />)}
+      {a != null && <b style={{ left: `${(a / 1440) * 100}%`, width: `${((b - a) / 1440) * 100}%` }} />}
+    </div>
   )
 }
 

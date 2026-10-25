@@ -61,6 +61,36 @@ function WorkedExample() {
   )
 }
 
+const SCREENS = [
+  { key: 'overview', tab: 'Operation overview', src: 'screens/overview.jpg', w: 1416, h: 587, alt: 'Stacked weekly required FTE by channel against available FTE', caption: 'Every service and site in one view: required FTE by channel each week, against the people you will actually have after attrition and new starters.' },
+  { key: 'coverage', tab: 'Roster coverage', src: 'screens/coverage.jpg', w: 1416, h: 492, alt: 'Heatmap of staff short and over by day and half hour', caption: 'Your roster against the requirement, every half hour. Red is short, blue is over. Here the 10:00 peak and weekends are short while early afternoon carries spare staff.' },
+  { key: 'impact', tab: 'Change impact', src: 'screens/impact-chart.jpg', w: 1416, h: 600, alt: 'Monthly FTE chart for a mortgage launch against operational FTE', caption: 'A mortgage launch of 25,000 acquisitions, converted to calls and FTE by month and tested against headroom after other approved changes. Verdict: not absorbable without recruiting.' },
+]
+
+function InsideThePlanner() {
+  const [key, setKey] = useState('coverage')
+  const shot = SCREENS.find((x) => x.key === key)
+  return (
+    <section className="section alt" id="inside">
+      <div className="wrap">
+        <div className="section-head">
+          <h2>Inside the planner</h2>
+          <p>Screens from the sample operation that ships with the product: four services across a UK and an offshore site.</p>
+        </div>
+        <div className="seg" role="tablist" aria-label="Screens">
+          {SCREENS.map((x) => (
+            <button key={x.key} type="button" role="tab" aria-selected={x.key === key} className={x.key === key ? 'on' : ''} onClick={() => setKey(x.key)}>{x.tab}</button>
+          ))}
+        </div>
+        <figure className="screen" role="tabpanel">
+          <img src={shot.src} width={shot.w} height={shot.h} alt={shot.alt} loading="lazy" decoding="async" />
+          <figcaption>{shot.caption}</figcaption>
+        </figure>
+      </div>
+    </section>
+  )
+}
+
 const CHANNEL_COPY = [
   ['Voice', 'Erlang A', 'Callers hang up. Erlang A models that, so you staff to the service your customers actually get rather than a queue where nobody ever leaves.'],
   ['Chat', 'Erlang A × concurrency', 'Agents run two or three sessions at once, and chat customers are more patient. Both are built into the requirement.'],
@@ -140,6 +170,8 @@ export default function Landing({ onToggleTheme, account }) {
           <WorkedExample />
         </div>
       </section>
+
+      <InsideThePlanner />
 
       <section className="section" id="channels">
         <div className="wrap">

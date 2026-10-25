@@ -232,7 +232,7 @@ function DriverFields({ driver, setDriver, weeklyHours }) {
               </div>
             ))}
             {d.curve.length < 12 && <button className="btn sm" type="button" onClick={() => set({ curve: [...d.curve, 0] })} style={{ alignSelf: 'flex-end' }}>Add month</button>}
-            {d.curve.length > 1 && <button className="btn link small" type="button" onClick={() => set({ curve: d.curve.slice(0, -1) })} style={{ alignSelf: 'flex-end' }}>Remove last</button>}
+            {d.curve.length > 1 && <button className="btn link small no-print" type="button" onClick={() => set({ curve: d.curve.slice(0, -1) })} style={{ alignSelf: 'flex-end' }}>Remove last</button>}
           </div>
           <p className="small faint" style={{ marginTop: 8 }}>{fmtInt(d.total * d.contactsPerUnit)} contacts in total. Shares are normalised to 100%.</p>
         </div>
@@ -391,6 +391,7 @@ function ChangeRegister({ ws, area, ctx, update, account }) {
       <Panel title="Change details" aside={
         <div className="row">
           <button className="btn sm" type="button" onClick={copy}>Copy summary</button>
+          <button className="btn sm" type="button" onClick={() => window.print()}>Print</button>
           {account.entitled && <button className="btn sm" type="button" onClick={exportCsv}>Export CSV</button>}
           <ConfirmButton className="btn sm" confirmLabel="Click again to delete" onConfirm={() => update((cur) => ({ changes: cur.changes.filter((c) => c.id !== sel.id) }))}>Delete</ConfirmButton>
         </div>

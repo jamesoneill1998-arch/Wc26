@@ -132,12 +132,13 @@ export default function App() {
         <div className="side-foot">
           <span>Data is held in this browser only.</span>
           <div className="row" style={{ justifyContent: 'space-between' }}>
-            <span>{account.billing ? (account.signedIn ? account.email : 'Not signed in') : 'Preview build'}</span>
+            <span>{account.billing ? (account.signedIn ? account.email : 'Not signed in') : ws.name}</span>
             <button className="btn link small" type="button" onClick={toggleTheme}>Theme</button>
           </div>
         </div>
       </aside>
       <main className="main" id="main">
+        <div className="print-only print-head">{ws.name} · Erlang Desk · printed {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
         {store.saveError && <div className="notice" style={{ marginBottom: 20 }}>{store.saveError}</div>}
         {error && <div className="notice" style={{ marginBottom: 20 }}>The planning model hit a problem: {error}</div>}
         <Page {...store} model={model} account={account} query={route.query} result={active ? model.services[active.id] : null} updateActive={(patch) => active && updateService(active.id, patch)} site={site} />

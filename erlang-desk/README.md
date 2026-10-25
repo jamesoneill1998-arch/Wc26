@@ -13,9 +13,14 @@ Forecasting, staffing and capacity planning for contact centres, back offices an
 | **Schedule & coverage** | Shift patterns (people per shift per weekday) or an imported roster CSV are turned into staff on duty per interval, after breaks and in-day shrinkage. Heatmaps show short/over, required, rostered and projected service level per interval, with figures for projected weekly service level, short and over hours, and rostered FTE. "Suggest shifts" builds a first-draft roster from the requirement. |
 | **Capacity** | 13–52 weeks of required FTE against available FTE, through attrition, training and nesting. Suggests hiring classes and flags shortfalls that hiring can't reach in time. |
 | **Impact assessment** | For change delivery. An aggregate monthly plan per business area (forecast volume, AHT, operational and MTP FTE, pasted from Excel or filled from a service) converts to required FTE and headroom. A change register then converts each change into contacts, workload and FTE by month. Drivers: new-business volumes (e.g. 25,000 acquisitions × contacts each, spread over the following months), volume % or contacts, AHT change on a share of calls, and training/abstraction. Each change is assessed after committed changes not already in the MTP, giving a verdict: absorbable, absorbable with overtime, not absorbable, or releases capacity. It also gives the shortfall, recruitment start date, cost and unmitigated service level, plus a copyable summary for the change board. |
-| **Overview** | Every service rolled up by channel and by site. |
+| **Overview** | A "Needs attention" list (hiring deadlines, shortfalls hiring can't reach, changes over capacity), required vs available FTE by channel, and per-service trend sparklines. |
+| **Overview (detail)** | Every service rolled up by channel and by site. |
 | **Calculator** | Free Erlang A vs C for a single interval, rostered for each site. |
 | **Accounts** | Passwordless sign-in, Stripe subscriptions (Pro and Team), and Team seat management. See [SECURITY.md](SECURITY.md). |
+
+## Printing
+
+Capacity plans and impact assessments have a Print button and a print layout (organisation name and date at the top, no navigation, panels kept whole), so they can go straight into a change-board or finance pack, or be saved as PDF.
 
 ## Run it locally
 

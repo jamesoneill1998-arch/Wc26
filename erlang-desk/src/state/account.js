@@ -1,5 +1,5 @@
 // Account and plan state from the server. Billing is only enforced when the
-// deployment sets VITE_BILLING=on; otherwise the app runs fully unlocked
+// deployment sets VITE_BILLING=on; otherwise every feature is available
 // (local development, previews, self-hosted trials).
 
 import { useCallback, useEffect, useState } from 'react'

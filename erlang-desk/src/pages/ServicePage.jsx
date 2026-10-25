@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { CHANNELS, defaultServiceSettings } from '../engine/channels.js'
 import { WEEKDAYS } from '../engine/dates.js'
 import { newService } from '../state/store.js'
-import { PageHead, NumberField, SelectField, TextField, Panel, ConfirmButton } from '../components/ui.jsx'
+import { PageHead, NumberField, SelectField, TextField, Panel, ConfirmButton, DayTimeline } from '../components/ui.jsx'
 import { serviceEyebrow } from './common.jsx'
 
-const channelOptions = Object.entries(CHANNELS).map(([value, c]) => ({ value, label: `${c.label} — ${c.method}` }))
+const channelOptions = Object.entries(CHANNELS).map(([value, c]) => ({ value, label: `${c.label} · ${c.method}` }))
 
 function AddService({ ws, update, onDone }) {
   const [name, setName] = useState('')
@@ -47,7 +47,7 @@ export default function ServicePage({ ws, active, site, update, updateActive, qu
 
   return (
     <div className="stack">
-      <PageHead eyebrow={serviceEyebrow(active, site)} title="Service settings" lede={`${CHANNELS[active.channel].label} is planned with ${CHANNELS[active.channel].method.toLowerCase()}.`}>
+      <PageHead eyebrow={serviceEyebrow(active, site)} title="Service settings" lede={`${CHANNELS[active.channel].label} is planned with ${CHANNELS[active.channel].method}. Targets and hours here drive the staffing, coverage and capacity pages.`}>
         <button className="btn" type="button" onClick={() => setAdding(true)}>Add a service</button>
       </PageHead>
 
@@ -88,8 +88,8 @@ export default function ServicePage({ ws, active, site, update, updateActive, qu
 
       <Panel title="Opening hours" aside={live ? 'Minimum staffing applies inside these hours' : 'Work arriving on closed days rolls to the next open day'}>
         <div className="table-wrap">
-          <table style={{ maxWidth: 560 }}>
-            <thead><tr><th>Day</th><th style={{ textAlign: 'left' }}>Open</th><th style={{ textAlign: 'left' }}>From</th><th style={{ textAlign: 'left' }}>To</th></tr></thead>
+          <table>
+            <thead><tr><th>Day</th><th style={{ textAlign: 'left' }}>Open</th><th style={{ textAlign: 'left' }}>From</th><th style={{ textAlign: 'left' }}>To</th><th style={{ textAlign: 'left', width: '40%' }}>Day at a glance</th></tr></thead>
             <tbody>
               {WEEKDAYS.map((d, wd) => {
                 const h = s.hours[wd]
@@ -99,6 +99,7 @@ export default function ServicePage({ ws, active, site, update, updateActive, qu
                     <td style={{ textAlign: 'left' }}><input type="checkbox" aria-label={`Open on ${d}`} checked={!!h} onChange={(e) => setHours(wd, e.target.checked ? { open: '09:00', close: '17:00' } : null)} /></td>
                     <td style={{ textAlign: 'left' }}>{h && <input type="time" aria-label={`${d} opens`} value={h.open} step={s.intervalMin * 60} onChange={(e) => e.target.value && setHours(wd, { ...h, open: e.target.value })} />}</td>
                     <td style={{ textAlign: 'left' }}>{h && <input type="time" aria-label={`${d} closes`} value={h.close} step={s.intervalMin * 60} onChange={(e) => e.target.value && setHours(wd, { ...h, close: e.target.value })} />}</td>
+                    <td style={{ textAlign: 'left' }}>{h ? <DayTimeline open={h.open} close={h.close} /> : <span className="faint small">Closed</span>}</td>
                   </tr>
                 )
               })}

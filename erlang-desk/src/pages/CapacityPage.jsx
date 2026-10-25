@@ -46,6 +46,7 @@ export default function CapacityPage({ active, site, result, updateActive, updat
   return (
     <div className="stack">
       <PageHead eyebrow={eyebrow} title="Capacity plan" lede="Week by week, the FTE this service needs against the FTE it will have, after attrition and the ramp-up of new starters.">
+        <button className="btn" type="button" onClick={() => window.print()}>Print</button>
         {account.entitled && <button className="btn" type="button" onClick={exportCsv}>Export CSV</button>}
       </PageHead>
 
@@ -82,10 +83,10 @@ export default function CapacityPage({ active, site, result, updateActive, updat
         </Panel>
         <Panel title="What if" aside="Applies across this service's plan">
           <div className="fields">
-            <NumberField label="Volume change" pct step={1} min={-90} max={500} value={plan.volumeAdjustPct} onChange={(volumeAdjustPct) => setPlan({ volumeAdjustPct })} />
-            <NumberField label="AHT change" pct step={1} min={-90} max={500} value={plan.ahtAdjustPct} onChange={(ahtAdjustPct) => setPlan({ ahtAdjustPct })} />
-            {active.channel !== 'backoffice' && <NumberField label="Service level goal" pct step={1} min={1} max={99.9} value={active.settings.slTarget} onChange={(slTarget) => setS({ slTarget })} />}
-            <NumberField label="Shrinkage override" pct step={1} min={0} max={90} value={active.settings.shrinkageOverride ?? s.shrinkage} onChange={(shrinkageOverride) => setS({ shrinkageOverride })} hint={active.settings.shrinkageOverride != null ? <button className="btn link small" type="button" onClick={() => setS({ shrinkageOverride: null })}>Use site default</button> : 'Site default in use'} />
+            <NumberField label="Volume change" pct step={1} min={-90} max={500} slider={[-50, 100]} value={plan.volumeAdjustPct} onChange={(volumeAdjustPct) => setPlan({ volumeAdjustPct })} />
+            <NumberField label="AHT change" pct step={1} min={-90} max={500} slider={[-50, 100]} value={plan.ahtAdjustPct} onChange={(ahtAdjustPct) => setPlan({ ahtAdjustPct })} />
+            {active.channel !== 'backoffice' && <NumberField label="Service level goal" pct step={1} min={1} max={99.9} slider={[50, 99]} value={active.settings.slTarget} onChange={(slTarget) => setS({ slTarget })} />}
+            <NumberField label="Shrinkage override" pct step={1} min={0} max={90} slider={[10, 60]} value={active.settings.shrinkageOverride ?? s.shrinkage} onChange={(shrinkageOverride) => setS({ shrinkageOverride })} hint={active.settings.shrinkageOverride != null ? <button className="btn link small" type="button" onClick={() => setS({ shrinkageOverride: null })}>Use site default</button> : 'Site default in use'} />
           </div>
         </Panel>
       </div>
