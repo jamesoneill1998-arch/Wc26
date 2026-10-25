@@ -10,6 +10,7 @@ import DataPage from './pages/DataPage.jsx'
 import ForecastPage from './pages/ForecastPage.jsx'
 import StaffingPage from './pages/StaffingPage.jsx'
 import CoveragePage from './pages/CoveragePage.jsx'
+import ImpactPage from './pages/ImpactPage.jsx'
 import CapacityPage from './pages/CapacityPage.jsx'
 import ServicePage from './pages/ServicePage.jsx'
 import SitesPage from './pages/SitesPage.jsx'
@@ -22,6 +23,7 @@ const PAGES = {
   forecast: ForecastPage,
   staffing: StaffingPage,
   coverage: CoveragePage,
+  impact: ImpactPage,
   capacity: CapacityPage,
   service: ServicePage,
   sites: SitesPage,
@@ -121,6 +123,8 @@ export default function App() {
           <NavLink to="coverage" label="Schedule & coverage" current={key} />
           <NavLink to="capacity" label="Capacity plan" current={key} />
           <NavLink to="service" label="Service settings" current={key} />
+          <div className="group label">Change delivery</div>
+          <NavLink to="impact" label="Impact assessment" current={key} />
           <div className="group label">Tools</div>
           <NavLink to="calculator" label="Erlang calculator" current={key} />
           <NavLink to="account" label="Account" current={key} />

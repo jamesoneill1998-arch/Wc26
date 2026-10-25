@@ -417,3 +417,15 @@ details p { margin-top: 10px; color: var(--ink-2); max-width: 70ch; }
 .roster td, .roster th { padding-left: 4px; padding-right: 4px; }
 .roster input[type='number'] { width: 62px; padding: 5px 6px; text-align: right; }
 .roster input[type='time'] { width: 108px; padding: 5px 6px; }
+
+.verdict { display: inline-flex; align-items: baseline; gap: 6px; font-weight: 600; white-space: nowrap; }
+.verdict.ok { color: var(--good-ink); }
+.verdict.warn { color: var(--signal); }
+.verdict.bad { color: var(--critical-ink); }
+.verdict.neutral { color: var(--muted); }
+.grid-table td, .grid-table th { padding-left: 6px; padding-right: 6px; }
+.grid-table input { width: 100px; padding: 5px 7px; text-align: right; }
+textarea { font: 400 14px/1.5 var(--font); color: var(--ink); background: var(--surface); border: 1px solid var(--rule-2); border-radius: 4px; padding: 8px 10px; width: 100%; resize: vertical; }
+textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.figure.hero .value.text { font-size: 30px; line-height: 1.1; font-stretch: var(--narrow); }

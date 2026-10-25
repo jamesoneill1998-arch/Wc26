@@ -12,6 +12,7 @@ Forecasting, staffing and capacity planning for contact centres, back offices an
 | **Intraday** | Staff needed per 15/30/60-minute interval, with service level, abandonment, occupancy and rostered numbers. Back office gets a daily workload view instead. |
 | **Schedule & coverage** | Shift patterns (people per shift per weekday) or an imported roster CSV are turned into staff on duty per interval, after breaks and in-day shrinkage. Heatmaps show short/over, required, rostered and projected service level per interval, with figures for projected weekly service level, short and over hours, and rostered FTE. "Suggest shifts" builds a first-draft roster from the requirement. |
 | **Capacity** | 13–52 weeks of required FTE against available FTE, through attrition, training and nesting. Suggests hiring classes and flags shortfalls that hiring can't reach in time. |
+| **Impact assessment** | For change delivery. An aggregate monthly plan per business area (forecast volume, AHT, operational and MTP FTE, pasted from Excel or filled from a service) converts to required FTE and headroom. A change register then converts each change into contacts, workload and FTE by month. Drivers: new-business volumes (e.g. 25,000 acquisitions × contacts each, spread over the following months), volume % or contacts, AHT change on a share of calls, and training/abstraction. Each change is assessed after committed changes not already in the MTP, giving a verdict: absorbable, absorbable with overtime, not absorbable, or releases capacity. It also gives the shortfall, recruitment start date, cost and unmitigated service level, plus a copyable summary for the change board. |
 | **Overview** | Every service rolled up by channel and by site. |
 | **Calculator** | Free Erlang A vs C for a single interval, rostered for each site. |
 | **Accounts** | Passwordless sign-in, Stripe subscriptions (Pro and Team), and Team seat management. See [SECURITY.md](SECURITY.md). |
@@ -76,6 +77,7 @@ src/engine/         pure maths, unit-tested, runs in a Web Worker
   forecast.js       methods, backtest, prediction band
   capacity.js       interval/back-office requirements, weekly FTE, supply simulation, hiring
   schedule.js       rosters to interval coverage, projected service level, shift suggestions
+  impact.js         aggregate FTE conversion, change drivers, absorbability, board summary
   compute.js        whole-workspace run with stage caching
 src/state/          workspace store (validated and migrated), worker hook, account, sample data
 src/pages/          one file per screen
@@ -83,6 +85,9 @@ test/               node:test suites
 ```
 
 ## Model notes
+
+- Aggregate FTE = workload hours ÷ occupancy ÷ (1 − shrinkage) ÷ paid hours per FTE-month (weekly hours × 52 ÷ 12). Occupancy is a planning assumption, or comes from Erlang at the month's typical interval load × an intraday peak factor. Training and abstraction hours count as paid time, with no shrinkage gross-up.
+- A change is absorbable when its incremental FTE fits inside operational FTE minus required FTE (after committed changes) minus the buffer, in every affected month. Overtime already used to cover committed work isn't counted again.
 
 - Erlang A service level is "answered within threshold ÷ (offered − abandoned within threshold)", the usual reporting convention.
 - Chat concurrency treats each agent as *k* servers.

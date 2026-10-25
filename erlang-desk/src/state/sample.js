@@ -3,7 +3,8 @@
 import { generateSampleHistory } from '../engine/sample.js'
 import { aggregateDaily } from '../engine/csv.js'
 import { addDays } from '../engine/dates.js'
-import { emptyWorkspace, newService, trimIntervalRows, emptySchedule } from './store.js'
+import { emptyWorkspace, newService, trimIntervalRows, emptySchedule, newArea, thisMonth } from './store.js'
+import { areaPlan } from '../engine/impact.js'
 
 const P = (start, end, breakMin, counts) => ({ id: `${start}${end}`.replace(/:/g, ''), start, end, breakMin, counts })
 
@@ -65,5 +66,59 @@ export function buildSampleWorkspace() {
     return svc
   })
   ws.activeServiceId = ws.services[0].id
+  const mortgages = sampleArea()
+  ws.areas = [mortgages]
+  ws.activeAreaId = mortgages.id
+  ws.changes = sampleChanges(mortgages)
   return ws
+}
+
+/** Mortgages servicing: a year of monthly forecast with a January peak, staffed a few FTE above need. */
+function sampleArea() {
+  const area = newArea({ name: 'Mortgages', channel: 'voice', siteId: 'uk', startMonth: thisMonth(1) })
+  const [y, m] = area.startMonth.split('-').map(Number)
+  area.rows = area.rows.map((_, i) => {
+    const month = ((m - 1 + i) % 12) + 1
+    const season = 1 + 0.12 * Math.cos((2 * Math.PI * (month - 1)) / 12)
+    return { volume: Math.round(46000 * season / 100) * 100, aht: 450, operationalFte: null, mtpFte: null }
+  })
+  const plan = areaPlan(area, { shrinkage: 0.35, weeklyHours: 37.5 })
+  area.rows = area.rows.map((r, i) => ({
+    ...r,
+    // A little above need, eroding through the year with attrition
+    operationalFte: Math.round(plan[i].requiredFte * (1.06 - 0.004 * i)),
+    mtpFte: Math.round(plan[i].requiredFte * 1.02),
+  }))
+  return area
+}
+
+function sampleChanges(area) {
+  const at = (n) => {
+    const [y, m] = area.startMonth.split('-').map(Number)
+    const t = y * 12 + m - 1 + n
+    return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, '0')}`
+  }
+  const id = () => Math.random().toString(36).slice(2, 10)
+  return [
+    {
+      id: id(), name: 'Mortgage acquisition launch', areaId: area.id, status: 'proposed', inMtp: false, owner: 'Change delivery',
+      notes: 'New-to-bank mortgage proposition. 25,000 completions expected over the first six months; customers call most in their first month.',
+      driver: { type: 'acquisitions', startMonth: at(2), months: 6, total: 25000, unitLabel: 'acquisitions', profile: 'flat', contactsPerUnit: 1.5, curve: [0.5, 0.3, 0.2], aht: 540 },
+    },
+    {
+      id: id(), name: 'Remortgage retention campaign', areaId: area.id, status: 'approved', inMtp: false, owner: 'Marketing',
+      notes: 'Outbound mailing to customers approaching the end of their fixed rate.',
+      driver: { type: 'volume', startMonth: at(1), months: 3, mode: 'pct', value: 0.04, aht: 450 },
+    },
+    {
+      id: id(), name: 'Core platform upgrade training', areaId: area.id, status: 'approved', inMtp: false, owner: 'IT change',
+      notes: 'Every adviser off the phones for one day of system training.',
+      driver: { type: 'abstraction', startMonth: at(1), months: 1, people: 70, hoursPerPerson: 7.5 },
+    },
+    {
+      id: id(), name: 'Online document upload', areaId: area.id, status: 'proposed', inMtp: false, owner: 'Digital',
+      notes: 'Customers upload proof documents online, removing the "where do I send it" part of a third of calls.',
+      driver: { type: 'aht', startMonth: at(4), months: 8, deltaSec: -40, share: 0.33 },
+    },
+  ]
 }

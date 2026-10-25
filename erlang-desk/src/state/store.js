@@ -49,7 +49,131 @@ export function emptySchedule() {
 }
 
 export function emptyWorkspace() {
-  return { version: 2, name: 'My operation', sites: defaultSites(), services: [], activeServiceId: null }
+  return { version: 2, name: 'My operation', sites: defaultSites(), services: [], activeServiceId: null, areas: [], changes: [], activeAreaId: null }
+}
+
+// ── Impact assessment: aggregate areas and changes ─────────────────────────
+
+const YM = /^\d{4}-(0[1-9]|1[0-2])$/
+export const CHANGE_STATUSES = ['proposed', 'approved', 'live', 'rejected']
+export const DRIVER_TYPES = ['acquisitions', 'volume', 'aht', 'abstraction']
+
+export function thisMonth(offset = 0) {
+  const d = new Date()
+  const t = d.getUTCFullYear() * 12 + d.getUTCMonth() + offset
+  return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, '0')}`
+}
+
+export function defaultAreaSettings(channel = 'voice') {
+  return {
+    occupancyMode: 'manual',
+    occupancy: channel === 'backoffice' ? 0.8 : 0.85,
+    openHoursPerWeek: 60,
+    slTarget: 0.8,
+    targetSec: channel === 'chat' ? 60 : channel === 'branch' ? 300 : 20,
+    patienceSec: channel === 'chat' ? 240 : 120,
+    maxOccupancy: 0.9,
+    peakFactor: 1.2,
+    concurrency: channel === 'chat' ? 2 : 1,
+    bufferPct: 0.02,
+    overtimePct: 0.05,
+    leadTimeWeeks: 10,
+    costPerFte: 32000,
+    shrinkageOverride: null,
+  }
+}
+
+export function newArea({ name = 'New area', channel = 'voice', siteId = 'uk', startMonth = thisMonth(1), months = 12 } = {}) {
+  return {
+    id: newId(),
+    name,
+    channel,
+    siteId,
+    startMonth,
+    rows: Array.from({ length: months }, () => ({ volume: 0, aht: 300, operationalFte: null, mtpFte: null })),
+    settings: defaultAreaSettings(channel),
+  }
+}
+
+export function defaultDriver(type, startMonth = thisMonth(1)) {
+  switch (type) {
+    case 'volume': return { type, startMonth, months: 3, mode: 'pct', value: 0.05, aht: 300 }
+    case 'aht': return { type, startMonth, months: 6, deltaSec: 30, share: 0.5 }
+    case 'abstraction': return { type, startMonth, months: 1, people: 50, hoursPerPerson: 7.5 }
+    default: return { type: 'acquisitions', startMonth, months: 6, total: 10000, unitLabel: 'acquisitions', profile: 'flat', contactsPerUnit: 1.5, curve: [0.5, 0.3, 0.2], aht: 480 }
+  }
+}
+
+export function newChange({ name = 'New change', areaId, startMonth } = {}) {
+  return { id: newId(), name, areaId, status: 'proposed', inMtp: false, owner: '', notes: '', driver: defaultDriver('acquisitions', startMonth) }
+}
+
+const optNum = (v, min, max) => (v == null || v === '' ? null : num(v, min, max, null))
+
+function sanitizeArea(a, siteIds) {
+  if (!a || typeof a !== 'object') return null
+  const channel = ['voice', 'chat', 'backoffice', 'branch'].includes(a.channel) ? a.channel : 'voice'
+  const d = defaultAreaSettings(channel)
+  const st = a.settings ?? {}
+  const rows = (Array.isArray(a.rows) ? a.rows : []).slice(0, 36).map((r) => ({
+    volume: num(r?.volume, 0, 1e8, 0),
+    aht: num(r?.aht, 0, 86400, 300),
+    operationalFte: optNum(r?.operationalFte, 0, 1e6),
+    mtpFte: optNum(r?.mtpFte, 0, 1e6),
+  }))
+  if (!rows.length) return null
+  return {
+    id: typeof a.id === 'string' && /^[a-z0-9-]{1,40}$/i.test(a.id) ? a.id : newId(),
+    name: str(a.name, 80, 'Area'),
+    channel,
+    siteId: siteIds.includes(a.siteId) ? a.siteId : siteIds[0],
+    startMonth: YM.test(a.startMonth) ? a.startMonth : thisMonth(1),
+    rows,
+    settings: {
+      occupancyMode: st.occupancyMode === 'erlang' ? 'erlang' : 'manual',
+      occupancy: num(st.occupancy, 0.2, 1, d.occupancy),
+      openHoursPerWeek: num(st.openHoursPerWeek, 1, 168, d.openHoursPerWeek),
+      slTarget: num(st.slTarget, 0.01, 0.999, d.slTarget),
+      targetSec: num(st.targetSec, 0, 7200, d.targetSec),
+      patienceSec: num(st.patienceSec, 5, 3600, d.patienceSec),
+      maxOccupancy: num(st.maxOccupancy, 0.2, 1, d.maxOccupancy),
+      peakFactor: num(st.peakFactor, 1, 3, d.peakFactor),
+      concurrency: num(st.concurrency, 1, 10, d.concurrency),
+      bufferPct: num(st.bufferPct, 0, 0.5, d.bufferPct),
+      overtimePct: num(st.overtimePct, 0, 0.5, d.overtimePct),
+      leadTimeWeeks: num(st.leadTimeWeeks, 0, 104, d.leadTimeWeeks),
+      costPerFte: num(st.costPerFte, 0, 1e7, d.costPerFte),
+      shrinkageOverride: st.shrinkageOverride == null ? null : num(st.shrinkageOverride, 0, 0.9, null),
+    },
+  }
+}
+
+function sanitizeDriver(dr) {
+  const type = DRIVER_TYPES.includes(dr?.type) ? dr.type : 'acquisitions'
+  const d = defaultDriver(type)
+  const x = dr ?? {}
+  const base = { type, startMonth: YM.test(x.startMonth) ? x.startMonth : d.startMonth, months: Math.round(num(x.months, 1, 60, d.months)) }
+  if (type === 'acquisitions') {
+    const curve = (Array.isArray(x.curve) ? x.curve : d.curve).slice(0, 12).map((v) => num(v, 0, 1, 0))
+    return { ...base, total: num(x.total, 0, 1e8, d.total), unitLabel: str(x.unitLabel, 40, d.unitLabel), profile: ['flat', 'ramp', 'front'].includes(x.profile) ? x.profile : 'flat', contactsPerUnit: num(x.contactsPerUnit, 0, 100, d.contactsPerUnit), curve: curve.some((v) => v > 0) ? curve : d.curve, aht: num(x.aht, 1, 86400, d.aht) }
+  }
+  if (type === 'volume') return { ...base, mode: x.mode === 'abs' ? 'abs' : 'pct', value: num(x.value, -1e7, 1e7, d.value), aht: num(x.aht, 1, 86400, d.aht) }
+  if (type === 'aht') return { ...base, deltaSec: num(x.deltaSec, -3600, 3600, d.deltaSec), share: num(x.share, 0, 1, d.share) }
+  return { ...base, people: num(x.people, 0, 100000, d.people), hoursPerPerson: num(x.hoursPerPerson, 0, 744, d.hoursPerPerson) }
+}
+
+function sanitizeChange(c, areaIds) {
+  if (!c || typeof c !== 'object' || !areaIds.includes(c.areaId)) return null
+  return {
+    id: typeof c.id === 'string' && /^[a-z0-9-]{1,40}$/i.test(c.id) ? c.id : newId(),
+    name: str(c.name, 100, 'Change'),
+    areaId: c.areaId,
+    status: CHANGE_STATUSES.includes(c.status) ? c.status : 'proposed',
+    inMtp: c.inMtp === true,
+    owner: str(c.owner, 80, ''),
+    notes: str(c.notes, 1000, ''),
+    driver: sanitizeDriver(c.driver),
+  }
 }
 
 // ── Validation ──────────────────────────────────────────────────────────────
@@ -223,12 +347,18 @@ export function sanitizeWorkspace(raw) {
   const services = (Array.isArray(ws.services) ? ws.services : []).slice(0, 30).map((s) => sanitizeService(s, siteIds)).filter(Boolean)
   const ids = new Set()
   for (const s of services) { while (ids.has(s.id)) s.id = newId(); ids.add(s.id) }
+  const areas = (Array.isArray(ws.areas) ? ws.areas : []).slice(0, 30).map((a) => sanitizeArea(a, siteIds)).filter(Boolean)
+  const areaIds = areas.map((a) => a.id)
+  const changes = (Array.isArray(ws.changes) ? ws.changes : []).slice(0, 300).map((c) => sanitizeChange(c, areaIds)).filter(Boolean)
   return {
     version: 2,
     name: str(ws.name, 80, 'My operation'),
     sites,
     services,
     activeServiceId: services.some((s) => s.id === ws.activeServiceId) ? ws.activeServiceId : services[0]?.id ?? null,
+    areas,
+    changes,
+    activeAreaId: areaIds.includes(ws.activeAreaId) ? ws.activeAreaId : areaIds[0] ?? null,
   }
 }
 
