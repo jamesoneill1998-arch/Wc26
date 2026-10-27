@@ -98,12 +98,6 @@ const CHANNEL_COPY = [
   ['Branch', 'Erlang C per branch', 'Twenty-five branches aren\'t one big queue. Each branch is sized on its own share of footfall, with minimum cover, then added up.'],
 ]
 
-const STEPS = [
-  ['Import', 'Upload a CSV from any telephony, chat or workflow system: daily totals or intervals. It\'s read on your device.'],
-  ['Forecast', 'Four methods are tested against your own recent history and the most accurate is chosen. You see its error, and can overlay known events.'],
-  ['Staff', 'Every interval is turned into people needed, under each channel\'s own model and each site\'s shrinkage.'],
-  ['Plan', 'Fifty-two weeks of supply against demand, through attrition, training and nesting, with the hiring classes that close the gaps.'],
-]
 
 const COMPARE = [
   ['Time to a first plan', 'Days to weeks', 'An afternoon', 'Months of implementation'],
@@ -211,25 +205,8 @@ export default function Landing({ onToggleTheme, account }) {
         </div>
       </section>
 
-      <section className="section">
-        <div className="wrap">
-          <div className="section-head">
-            <h2>From history to hiring plan</h2>
-            <p>Four steps, and every number traces back to an assumption you can see and change.</p>
-          </div>
-          <div className="steps">
-            {STEPS.map(([t, body], i) => (
-              <div key={t}>
-                <div className="n">Step {i + 1}</div>
-                <h3>{t}</h3>
-                <p>{body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      <section className="section alt">
+      <section className="section">
         <div className="wrap">
           <div className="section-head">
             <h2>Between the spreadsheet and the suite</h2>
@@ -248,7 +225,7 @@ export default function Landing({ onToggleTheme, account }) {
         </div>
       </section>
 
-      <section className="section" id="security">
+      <section className="section alt" id="security">
         <div className="wrap">
           <div className="section-head">
             <h2>Security you can show procurement</h2>
@@ -262,7 +239,7 @@ export default function Landing({ onToggleTheme, account }) {
         </div>
       </section>
 
-      <section className="section alt" id="pricing">
+      <section className="section" id="pricing">
         <div className="wrap">
           <div className="section-head">
             <h2>Priced per planner, not per agent</h2>
@@ -282,6 +259,42 @@ export default function Landing({ onToggleTheme, account }) {
           </div>
         </div>
       </section>
+
+      <section className="section alt" id="pilot">
+        <div className="wrap cols">
+          <div className="section-head" style={{ marginBottom: 0 }}>
+            <h2>Founding pilot programme</h2>
+            <p>We're working with a small number of planning teams to shape the product. Pilots get three months free, a working session with their own data, and a direct line to the person building it.</p>
+            <div className="row" style={{ marginTop: 22 }}>
+              {BRAND.contactEmail
+                ? <a className="btn primary" href={`mailto:${BRAND.contactEmail}?subject=Erlang%20Desk%20pilot`}>Apply for the pilot</a>
+                : <a className="btn primary" href="#/app">Explore the sample first</a>}
+              <a className="btn" href="#/app/calculator">Try the free calculator</a>
+            </div>
+            {BRAND.contactEmail && <p className="small faint" style={{ marginTop: 10 }}>Or email {BRAND.contactEmail}</p>}
+          </div>
+          <div className="module pilot-card">
+            <div className="method">What a pilot looks like</div>
+            <ol className="pilot-steps">
+              <li><b>30-minute session.</b> Load an anonymised export of your volumes together and check the forecast against what actually happened.</li>
+              <li><b>Your own plan.</b> Staffing, roster coverage and a six-month capacity plan for one service.</li>
+              <li><b>One real change.</b> Run a live project through impact assessment and take the summary to your change board.</li>
+              <li><b>Tell us what's missing.</b> Pilot feedback decides what gets built next.</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      {BRAND.founderName && (
+        <section className="section">
+          <div className="wrap founder">
+            <div className="label">Who's behind it</div>
+            <h2>{BRAND.founderName}</h2>
+            {BRAND.founderRole && <p className="muted">{BRAND.founderRole}</p>}
+            {BRAND.founderBio && <p className="founder-bio">{BRAND.founderBio}</p>}
+          </div>
+        </section>
+      )}
 
       <section className="section">
         <div className="wrap" style={{ maxWidth: 900 }}>

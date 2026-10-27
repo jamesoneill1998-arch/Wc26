@@ -3,7 +3,7 @@ import { formatDate, formatTime, WEEKDAYS, weekdayIndex, parseTime } from '../en
 import { CHANNELS } from '../engine/channels.js'
 import { coverageForDays, defaultInDayShrinkage, parseScheduleCSV, suggestPatterns, suggestDailyPatterns } from '../engine/schedule.js'
 import { emptySchedule } from '../state/store.js'
-import { PageHead, Figures, Figure, Panel, Segmented, NumberField, Locked, ConfirmButton, Gap } from '../components/ui.jsx'
+import { PageHead, Figures, Figure, Panel, Segmented, NumberField, Locked, ConfirmButton, Gap, LoadingPage, TimeSelect } from '../components/ui.jsx'
 import { Heatmap, LineChart, Legend } from '../components/charts.jsx'
 import { fmtInt, fmt1, fmtPct } from '../format.js'
 import { NoServices, NeedsHistory, serviceEyebrow } from './common.jsx'
@@ -46,8 +46,8 @@ function RosterEditor({ schedule, setSchedule, onSuggest, intervalMin }) {
           <tbody>
             {patterns.map((p) => (
               <tr key={p.id}>
-                <td><input type="time" aria-label="Shift start" step={intervalMin * 60} value={p.start} onChange={(e) => e.target.value && setPattern(p.id, { start: e.target.value })} /></td>
-                <td><input type="time" aria-label="Shift end" step={intervalMin * 60} value={p.end} onChange={(e) => e.target.value && setPattern(p.id, { end: e.target.value })} /></td>
+                <td><TimeSelect label="Shift start" step={intervalMin} value={p.start} onChange={(v) => setPattern(p.id, { start: v })} /></td>
+                <td><TimeSelect label="Shift end" step={intervalMin} allowMidnightEnd value={p.end} onChange={(v) => setPattern(p.id, { end: v })} /></td>
                 <td><input type="number" aria-label="Break minutes" min="0" max="240" step="5" value={p.breakMin} onChange={(e) => setPattern(p.id, { breakMin: Math.max(0, Math.min(240, Math.round(Number(e.target.value) || 0))) })} /></td>
                 {p.counts.map((c, wd) => (
                   <td key={wd}><input type="number" aria-label={`${WEEKDAYS[wd]} headcount`} min="0" max="10000" value={c} onChange={(e) => setPattern(p.id, { counts: p.counts.map((x, i) => (i === wd ? Math.max(0, Math.min(10000, Math.round(Number(e.target.value) || 0))) : x)) })} /></td>
@@ -124,7 +124,7 @@ export default function CoveragePage({ active, site, result, updateActive, repla
   if (!active) return <NoServices title="Schedule & coverage" replace={replace} />
   const eyebrow = serviceEyebrow(active, site)
   if (!active.history) return <NeedsHistory title="Schedule & coverage" eyebrow={eyebrow} />
-  if (!cov) return <PageHead eyebrow={eyebrow} title="Schedule & coverage" lede="Calculating…" />
+  if (!cov) return <LoadingPage eyebrow={eyebrow} title="Schedule & coverage" />
 
   const setSchedule = (patch) => updateActive({ schedule: { ...schedule, ...patch } })
   const live = active.channel !== 'backoffice'

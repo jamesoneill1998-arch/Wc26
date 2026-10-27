@@ -3,7 +3,7 @@ import { METHODS } from '../engine/forecast.js'
 import { formatDate, formatTime, weekStart, WEEKDAYS, weekdayIndex } from '../engine/dates.js'
 import { toCSV } from '../engine/csv.js'
 import { CHANNELS } from '../engine/channels.js'
-import { PageHead, Figures, Figure, SelectField, NumberField, Segmented, Panel, Locked } from '../components/ui.jsx'
+import { PageHead, Figures, Figure, SelectField, NumberField, Segmented, Panel, Locked, LoadingPage } from '../components/ui.jsx'
 import { LineChart, Legend, Heatmap } from '../components/charts.jsx'
 import { downloadText, fmtInt, fmtPct } from '../format.js'
 import { NoServices, NeedsHistory, serviceEyebrow } from './common.jsx'
@@ -73,7 +73,7 @@ export default function ForecastPage({ active, site, result, updateActive, repla
   if (!active) return <NoServices title="Forecast" replace={replace} />
   const eyebrow = serviceEyebrow(active, site)
   if (daily.length < 7) return <NeedsHistory title="Forecast" eyebrow={eyebrow} />
-  if (!forecast) return <PageHead eyebrow={eyebrow} title="Forecast" lede="Calculating…" />
+  if (!forecast) return <LoadingPage eyebrow={eyebrow} title="Forecast" />
   if (forecast.error) return <div className="notice">{forecast.error}</div>
 
   const plan = active.plan

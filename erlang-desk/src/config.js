@@ -4,6 +4,10 @@
 export const BRAND = {
   name: 'Erlang Desk',
   contactEmail: import.meta.env.VITE_CONTACT_EMAIL || '',
+  // Optional founder block on the landing page; shown only when a name is set.
+  founderName: import.meta.env.VITE_FOUNDER_NAME || '',
+  founderRole: import.meta.env.VITE_FOUNDER_ROLE || '',
+  founderBio: import.meta.env.VITE_FOUNDER_BIO || '',
 }
 
 export const CURRENCY = import.meta.env.VITE_CURRENCY_SYMBOL || '£'
