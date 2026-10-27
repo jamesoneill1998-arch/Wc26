@@ -1,0 +1,252 @@
+// Daily volume forecasting.
+//
+// Several transparent methods compete on a hold-out backtest and the most
+// accurate one (lowest WAPE) is selected automatically. Planners can still
+// override the choice. Everything here is deterministic and dependency-free.
+
+import { addDays, daysBetween, weekdayIndex, parseISODate } from './dates.js'
+
+/** Turn sparse {date, volume} rows into a contiguous daily series (gaps = 0, i.e. closed). */
+export function toDailySeries(rows) {
+  if (!rows.length) return { start: null, values: [] }
+  const sorted = [...rows].sort((a, b) => (a.date < b.date ? -1 : 1))
+  const start = sorted[0].date
+  const n = daysBetween(start, sorted[sorted.length - 1].date) + 1
+  const values = new Array(n).fill(0)
+  for (const r of sorted) values[daysBetween(start, r.date)] += r.volume
+  return { start, values }
+}
+
+// ── Accuracy ────────────────────────────────────────────────────────────────
+
+/** Weighted absolute percentage error: robust to zero-volume (closed) days. */
+export function wape(actual, forecast) {
+  let err = 0
+  let tot = 0
+  for (let i = 0; i < actual.length; i++) {
+    err += Math.abs(actual[i] - forecast[i])
+    tot += Math.abs(actual[i])
+  }
+  return tot > 0 ? err / tot : 0
+}
+
+export function bias(actual, forecast) {
+  const a = actual.reduce((s, v) => s + v, 0)
+  const f = forecast.reduce((s, v) => s + v, 0)
+  return a > 0 ? (f - a) / a : 0
+}
+
+// ── Methods ─────────────────────────────────────────────────────────────────
+// Each method: (values, startISO, horizon) -> number[] of length horizon.
+
+function seasonalNaive(values, _start, h) {
+  const n = values.length
+  return Array.from({ length: h }, (_, i) => values[n - 7 + (i % 7)] ?? 0)
+}
+
+function weekdayAverage(values, _start, h, weeks = 6) {
+  const n = values.length
+  const avg = []
+  for (let d = 0; d < 7; d++) {
+    let s = 0
+    let c = 0
+    for (let w = 1; w <= weeks; w++) {
+      const idx = n - 7 * w + d
+      if (idx >= 0) { s += values[idx]; c++ }
+    }
+    avg.push(c ? s / c : 0)
+  }
+  return Array.from({ length: h }, (_, i) => avg[i % 7])
+}
+
+/** Additive Holt-Winters with damped trend, season length m. Returns fit + forecaster. */
+function holtWintersRun(y, m, alpha, beta, gamma, phi) {
+  // Initialise level/trend/seasonals from the first two seasons.
+  const s1 = y.slice(0, m)
+  const s2 = y.slice(m, 2 * m)
+  const mean1 = s1.reduce((a, b) => a + b, 0) / m
+  const mean2 = s2.reduce((a, b) => a + b, 0) / m
+  let level = mean1
+  let trend = (mean2 - mean1) / m
+  const season = s1.map((v) => v - mean1)
+  let sse = 0
+  for (let t = m; t < y.length; t++) {
+    const sIdx = t % m
+    const pred = level + phi * trend + season[sIdx]
+    const e = y[t] - pred
+    sse += e * e
+    const prevLevel = level
+    level = alpha * (y[t] - season[sIdx]) + (1 - alpha) * (prevLevel + phi * trend)
+    trend = beta * (level - prevLevel) + (1 - beta) * phi * trend
+    season[sIdx] = gamma * (y[t] - level) + (1 - gamma) * season[sIdx]
+  }
+  const n = y.length
+  const forecast = (h) => {
+    const out = []
+    let damp = 0
+    for (let i = 1; i <= h; i++) {
+      damp += phi ** i
+      out.push(level + damp * trend + season[(n + i - 1) % m])
+    }
+    return out
+  }
+  return { sse, forecast }
+}
+
+function holtWinters(values, _start, h) {
+  const m = 7
+  if (values.length < 3 * m) return weekdayAverage(values, _start, h)
+  let best = null
+  for (const alpha of [0.05, 0.1, 0.2, 0.3, 0.45]) {
+    for (const beta of [0, 0.01, 0.05]) {
+      for (const gamma of [0.05, 0.15, 0.3]) {
+        for (const phi of [0.9, 0.98]) {
+          const run = holtWintersRun(values, m, alpha, beta, gamma, phi)
+          if (!best || run.sse < best.sse) best = run
+        }
+      }
+    }
+  }
+  return best.forecast(h).map((v) => Math.max(0, v))
+}
+
+/** Solve A·x = b with partial pivoting (small dense systems only). */
+export function solveLinear(A, b) {
+  const n = b.length
+  const M = A.map((row, i) => [...row, b[i]])
+  for (let c = 0; c < n; c++) {
+    let p = c
+    for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r
+    if (Math.abs(M[p][c]) < 1e-12) continue
+    ;[M[c], M[p]] = [M[p], M[c]]
+    for (let r = 0; r < n; r++) {
+      if (r === c) continue
+      const f = M[r][c] / M[c][c]
+      if (f === 0) continue
+      for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k]
+    }
+  }
+  return M.map((row, i) => (Math.abs(row[i]) < 1e-12 ? 0 : row[n] / row[i]))
+}
+
+/**
+ * Log-linear regression: trend + weekday effects + annual Fourier terms.
+ * Captures yearly seasonality when there is enough history (> ~13 months).
+ */
+function regression(values, start, h) {
+  const n = values.length
+  const annual = n >= 400 ? 3 : 0
+  const features = (t) => {
+    const date = addDays(start, t)
+    const wd = weekdayIndex(date)
+    const row = [1, t / 365]
+    for (let d = 1; d < 7; d++) row.push(wd === d ? 1 : 0)
+    if (annual) {
+      const year = new Date(parseISODate(date)).getUTCFullYear()
+      const doy = (parseISODate(date) - Date.UTC(year, 0, 1)) / 86400000
+      for (let k = 1; k <= annual; k++) {
+        row.push(Math.sin((2 * Math.PI * k * doy) / 365.25), Math.cos((2 * Math.PI * k * doy) / 365.25))
+      }
+    }
+    return row
+  }
+  // Fit on at most the last two years so old regimes don't dominate.
+  const from = Math.max(0, n - 730)
+  const p = features(0).length
+  const XtX = Array.from({ length: p }, () => new Array(p).fill(0))
+  const Xty = new Array(p).fill(0)
+  for (let t = from; t < n; t++) {
+    const x = features(t)
+    const y = Math.log1p(values[t])
+    for (let i = 0; i < p; i++) {
+      Xty[i] += x[i] * y
+      for (let j = 0; j < p; j++) XtX[i][j] += x[i] * x[j]
+    }
+  }
+  for (let i = 1; i < p; i++) XtX[i][i] += 1e-6 // tiny ridge for stability
+  const beta = solveLinear(XtX, Xty)
+  // Closed weekdays (always zero) should stay zero rather than drift.
+  const closed = new Array(7).fill(true)
+  for (let t = Math.max(0, n - 56); t < n; t++) if (values[t] > 0) closed[weekdayIndex(addDays(start, t))] = false
+  return Array.from({ length: h }, (_, i) => {
+    const t = n + i
+    if (closed[weekdayIndex(addDays(start, t))]) return 0
+    const x = features(t)
+    const yhat = x.reduce((s, v, k) => s + v * beta[k], 0)
+    return Math.max(0, Math.expm1(yhat))
+  })
+}
+
+export const METHODS = {
+  auto: { label: 'Auto (best backtest)' },
+  regression: { label: 'Trend + weekly + annual seasonality', fn: regression, minDays: 56 },
+  holtWinters: { label: 'Holt-Winters (damped)', fn: holtWinters, minDays: 21 },
+  weekdayAverage: { label: '6-week weekday average', fn: weekdayAverage, minDays: 14 },
+  seasonalNaive: { label: 'Same day last week', fn: seasonalNaive, minDays: 7 },
+}
+
+/**
+ * Backtest every eligible method on the last `holdout` days.
+ * @returns {Array<{method, label, wape, bias}>} sorted best first
+ */
+export function backtest(values, start, holdout = 28) {
+  const results = []
+  const train = values.slice(0, values.length - holdout)
+  const test = values.slice(values.length - holdout)
+  for (const [key, m] of Object.entries(METHODS)) {
+    if (!m.fn || train.length < m.minDays) continue
+    const fc = m.fn(train, start, holdout)
+    results.push({ method: key, label: m.label, wape: wape(test, fc), bias: bias(test, fc), forecast: fc })
+  }
+  return results.sort((a, b) => a.wape - b.wape)
+}
+
+/**
+ * Produce a daily forecast.
+ * @param {Array<{date, volume}>} dailyRows
+ * @param {object} opts
+ * @param {number} opts.horizon days to forecast
+ * @param {string} [opts.method] key of METHODS, default 'auto'
+ * @param {number} [opts.adjustPct] planner overlay, e.g. 0.05 for +5%
+ */
+export function forecastDaily(dailyRows, { horizon = 91, method = 'auto', adjustPct = 0 } = {}) {
+  const { start, values } = toDailySeries(dailyRows)
+  if (values.length < 7) {
+    return { error: 'Need at least 7 days of history to forecast.', points: [], backtest: [] }
+  }
+  const holdout = Math.min(28, Math.max(7, Math.floor(values.length / 5)))
+  const bt = values.length >= 14 ? backtest(values, start, holdout) : []
+  const chosen = method === 'auto' || !METHODS[method]?.fn ? bt[0]?.method ?? 'seasonalNaive' : method
+  const fn = METHODS[chosen].fn
+  const raw = fn(values, start, horizon)
+  const btRow = bt.find((r) => r.method === chosen)
+  // Spread of backtest errors drives an approximate 80% band.
+  let sigmaPct = 0.1
+  if (btRow) {
+    const test = values.slice(values.length - holdout)
+    const rel = test.map((a, i) => (a > 0 ? (a - btRow.forecast[i]) / a : null)).filter((v) => v != null)
+    if (rel.length > 2) {
+      const mean = rel.reduce((s, v) => s + v, 0) / rel.length
+      sigmaPct = Math.sqrt(rel.reduce((s, v) => s + (v - mean) ** 2, 0) / (rel.length - 1))
+    }
+  }
+  const lastDate = addDays(start, values.length - 1)
+  const points = raw.map((v, i) => {
+    const volume = v * (1 + adjustPct)
+    const spread = 1.2816 * sigmaPct * Math.sqrt(1 + i / 28) // widens with horizon
+    return {
+      date: addDays(lastDate, i + 1),
+      volume,
+      low: Math.max(0, volume * (1 - spread)),
+      high: volume * (1 + spread),
+    }
+  })
+  return {
+    method: chosen,
+    methodLabel: METHODS[chosen].label,
+    accuracy: btRow ? { wape: btRow.wape, bias: btRow.bias, holdoutDays: holdout } : null,
+    backtest: bt.map(({ forecast, ...r }) => r),
+    lastActualDate: lastDate,
+    points,
+  }
+}
