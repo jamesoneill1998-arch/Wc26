@@ -26,8 +26,13 @@ export default handler(async (req, res) => {
     customer: customer.id,
     line_items: { 0: { price: cfg.prices[plan], quantity: 1 } },
     subscription_data: cfg.trialDays ? { trial_period_days: cfg.trialDays, metadata: { plan } } : { metadata: { plan } },
-    allow_promotion_codes: 'true',
-    billing_address_collection: 'required',
+    // Checkout Studio settings. ui_mode is 'hosted' for the pinned API version.
+    ui_mode: 'hosted',
+    billing_address_collection: 'auto',
+    phone_number_collection: { enabled: false },
+    automatic_tax: { enabled: false },
+    allow_promotion_codes: false,
+    payment_method_collection: 'always',
     success_url: `${cfg.appUrl}/#/app/account?checkout=success`,
     cancel_url: `${cfg.appUrl}/#/app/account?checkout=cancelled`,
   })
