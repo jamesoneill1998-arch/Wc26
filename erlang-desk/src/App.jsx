@@ -4,6 +4,7 @@ import { useModel } from './state/model.js'
 import { useAccount } from './state/account.js'
 import { CHANNELS } from './engine/channels.js'
 import { Mark } from './components/ui.jsx'
+import Tour, { tourSeen } from './components/Tour.jsx'
 import Landing from './pages/Landing.jsx'
 import Overview from './pages/Overview.jsx'
 import DataPage from './pages/DataPage.jsx'
@@ -73,6 +74,13 @@ export default function App() {
   const account = useAccount()
   const { result: model, busy, error } = useModel(store.ws)
   const { ws, active, updateService, update } = store
+  const [tourStep, setTourStep] = useState(null)
+
+  // First time the sample operation is loaded, offer the tour automatically.
+  const isSample = ws.name.endsWith('(sample)') && ws.services.length > 0
+  useEffect(() => {
+    if (isSample && !tourSeen() && route.parts[0] === 'app') setTourStep((s) => s ?? 0)
+  }, [isSample]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // After sample data loads, start each demo service roughly in balance so the
   // plan shows attrition opening a gap rather than an instant crisis.
@@ -134,6 +142,7 @@ export default function App() {
           <div className="row" style={{ justifyContent: 'space-between' }}>
             <span>{account.billing ? (account.signedIn ? account.email : 'Not signed in') : ws.name}</span>
             <button className="btn link small" type="button" onClick={toggleTheme}>Theme</button>
+            {isSample && <button className="btn link small" type="button" onClick={() => setTourStep(0)}>Tour</button>}
           </div>
         </div>
       </aside>
@@ -141,6 +150,7 @@ export default function App() {
         <div className="print-only print-head">{ws.name} · Erlang Desk · printed {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
         {store.saveError && <div className="notice" style={{ marginBottom: 20 }}>{store.saveError}</div>}
         {error && <div className="notice" style={{ marginBottom: 20 }}>The planning model hit a problem: {error}</div>}
+        {tourStep != null && <Tour step={tourStep} setStep={setTourStep} />}
         <Page {...store} model={model} account={account} query={route.query} result={active ? model.services[active.id] : null} updateActive={(patch) => active && updateService(active.id, patch)} site={site} />
       </main>
     </div>

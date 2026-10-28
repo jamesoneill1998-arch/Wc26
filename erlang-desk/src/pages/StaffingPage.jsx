@@ -3,7 +3,7 @@ import { formatDate, formatTime, weekStart, WEEKDAYS, weekdayIndex } from '../en
 import { toCSV } from '../engine/csv.js'
 import { withShrinkage } from '../engine/erlang.js'
 import { CHANNELS } from '../engine/channels.js'
-import { PageHead, Figures, Figure, SelectField, Panel } from '../components/ui.jsx'
+import { PageHead, Figures, Figure, SelectField, Panel, LoadingPage } from '../components/ui.jsx'
 import { Heatmap, ColumnChart } from '../components/charts.jsx'
 import { downloadText, fmtInt, fmt1, fmtPct } from '../format.js'
 import { NoServices, NeedsHistory, serviceEyebrow } from './common.jsx'
@@ -85,7 +85,7 @@ export default function StaffingPage({ active, site, result, replace, account })
   if (!active) return <NoServices title="Intraday staffing" replace={replace} />
   const eyebrow = serviceEyebrow(active, site)
   if (!active.history) return <NeedsHistory title="Intraday staffing" eyebrow={eyebrow} />
-  if (!weeks.length) return <PageHead eyebrow={eyebrow} title="Intraday staffing" lede="Calculating…" />
+  if (!weeks.length) return <LoadingPage eyebrow={eyebrow} title="Intraday staffing" />
 
   const s = result.settings
   const [wk, days] = weeks.find(([k]) => k === weekKey) ?? weeks[0]

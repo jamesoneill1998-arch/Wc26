@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { formatDate } from '../engine/dates.js'
 import { toCSV } from '../engine/csv.js'
-import { PageHead, Figures, Figure, NumberField, SelectField, Gap, Panel } from '../components/ui.jsx'
+import { PageHead, Figures, Figure, NumberField, SelectField, Gap, Panel, LoadingPage } from '../components/ui.jsx'
 import { LineChart, Legend } from '../components/charts.jsx'
 import { downloadText, fmtInt, fmt1, fmtPct } from '../format.js'
 import { NoServices, NeedsHistory, serviceEyebrow } from './common.jsx'
@@ -13,7 +13,7 @@ export default function CapacityPage({ active, site, result, updateActive, updat
   if (!active) return <NoServices title="Capacity plan" replace={replace} />
   const eyebrow = serviceEyebrow(active, site)
   if (!active.history) return <NeedsHistory title="Capacity plan" eyebrow={eyebrow} />
-  if (!result?.sim?.length) return <PageHead eyebrow={eyebrow} title="Capacity plan" lede="Calculating…" />
+  if (!result?.sim?.length) return <LoadingPage eyebrow={eyebrow} title="Capacity plan" />
 
   const { sim, recs, weeks, unfixable, settings: s } = result
   const c = active.capacity

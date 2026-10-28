@@ -4,7 +4,7 @@ import { areaPlan, assessChange, summaryText, monthLabel, addMonths, hoursPerFte
 import { toCSV } from '../engine/csv.js'
 import { newArea, newChange, defaultDriver, thisMonth, CHANGE_STATUSES } from '../state/store.js'
 import { buildSampleWorkspace } from '../state/sample.js'
-import { PageHead, Figures, Figure, Panel, Segmented, NumberField, SelectField, TextField, ConfirmButton, Gap } from '../components/ui.jsx'
+import { PageHead, Figures, Figure, Panel, Segmented, NumberField, SelectField, TextField, ConfirmButton, Gap, MonthSelect } from '../components/ui.jsx'
 import { LineChart, Legend, StackedColumns } from '../components/charts.jsx'
 import { CURRENCY } from '../config.js'
 import { downloadText, fmtInt, fmt1, fmtPct } from '../format.js'
@@ -163,10 +163,7 @@ function AggregatePlan({ ws, area, site, ctx, plan, setArea, update, model }) {
           <TextField label="Area name" value={area.name} onChange={(name) => setArea({ name })} />
           <SelectField label="Channel" value={area.channel} onChange={(channel) => setArea({ channel })} options={Object.entries(CHANNELS).map(([value, c]) => ({ value, label: c.label }))} />
           <SelectField label="Site" value={area.siteId} onChange={(siteId) => setArea({ siteId })} options={ws.sites.map((s) => ({ value: s.id, label: s.name }))} hint={`${fmtPct(siteShrinkage(site), 0)} shrinkage, ${site?.fteHoursPerWeek}h week`} />
-          <div className="field">
-            <label htmlFor="area-start">First month</label>
-            <input id="area-start" type="month" value={area.startMonth} onChange={(e) => /^\d{4}-\d{2}$/.test(e.target.value) && setArea({ startMonth: e.target.value })} />
-          </div>
+          <MonthSelect id="area-start" label="First month" value={area.startMonth} from={addMonths(thisMonth(), -12)} count={60} onChange={(startMonth) => setArea({ startMonth })} />
           <SelectField label="Months" value={String(area.rows.length)} onChange={(v) => {
             const n = Number(v)
             setArea({ rows: n <= area.rows.length ? area.rows.slice(0, n) : [...area.rows, ...Array.from({ length: n - area.rows.length }, () => ({ ...area.rows[area.rows.length - 1], operationalFte: null, mtpFte: null }))] })
@@ -199,15 +196,10 @@ function AggregatePlan({ ws, area, site, ctx, plan, setArea, update, model }) {
   )
 }
 
-function DriverFields({ driver, setDriver, weeklyHours }) {
+function DriverFields({ driver, setDriver, weeklyHours, startMonth }) {
   const d = driver
   const set = (patch) => setDriver({ ...d, ...patch })
-  const monthField = (
-    <div className="field">
-      <label htmlFor="drv-start">Starts</label>
-      <input id="drv-start" type="month" value={d.startMonth} onChange={(e) => /^\d{4}-\d{2}$/.test(e.target.value) && set({ startMonth: e.target.value })} />
-    </div>
-  )
+  const monthField = <MonthSelect id="drv-start" label="Starts" value={d.startMonth} from={addMonths(startMonth, -6)} count={48} onChange={(v) => set({ startMonth: v })} />
   const months = <NumberField label="For" suffix="months" min={1} max={60} value={d.months} onChange={(v) => set({ months: Math.round(v) })} />
   if (d.type === 'acquisitions') {
     const curveSum = d.curve.reduce((t, v) => t + v, 0) || 1
@@ -417,7 +409,7 @@ function ChangeRegister({ ws, area, ctx, update, account }) {
           </div>
         </div>
         <div style={{ marginTop: 18 }}>
-          <DriverFields driver={sel.driver} setDriver={(driver) => setChange({ driver })} weeklyHours={ctx.weeklyHours} />
+          <DriverFields driver={sel.driver} setDriver={(driver) => setChange({ driver })} weeklyHours={ctx.weeklyHours} startMonth={area.startMonth} />
         </div>
         <div className="field" style={{ marginTop: 18 }}>
           <label htmlFor="change-notes">Notes and assumptions</label>

@@ -224,3 +224,53 @@ export function ConfirmButton({ children, confirmLabel = 'Click again to confirm
     </button>
   )
 }
+
+const pad = (n) => String(n).padStart(2, '0')
+
+/** 24-hour time picker in fixed steps; consistent in every browser. */
+export function TimeSelect({ value, onChange, step = 30, label, allowMidnightEnd = false }) {
+  const opts = []
+  for (let m = 0; m < 1440; m += step) opts.push(`${pad(Math.floor(m / 60))}:${pad(m % 60)}`)
+  if (allowMidnightEnd) opts.push('24:00')
+  const v = value === '00:00' && allowMidnightEnd ? '24:00' : value
+  const list = opts.includes(v) ? opts : [...opts, v].sort()
+  return (
+    <select className="compact" aria-label={label} value={v} onChange={(e) => onChange(e.target.value === '24:00' ? '00:00' : e.target.value)}>
+      {list.map((t) => <option key={t} value={t}>{t}</option>)}
+    </select>
+  )
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** Month picker (YYYY-MM) from `from` for `count` months; works where <input type=month> doesn't. */
+export function MonthSelect({ id, label, value, onChange, from, count = 48, hint }) {
+  const [y0, m0] = from.split('-').map(Number)
+  const opts = Array.from({ length: count }, (_, i) => {
+    const t = y0 * 12 + (m0 - 1) + i
+    return `${Math.floor(t / 12)}-${pad((t % 12) + 1)}`
+  })
+  const list = opts.includes(value) ? opts : [value, ...opts]
+  const fmt = (ym) => { const [y, m] = ym.split('-').map(Number); return `${MONTHS[m - 1]} ${y}` }
+  return (
+    <div className="field">
+      <label htmlFor={id}>{label}</label>
+      <select id={id} value={value} onChange={(e) => onChange(e.target.value)}>
+        {list.map((o) => <option key={o} value={o}>{fmt(o)}</option>)}
+      </select>
+      {hint && <span className="hint">{hint}</span>}
+    </div>
+  )
+}
+
+/** Placeholder layout while the planning model runs, so pages don't flash. */
+export function LoadingPage({ eyebrow, title }) {
+  return (
+    <div className="stack" aria-busy="true">
+      <PageHead eyebrow={eyebrow} title={title} lede="Working through the forecast and requirements…" />
+      <div className="skel skel-board" />
+      <div className="skel skel-panel" />
+      <div className="cols"><div className="skel skel-small" /><div className="skel skel-small" /></div>
+    </div>
+  )
+}

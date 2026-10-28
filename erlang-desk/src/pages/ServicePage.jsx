@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { CHANNELS, defaultServiceSettings } from '../engine/channels.js'
 import { WEEKDAYS } from '../engine/dates.js'
 import { newService } from '../state/store.js'
-import { PageHead, NumberField, SelectField, TextField, Panel, ConfirmButton, DayTimeline } from '../components/ui.jsx'
+import { PageHead, NumberField, SelectField, TextField, Panel, ConfirmButton, DayTimeline, TimeSelect } from '../components/ui.jsx'
 import { serviceEyebrow } from './common.jsx'
 
 const channelOptions = Object.entries(CHANNELS).map(([value, c]) => ({ value, label: `${c.label} · ${c.method}` }))
@@ -97,8 +97,8 @@ export default function ServicePage({ ws, active, site, update, updateActive, qu
                   <tr key={d}>
                     <td>{d}</td>
                     <td style={{ textAlign: 'left' }}><input type="checkbox" aria-label={`Open on ${d}`} checked={!!h} onChange={(e) => setHours(wd, e.target.checked ? { open: '09:00', close: '17:00' } : null)} /></td>
-                    <td style={{ textAlign: 'left' }}>{h && <input type="time" aria-label={`${d} opens`} value={h.open} step={s.intervalMin * 60} onChange={(e) => e.target.value && setHours(wd, { ...h, open: e.target.value })} />}</td>
-                    <td style={{ textAlign: 'left' }}>{h && <input type="time" aria-label={`${d} closes`} value={h.close} step={s.intervalMin * 60} onChange={(e) => e.target.value && setHours(wd, { ...h, close: e.target.value })} />}</td>
+                    <td style={{ textAlign: 'left' }}>{h && <TimeSelect label={`${d} opens`} step={s.intervalMin} value={h.open} onChange={(v) => setHours(wd, { ...h, open: v })} />}</td>
+                    <td style={{ textAlign: 'left' }}>{h && <TimeSelect label={`${d} closes`} step={s.intervalMin} allowMidnightEnd value={h.close} onChange={(v) => setHours(wd, { ...h, close: v })} />}</td>
                     <td style={{ textAlign: 'left' }}>{h ? <DayTimeline open={h.open} close={h.close} /> : <span className="faint small">Closed</span>}</td>
                   </tr>
                 )
