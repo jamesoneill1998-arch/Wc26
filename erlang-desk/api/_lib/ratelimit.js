@@ -17,7 +17,10 @@ export async function rateLimit(cfg, key, max, windowSec) {
         const [incr] = await r.json()
         return Number(incr?.result) <= max
       }
-    } catch { /* fall through to memory */ }
+      console.error('rate limit store unavailable', r.status)
+    } catch (e) {
+      console.error('rate limit store unavailable', e.message)
+    }
   }
   if (memory.size > 10000) memory.clear()
   const n = (memory.get(bucket) ?? 0) + 1
