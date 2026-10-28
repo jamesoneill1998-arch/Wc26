@@ -24,7 +24,10 @@ export function clearSession(res) {
   appendCookie(res, cookie(SESSION_COOKIE, '', 0))
 }
 
+export const ADMIN_ENTITLEMENT = { plan: 'team', status: 'active', role: 'admin', customerId: null }
+
 export async function freshEntitlement(cfg, email) {
+  if (cfg.adminEmails?.includes(email)) return ADMIN_ENTITLEMENT
   if (!cfg.stripeKey) return { plan: null, status: null, role: null, customerId: null }
   return entitlementFor(cfg, email)
 }

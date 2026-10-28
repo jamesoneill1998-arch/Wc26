@@ -89,7 +89,9 @@ export default function AccountPage({ account, query, replace, ws, update }) {
 
       {account.billing && account.signedIn && (
         <Panel title={account.email} aside={<button className="btn link" type="button" onClick={act(account.signOut)}>Sign out</button>}>
-          {account.active ? (
+          {account.role === 'admin' ? (
+            <p>You have <b>owner access</b>: every feature, with no subscription.</p>
+          ) : account.active ? (
             <div className="stack-s">
               <p>You're on <b>{account.plan === 'team' ? 'Team' : 'Pro'}</b>{account.status === 'trialing' ? ', in your free trial' : ''}{account.status === 'past_due' ? '. Your last payment failed; update your card to keep access' : ''}.</p>
               {account.role === 'member' ? <p className="muted">Your team owner manages billing.</p> : <div><button className="btn" type="button" onClick={act(account.portal)}>Invoices, card and cancellation</button></div>}

@@ -16,7 +16,7 @@ Forecasting, staffing and capacity planning for contact centres, back offices an
 | **Overview** | A "Needs attention" list (hiring deadlines, shortfalls hiring can't reach, changes over capacity), required vs available FTE by channel, and per-service trend sparklines. |
 | **Overview (detail)** | Every service rolled up by channel and by site. |
 | **Calculator** | Free Erlang A vs C for a single interval, rostered for each site. |
-| **Accounts** | Passwordless sign-in, Stripe subscriptions (Pro and Team), and Team seat management. See [SECURITY.md](SECURITY.md). |
+| **Accounts** | Passwordless sign-in, Stripe subscriptions (Pro and Team), and Team seat management. Emails in `ADMIN_EMAILS` get full owner access without a subscription. See [SECURITY.md](SECURITY.md). |
 
 ## Printing
 

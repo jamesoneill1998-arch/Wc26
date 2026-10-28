@@ -205,6 +205,28 @@ test('plan is read from Stripe and refreshed on a stale session', async () => {
   assert.equal(p.json.url, 'https://billing.stripe.com/p/session/1')
 })
 
+test('ADMIN_EMAILS gives owners full access without Stripe, and removal revokes it', async () => {
+  process.env.ADMIN_EMAILS = ' Founder@ErlangDesk.com , other@x.co '
+  try {
+    const { cookie } = await signIn('founder@erlangdesk.com')
+    const who = await call(me, { headers: { cookie } })
+    assert.deepEqual(who.json, { signedIn: true, email: 'founder@erlangdesk.com', plan: 'team', status: 'active', role: 'admin', active: true })
+    assert.ok(!stripeCalls.some((c) => c.path.includes('/customers')), 'no Stripe lookup for an owner')
+    const c = await call(checkout, { method: 'POST', headers: { ...same, cookie }, body: { plan: 'pro' } })
+    assert.equal(c.statusCode, 409)
+    const other = await signIn('planner@acme.co.uk')
+    assert.equal((await call(me, { headers: { cookie: other.cookie } })).json.active, false)
+    process.env.ADMIN_EMAILS = ''
+    const payload = verify(decodeURIComponent(cookie.split('=')[1]), process.env.SESSION_SECRET, 'session')
+    const stale = sign({ ...payload, chk: 0 }, process.env.SESSION_SECRET, 'session', 3600)
+    const after = await call(me, { headers: { cookie: `__Host-ed_session=${stale}` } })
+    assert.equal(after.json.active, false)
+    assert.equal(after.json.role, null)
+  } finally {
+    delete process.env.ADMIN_EMAILS
+  }
+})
+
 test('team owners can add up to four planners, who inherit the plan', async () => {
   customers.push({ id: 'cus_9', email: 'owner@acme.co.uk', metadata: {} })
   subs.push({ customer: 'cus_9', status: 'active', items: { data: [{ price: { id: 'price_team' } }] } })
