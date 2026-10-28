@@ -16,6 +16,7 @@ export default handler(async (req, res) => {
   const plan = jsonBody(req)?.plan
   if (plan !== 'pro' && plan !== 'team') return send(res, 400, { error: 'Unknown plan.' })
   if (!cfg.prices[plan]) return send(res, 503, { error: 'This plan is not available yet.' })
+  if (s.role === 'admin') return send(res, 409, { error: 'Owner access already includes every feature.' })
   if (s.plan && s.role === 'owner') return send(res, 409, { error: 'You already have a subscription. Manage it from billing.', portal: true })
   if (!(await rateLimit(cfg, `checkout:${s.email}`, 10, 3600))) return send(res, 429, { error: 'Too many attempts.' })
 

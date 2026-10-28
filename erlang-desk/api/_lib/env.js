@@ -34,5 +34,8 @@ export function getConfig() {
     emailFrom: process.env.EMAIL_FROM || '',
     upstashUrl: process.env.UPSTASH_REDIS_REST_URL || '',
     upstashToken: process.env.UPSTASH_REDIS_REST_TOKEN || '',
+    // Owners get full access without a subscription. Comma-separated emails;
+    // server-side only, and only after the magic link proves the address.
+    adminEmails: (process.env.ADMIN_EMAILS || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean),
   }
 }
