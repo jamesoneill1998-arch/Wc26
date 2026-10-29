@@ -62,9 +62,9 @@ function WorkedExample() {
 }
 
 const SCREENS = [
-  { key: 'overview', tab: 'Operation overview', src: 'screens/overview.jpg', w: 1416, h: 587, alt: 'Stacked weekly required FTE by channel against available FTE', caption: 'Every service and site in one view: required FTE by channel each week, against the people you will actually have after attrition and new starters.' },
-  { key: 'coverage', tab: 'Roster coverage', src: 'screens/coverage.jpg', w: 1416, h: 492, alt: 'Heatmap of staff short and over by day and half hour', caption: 'Your roster against the requirement, every half hour. Red is short, blue is over. Here the 10:00 peak and weekends are short while early afternoon carries spare staff.' },
-  { key: 'impact', tab: 'Change impact', src: 'screens/impact-chart.jpg', w: 1416, h: 600, alt: 'Monthly FTE chart for a mortgage launch against operational FTE', caption: 'A mortgage launch of 25,000 acquisitions, converted to calls and FTE by month and tested against headroom after other approved changes. Verdict: not absorbable without recruiting.' },
+  { key: 'overview', tab: 'Operation overview', src: 'screens/overview.jpg', w: 2328, h: 784, alt: 'Stacked weekly required FTE by channel against available FTE', caption: 'Every service and site in one view: required FTE by channel each week, against the people you will actually have after attrition and new starters.' },
+  { key: 'coverage', tab: 'Roster coverage', src: 'screens/coverage.jpg', w: 2328, h: 604, alt: 'Heatmap of staff short and over by day and half hour', caption: 'Your roster against the requirement, every half hour. Red is short, blue is over. Here the 10:00 peak and weekends are short while early afternoon carries spare staff.' },
+  { key: 'impact', tab: 'Change impact', src: 'screens/impact-chart.jpg', w: 2328, h: 800, alt: 'Monthly FTE chart for a mortgage launch against operational FTE', caption: 'A mortgage launch of 25,000 acquisitions, converted to calls and FTE by month and tested against headroom after other approved changes. Verdict: not absorbable without recruiting.' },
 ]
 
 function InsideThePlanner() {
@@ -110,12 +110,16 @@ const COMPARE = [
 ]
 
 const SECURITY = [
-  ['Your data stays with you', 'Contact history is processed and stored in your browser. There is no server-side copy to breach, and nothing to put in a data-processing agreement.'],
-  ['No passwords to steal', 'Sign-in is by single-use email link, valid for 15 minutes and only in the browser that asked for it.'],
-  ['Hardened sessions', 'Secure, HttpOnly, SameSite cookies with a fixed seven-day life. Every change request is checked for origin and rate limited.'],
-  ['Strict browser policy', 'A Content Security Policy that only allows our own code, HSTS, no framing, and no third-party scripts, trackers or font services.'],
-  ['Payments by Stripe', 'Card details go straight to Stripe. We never see or store them, and plan prices are fixed on our server.'],
-  ['Checked inputs', 'Imported files are size-limited and validated field by field, and exports are protected against spreadsheet formula injection.'],
+  ['Your data stays with you', 'Contact history is read and stored in your browser. We never receive a copy, so there is nothing of yours on our servers to breach.'],
+  ['No passwords to steal', 'You sign in with a single-use link sent to your work email. It lasts 15 minutes and only works in the browser that asked for it.'],
+  ['Payments by Stripe', 'Card details go straight to Stripe. We never see or store them.'],
+]
+
+const SECURITY_DETAIL = [
+  'Sessions are Secure, HttpOnly, SameSite cookies with a fixed seven-day life; every change request is checked for origin and rate limited.',
+  'A strict Content Security Policy allows only our own code. HSTS is on, framing is blocked, and there are no third-party scripts, trackers or font services.',
+  'Imported files are size-limited and validated field by field. CSV exports are protected against spreadsheet formula injection.',
+  'Plan prices are fixed on the server; the browser can only name a plan.',
 ]
 
 const FAQ = [
@@ -127,9 +131,25 @@ const FAQ = [
   ['Can I cancel?', 'At any time, from the billing page. You keep access until the end of the period you\'ve paid for.'],
 ]
 
+function ThemeIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <circle cx="12" cy="12" r="4.5" />
+      <path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6" />
+    </svg>
+  )
+}
+
+function initials(name) {
+  return name.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+}
+
 export default function Landing({ onToggleTheme, account }) {
   const jump = (id) => (e) => { e.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }) }
-  const planHref = (p) => (p.id === 'free' ? '#/app/calculator' : account.billing ? `#/app/account?plan=${p.id}` : '#/app')
+  // Before billing is switched on, paid plans point at the pilot instead of a trial.
+  const pilotMode = !account.billing
+  const planHref = (p) => (p.id === 'free' ? '#/app/calculator' : pilotMode ? '#pilot' : `#/app/account?plan=${p.id}`)
+  const planCta = (p) => (p.id !== 'free' && pilotMode ? 'Join the pilot' : p.cta)
   return (
     <div>
       <div className="site-top">
@@ -138,8 +158,9 @@ export default function Landing({ onToggleTheme, account }) {
           <nav aria-label="Site">
             <a href="#channels" className="hide-sm" onClick={jump('channels')}>Method</a>
             <a href="#security" className="hide-sm" onClick={jump('security')}>Security</a>
+            <a href="#pilot" className="hide-sm" onClick={jump('pilot')}>Pilot</a>
             <a href="#pricing" className="hide-sm" onClick={jump('pricing')}>Pricing</a>
-            <button className="btn link" type="button" onClick={onToggleTheme} style={{ color: 'var(--ink-2)', textDecoration: 'none' }}>Theme</button>
+            <button className="icon-btn" type="button" onClick={onToggleTheme} aria-label="Switch light or dark theme" title="Light or dark"><ThemeIcon /></button>
             {account.billing && !account.signedIn && <a href="#/app/account">Sign in</a>}
             <a className="btn dark sm" href="#/app">Open the planner</a>
           </nav>
@@ -225,51 +246,17 @@ export default function Landing({ onToggleTheme, account }) {
         </div>
       </section>
 
-      <section className="section alt" id="security">
-        <div className="wrap">
-          <div className="section-head">
-            <h2>Security you can show procurement</h2>
-            <p>Most of the risk in a planning tool sits in the customer data it holds. {BRAND.name} is built so it holds none.</p>
-          </div>
-          <div className="grid-3">
-            {SECURITY.map(([t, body]) => (
-              <div className="module" key={t}><h3 style={{ fontSize: 19 }}>{t}</h3><p>{body}</p></div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="section" id="pricing">
-        <div className="wrap">
-          <div className="section-head">
-            <h2>Priced per planner, not per agent</h2>
-            <p>Fourteen-day trial on Pro and Team. Billed monthly, cancel any time. Prices exclude VAT.</p>
-          </div>
-          <div className="prices">
-            {PLANS.map((p) => (
-              <div key={p.id} className={`module price${p.featured ? ' featured' : ''}`}>
-                <h3>{p.name}</h3>
-                <div className="amt">{p.price ? `${CURRENCY}${p.price}` : 'Free'}</div>
-                <div className="per">{p.per}</div>
-                <p className="muted">{p.blurb}</p>
-                <ul>{p.features.map((f) => <li key={f}>{f}</li>)}</ul>
-                <a className={`btn${p.featured ? ' primary' : ''}`} href={planHref(p)}>{p.cta}</a>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       <section className="section alt" id="pilot">
         <div className="wrap cols">
           <div className="section-head" style={{ marginBottom: 0 }}>
+            <div className="label">Now taking pilots</div>
             <h2>Founding pilot programme</h2>
             <p>We're working with a small number of planning teams to shape the product. Pilots get three months free, a working session with their own data, and a direct line to the person building it.</p>
             <div className="row" style={{ marginTop: 22 }}>
               {BRAND.contactEmail
                 ? <a className="btn primary" href={`mailto:${BRAND.contactEmail}?subject=Erlang%20Desk%20pilot`}>Apply for the pilot</a>
                 : <a className="btn primary" href="#/app">Explore the sample first</a>}
-              <a className="btn" href="#/app/calculator">Try the free calculator</a>
+              {BRAND.contactEmail ? <a className="btn" href="#/app">Explore the sample</a> : <a className="btn" href="#/app/calculator">Try the free calculator</a>}
             </div>
             {BRAND.contactEmail && <p className="small faint" style={{ marginTop: 10 }}>Or email {BRAND.contactEmail}</p>}
           </div>
@@ -283,30 +270,77 @@ export default function Landing({ onToggleTheme, account }) {
             </ol>
           </div>
         </div>
+        {BRAND.founderName && (
+          <div className="wrap">
+            <div className="founder">
+              {BRAND.founderPhoto
+                ? <img className="founder-photo" src={BRAND.founderPhoto} alt={BRAND.founderName} width="96" height="96" loading="lazy" />
+                : <div className="founder-photo initials" aria-hidden="true">{initials(BRAND.founderName)}</div>}
+              <div>
+                <div className="label">Who's behind it</div>
+                <h3>{BRAND.founderName}</h3>
+                {BRAND.founderRole && <p className="muted small">{BRAND.founderRole}</p>}
+                {BRAND.founderBio && <p className="founder-bio">{BRAND.founderBio}</p>}
+              </div>
+            </div>
+          </div>
+        )}
       </section>
 
-      {BRAND.founderName && (
-        <section className="section">
-          <div className="wrap founder">
-            <div className="label">Who's behind it</div>
-            <h2>{BRAND.founderName}</h2>
-            {BRAND.founderRole && <p className="muted">{BRAND.founderRole}</p>}
-            {BRAND.founderBio && <p className="founder-bio">{BRAND.founderBio}</p>}
-          </div>
-        </section>
-      )}
-
-      <section className="section">
-        <div className="wrap" style={{ maxWidth: 900 }}>
+      <section className="section" id="security">
+        <div className="wrap">
           <div className="section-head">
-            <h2>Questions planners ask</h2>
+            <h2>Security you can show procurement</h2>
+            <p>Most of the risk in a planning tool sits in the customer data it holds. {BRAND.name} is built so it holds none.</p>
           </div>
-          {FAQ.map(([q, a]) => (
-            <details key={q}>
-              <summary>{q}</summary>
-              <p>{a}</p>
-            </details>
-          ))}
+          <div className="grid-3">
+            {SECURITY.map(([t, body]) => (
+              <div className="module" key={t}><h3>{t}</h3><p>{body}</p></div>
+            ))}
+          </div>
+          <details className="tech-detail">
+            <summary>Technical detail for your security team</summary>
+            <ul>{SECURITY_DETAIL.map((d) => <li key={d}>{d}</li>)}</ul>
+          </details>
+        </div>
+      </section>
+
+      <section className="section alt" id="pricing">
+        <div className="wrap">
+          <div className="section-head">
+            <h2>Priced per planner, not per agent</h2>
+            <p>{pilotMode
+              ? 'Pricing from launch. Pilot teams get three months free first, with no card needed.'
+              : 'Fourteen-day trial on Pro and Team. Billed monthly, cancel any time. Prices exclude VAT.'}</p>
+          </div>
+          <div className="prices">
+            {PLANS.map((p) => (
+              <div key={p.id} className={`module price${p.featured ? ' featured' : ''}`}>
+                <h3>{p.name}</h3>
+                <div className="amt">{p.price ? `${CURRENCY}${p.price}` : 'Free'}</div>
+                <div className="per">{p.per}{p.price && pilotMode ? ' · from launch' : ''}</div>
+                <p className="muted">{p.blurb}</p>
+                <ul>{p.features.map((f) => <li key={f}>{f}</li>)}</ul>
+                <a className={`btn${p.featured ? ' primary' : ''}`} href={planHref(p)} onClick={p.id !== 'free' && pilotMode ? jump('pilot') : undefined}>{planCta(p)}</a>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="section" id="faq">
+        <div className="wrap">
+          <div className="faq">
+            <div className="section-head">
+              <h2>Questions planners ask</h2>
+            </div>
+            {FAQ.map(([q, a]) => (
+              <details key={q}>
+                <summary>{q}</summary>
+                <p>{a}</p>
+              </details>
+            ))}
+          </div>
         </div>
       </section>
 

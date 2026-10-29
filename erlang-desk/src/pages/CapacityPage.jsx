@@ -1,15 +1,18 @@
 import { useState } from 'react'
 import { formatDate } from '../engine/dates.js'
 import { toCSV } from '../engine/csv.js'
-import { PageHead, Figures, Figure, NumberField, SelectField, Gap, Panel, LoadingPage } from '../components/ui.jsx'
-import { LineChart, Legend } from '../components/charts.jsx'
+import { PageHead, Figures, Figure, NumberField, SelectField, Gap, Panel, LoadingPage, Segmented } from '../components/ui.jsx'
+import { LineChart, GapChart, Legend } from '../components/charts.jsx'
 import { downloadText, fmtInt, fmt1, fmtPct } from '../format.js'
 import { NoServices, NeedsHistory, serviceEyebrow } from './common.jsx'
 import { ShortTermNotice } from './Overview.jsx'
 
+const weekLabel = (d, long) => (long ? `Week of ${formatDate(d, { day: 'numeric', month: 'short', year: 'numeric' })}` : formatDate(d))
+
 export default function CapacityPage({ active, site, result, updateActive, updateService, updateSite, replace, account }) {
   const [newWeek, setNewWeek] = useState('')
   const [newCount, setNewCount] = useState(10)
+  const [view, setView] = useState('gap')
   if (!active) return <NoServices title="Capacity plan" replace={replace} />
   const eyebrow = serviceEyebrow(active, site)
   if (!active.history) return <NeedsHistory title="Capacity plan" eyebrow={eyebrow} />
@@ -59,15 +62,30 @@ export default function CapacityPage({ active, site, result, updateActive, updat
 
       {unfixable.length > 0 && <ShortTermNotice weeks={unfixable} />}
 
-      <Panel title="Required against available FTE">
-        <Legend items={[{ label: 'Required', color: 'var(--series-1)' }, { label: 'Available', color: 'var(--series-2)' }]} />
-        <LineChart
-          rows={sim.map((w) => ({ x: w.week, required: w.requiredFte, available: w.availableFte }))}
-          height={280}
-          series={[{ key: 'required', label: 'Required', color: 'var(--series-1)' }, { key: 'available', label: 'Available', color: 'var(--series-2)' }]}
-          xFormat={(d, long) => (long ? `Week of ${formatDate(d, { day: 'numeric', month: 'short', year: 'numeric' })}` : formatDate(d))}
-          valueFormat={fmt1}
-        />
+      <Panel title={view === 'gap' ? 'Short or over, week by week' : 'Required against available FTE'} aside={<Segmented label="Chart view" value={view} onChange={setView} options={[{ value: 'gap', label: 'Gap' }, { value: 'lines', label: 'Required vs available' }]} />}>
+        {view === 'gap' ? (
+          <>
+            <Legend items={[{ label: 'Short', color: 'var(--div-n2)', block: true }, { label: 'Over', color: 'var(--div-p2)', block: true }]} />
+            <GapChart
+              label="Weekly FTE short or over"
+              rows={sim.map((w) => ({ x: w.week, value: w.gap, tip: [['Required', fmt1(w.requiredFte)], ['Available', fmt1(w.availableFte)]] }))}
+              height={260}
+              xFormat={weekLabel}
+              valueFormat={fmt1}
+            />
+          </>
+        ) : (
+          <>
+            <Legend items={[{ label: 'Required', color: 'var(--series-1)' }, { label: 'Available', color: 'var(--series-2)' }]} />
+            <LineChart
+              rows={sim.map((w) => ({ x: w.week, required: w.requiredFte, available: w.availableFte }))}
+              height={280}
+              series={[{ key: 'required', label: 'Required', color: 'var(--series-1)' }, { key: 'available', label: 'Available', color: 'var(--series-2)' }]}
+              xFormat={weekLabel}
+              valueFormat={fmt1}
+            />
+          </>
+        )}
       </Panel>
 
       <div className="cols">

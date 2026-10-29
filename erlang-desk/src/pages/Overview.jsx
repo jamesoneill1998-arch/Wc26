@@ -24,42 +24,52 @@ export function ShortTermNotice({ weeks }) {
 /**
  * What a planner should act on this week, most urgent first: hiring that
  * must start, shortfalls hiring can't reach, and changes that won't fit.
+ * Each item is { level, who, what, action, when, size, href, select, cta }.
  */
 function attentionItems(ws, model) {
   const items = []
   const today = weekStart(new Date().toISOString().slice(0, 10))
   const soon = new Date(Date.parse(today) + 21 * 864e5).toISOString().slice(0, 10)
+  const short = (d) => formatDate(d, { day: 'numeric', month: 'short' })
   for (const svc of ws.services) {
     const r = model.services[svc.id]
     const select = () => ({ activeServiceId: svc.id })
+    const who = svc.name
+    const what = CHANNELS[svc.channel].label
     if (!svc.history) {
-      items.push({ level: 1, text: <><b>{svc.name} · {CHANNELS[svc.channel].label}</b> has no history yet, so it isn't in the plan.</>, href: '#/app/data', select, cta: 'Add data' })
+      items.push({ level: 1, who, what, action: 'Add history to include it in the plan', when: '', size: '', href: '#/app/data', select, cta: 'Add data' })
       continue
     }
     if (!r?.sim?.length) continue
-    const name = <b>{svc.name} · {CHANNELS[svc.channel].label}</b>
     const rec = r.recs[0]
-    const gapNow = r.unfixable.length
-      ? (() => { const worst = r.unfixable.reduce((m, w) => (w.gap < m.gap ? w : m)); return ` ${r.unfixable.length} week${r.unfixable.length > 1 ? 's' : ''} short before it can land (worst ${fmt1(-worst.gap)} FTE, w/c ${formatDate(worst.week)}): plan overtime or move leave.` })()
-      : ''
+    const worst = r.unfixable.length ? r.unfixable.reduce((m, w) => (w.gap < m.gap ? w : m)) : null
+    const cover = worst ? `Cover ${r.unfixable.length} week${r.unfixable.length > 1 ? 's' : ''} with overtime or leave moves` : ''
     if (rec) {
-      const urgent = rec.week <= soon || r.unfixable.length > 0
-      items.push({ level: urgent ? 3 : 2, text: <>{name}: start a class of {rec.count} by {formatDate(rec.week, { day: 'numeric', month: 'short' })} for the shortfall from {formatDate(rec.coversWeek)}.{gapNow}</>, href: '#/app/capacity', select, cta: 'Capacity plan' })
-    } else if (r.unfixable.length) {
-      items.push({ level: 3, text: <>{name}:{gapNow}</>, href: '#/app/capacity', select, cta: 'Capacity plan' })
+      const urgent = rec.week <= soon || !!worst
+      items.push({
+        level: urgent ? 3 : 2, who, what,
+        action: `Start a class of ${rec.count}`, detail: [`For the shortfall from ${short(rec.coversWeek)}`, cover].filter(Boolean).join('. '),
+        when: `By ${short(rec.week)}`, size: worst ? `${fmt1(-worst.gap)} FTE short` : '',
+        href: '#/app/capacity', select, cta: 'Capacity plan',
+      })
+    } else if (worst) {
+      items.push({ level: 3, who, what, action: cover, when: `From ${short(r.unfixable[0].week)}`, size: `${fmt1(-worst.gap)} FTE short`, href: '#/app/capacity', select, cta: 'Capacity plan' })
     }
   }
   for (const area of ws.areas ?? []) {
     const site = ws.sites.find((x) => x.id === area.siteId)
     const ctx = { shrinkage: area.settings.shrinkageOverride ?? siteShrinkage(site), weeklyHours: site?.fteHoursPerWeek ?? 37.5 }
+    const select = () => ({ activeAreaId: area.id })
     for (const c of ws.changes.filter((x) => x.areaId === area.id && x.status !== 'rejected')) {
       const a = assessChange(c, area, ws.changes, ctx)
-      if (a.verdict === 'short') items.push({ level: 3, text: <><b>{c.name}</b> ({area.name}) is not absorbable: up to {fmt1(a.peakShortfall)} FTE short{a.firstShort ? ` from ${monthLabel(a.firstShort)}` : ''}.</>, href: '#/app/impact', select: () => ({ activeAreaId: area.id }), cta: 'Impact assessment' })
-      else if (a.verdict === 'overtime') items.push({ level: 2, text: <><b>{c.name}</b> ({area.name}) needs overtime to absorb.</>, href: '#/app/impact', select: () => ({ activeAreaId: area.id }), cta: 'Impact assessment' })
+      if (a.verdict === 'short') items.push({ level: 3, who: c.name, what: area.name, action: 'Not absorbable: needs extra resource', when: a.firstShort ? `From ${monthLabel(a.firstShort)}` : '', size: `${fmt1(a.peakShortfall)} FTE short`, href: '#/app/impact', select, cta: 'Impact assessment' })
+      else if (a.verdict === 'overtime') items.push({ level: 2, who: c.name, what: area.name, action: 'Absorbable with overtime', when: '', size: '', href: '#/app/impact', select, cta: 'Impact assessment' })
     }
   }
   return items.sort((a, b) => b.level - a.level).slice(0, 8)
 }
+
+const LEVEL = { 3: ['▲', 'Urgent'], 2: ['●', 'Soon'], 1: ['○', 'Note'] }
 
 function Attention({ items, update }) {
   if (!items.length) return <div className="notice ok"><b>Nothing needs action.</b> Every service is covered for the weeks hiring can reach, and no logged change is over capacity.</div>
@@ -68,8 +78,11 @@ function Attention({ items, update }) {
       <ul className="attention">
         {items.map((it, i) => (
           <li key={i} className={`lvl-${it.level}`}>
-            <span className="sev" aria-label={it.level === 3 ? 'Urgent' : it.level === 2 ? 'Soon' : 'Note'}>{it.level === 3 ? '▲' : it.level === 2 ? '●' : '○'}</span>
-            <span className="what">{it.text}</span>
+            <span className="sev" aria-label={LEVEL[it.level][1]}>{LEVEL[it.level][0]}</span>
+            <span className="who"><b>{it.who}</b><span className="faint">{it.what}</span></span>
+            <span className="what">{it.action}{it.detail && <span className="faint">{it.detail}</span>}</span>
+            <span className="when">{it.when}</span>
+            <span className="size">{it.size}</span>
             <a className="btn sm" href={it.href} onClick={() => update(it.select())}>{it.cta}</a>
           </li>
         ))}
