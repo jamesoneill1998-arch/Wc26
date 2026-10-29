@@ -304,6 +304,7 @@ export default function Landing({ onToggleTheme, account }) {
             <summary>Technical detail for your security team</summary>
             <ul>{SECURITY_DETAIL.map((d) => <li key={d}>{d}</li>)}</ul>
           </details>
+          <p style={{ marginTop: 14 }}><a href="security.html">Read the full security overview</a>, written for procurement and data-protection reviews.</p>
         </div>
       </section>
 
@@ -352,6 +353,7 @@ export default function Landing({ onToggleTheme, account }) {
         <span>© {new Date().getFullYear()} {BRAND.name}</span>
         <span>Named for A. K. Erlang, who worked out the mathematics of call queues for the Copenhagen Telephone Company.</span>
         <span className="spacer" />
+        <a href="security.html">Security</a>
         <a href="privacy.html">Privacy</a>
         <a href="terms.html">Terms</a>
         {BRAND.contactEmail && <a href={`mailto:${BRAND.contactEmail}`}>Contact</a>}

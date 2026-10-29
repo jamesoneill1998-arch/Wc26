@@ -1,0 +1,5 @@
+Contact: mailto:hello@erlangdesk.com
+Expires: 2027-10-31T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://erlangdesk.com/.well-known/security.txt
+Policy: https://erlangdesk.com/security.html

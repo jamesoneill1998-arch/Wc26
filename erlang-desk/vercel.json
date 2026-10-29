@@ -3,6 +3,7 @@
   "outputDirectory": "dist",
   "installCommand": "npm ci",
   "framework": "vite",
+  "regions": ["lhr1"],
   "functions": {
     "api/**/*.js": { "maxDuration": 10 }
   },
