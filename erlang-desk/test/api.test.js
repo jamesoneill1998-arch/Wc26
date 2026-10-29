@@ -186,6 +186,12 @@ test('checkout needs a session, whitelists plans and uses server-side prices', a
   assert.equal(created.params['line_items[0][price]'], 'price_pro')
   assert.equal(created.params['subscription_data[trial_period_days]'], '14')
   assert.equal(created.params.success_url, 'https://app.example.com/#/app/account?checkout=success')
+  assert.equal(created.params.ui_mode, 'hosted')
+  assert.equal(created.params.billing_address_collection, 'auto')
+  assert.equal(created.params['phone_number_collection[enabled]'], 'false')
+  assert.equal(created.params['automatic_tax[enabled]'], 'false')
+  assert.equal(created.params.allow_promotion_codes, 'false')
+  assert.equal(created.params.payment_method_collection, 'always')
 })
 
 test('plan is read from Stripe and refreshed on a stale session', async () => {

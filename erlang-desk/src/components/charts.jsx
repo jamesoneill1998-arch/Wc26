@@ -349,3 +349,62 @@ export function StackedColumns({ rows, series, height = 260, xFormat = (x) => x,
     </div>
   )
 }
+
+/**
+ * Weekly position as bars either side of zero: short below in red, over
+ * above in blue, so the size and timing of a gap read at a glance.
+ * rows: [{ x, value, tip: [[label, value]] }]
+ */
+export function GapChart({ rows, height = 240, xFormat = (x) => x, valueFormat = fmtCompact, label = 'Gap' }) {
+  const [ref, width] = useWidth()
+  const [hover, setHover] = useState(null)
+  const m = { t: 12, r: 8, b: 26, l: 44 }
+  const iw = width - m.l - m.r
+  const ih = height - m.t - m.b
+  const hi = Math.max(0, ...rows.map((r) => r.value))
+  const lo = Math.min(0, ...rows.map((r) => r.value))
+  // One step size either side of zero, so the scale reads evenly.
+  const step = niceTicks(Math.max(hi - lo, 1), 4)[1]
+  const top = Math.max(step, Math.ceil(hi / step) * step)
+  const bottom = Math.min(-step, Math.floor(lo / step) * step)
+  const ys = (v) => m.t + ((top - v) / (top - bottom)) * ih
+  const ticks = []
+  for (let t = bottom; t <= top + step / 1000; t += step) ticks.push(Math.round(t * 1000) / 1000)
+  const tickLabel = (t) => (t === 0 ? '0' : `${t > 0 ? '+' : '−'}${Number.isInteger(t) ? Math.abs(t) : valueFormat(Math.abs(t))}`)
+  const band = iw / Math.max(1, rows.length)
+  const bw = Math.max(2, Math.min(22, band - 3))
+  const tickEvery = Math.max(1, Math.ceil(rows.length / Math.max(2, Math.floor(iw / 64))))
+  const fill = (v) => (v < -0.5 ? (v < -5 ? 'var(--div-n3)' : 'var(--div-n2)') : v > 0.5 ? (v > 5 ? 'var(--div-p3)' : 'var(--div-p2)') : 'var(--div-0)')
+  return (
+    <div className="chart" ref={ref}>
+      <svg width={width} height={height} role="img" aria-label={label}>
+        {ticks.map((t) => (
+          <g key={t}>
+            <line className={t === 0 ? 'axis-line' : 'grid-line'} x1={m.l} x2={width - m.r} y1={ys(t)} y2={ys(t)} />
+            <text className="tick" x={m.l - 8} y={ys(t)} dy="0.32em" textAnchor="end">{tickLabel(t)}</text>
+          </g>
+        ))}
+        {rows.map((r, i) => {
+          const x = m.l + i * band + (band - bw) / 2
+          const y0 = ys(0)
+          const y1 = ys(r.value)
+          const h = Math.max(1, Math.abs(y1 - y0))
+          return (
+            <g key={i} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
+              <rect x={m.l + i * band} y={m.t} width={band} height={ih} fill="transparent" />
+              <rect x={x} y={r.value >= 0 ? y0 - h : y0} width={bw} height={h} rx={Math.min(3, bw / 2)} fill={fill(r.value)} opacity={hover == null || hover === i ? 1 : 0.55} />
+              {i % tickEvery === 0 && <text className="tick" x={x + bw / 2} y={height - 6} textAnchor="middle">{xFormat(r.x)}</text>}
+            </g>
+          )
+        })}
+      </svg>
+      {hover != null && (
+        <Tooltip x={m.l + hover * band + band / 2} y={m.t} width={width}>
+          <div className="tt-title">{xFormat(rows[hover].x, true)}</div>
+          <div className="tt-row"><span className="row" style={{ gap: 6 }}><i className="dot" style={{ background: fill(rows[hover].value) }} />{rows[hover].value < -0.5 ? 'Short' : rows[hover].value > 0.5 ? 'Over' : 'Even'}</span><b>{valueFormat(Math.abs(rows[hover].value))}</b></div>
+          {(rows[hover].tip ?? []).map(([k, v]) => <div className="tt-row muted" key={k}><span>{k}</span><b>{v}</b></div>)}
+        </Tooltip>
+      )}
+    </div>
+  )
+}
