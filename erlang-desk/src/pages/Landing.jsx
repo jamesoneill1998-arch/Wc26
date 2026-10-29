@@ -124,10 +124,10 @@ const SECURITY_DETAIL = [
 
 const FAQ = [
   ['Do I need to upload anything to try it?', 'No. Open the planner and load the sample operation: four services across a UK and an offshore site. When you import your own data, it is read in your browser and never sent to us.'],
-  ['What is Erlang A, and why does it need fewer people?', 'Erlang C assumes every caller waits until answered. In reality some hang up, which shortens the queue for everyone else. Erlang A accounts for that, typically needing 5–15% fewer agents for the same service level, and it reports the abandonment rate you should expect.'],
+  ['What is Erlang A, and why does it need fewer people?', 'Erlang C assumes every caller waits until answered. In reality some hang up, which shortens the queue for everyone else. Erlang A accounts for that. In typical voice queues it needs around 10% fewer agents for the same service level, more when callers give up quickly and less when they\'re patient, and it tells you the abandonment rate to expect.'],
   ['Can I plan UK and offshore teams together?', 'Yes. Each service belongs to a site, and each site has its own shrinkage components, contracted hours and attrition. The overview adds them up.'],
-  ['What data format do you accept?', 'A CSV with a date column, a volume column, and optionally an interval start time and average handle time. Column names from common ACDs are recognised.'],
-  ['Can colleagues share a workspace?', 'On the Team plan each planner has their own sign-in. Workspaces are exported and imported as files, so nothing sits on a shared server.'],
+  ['What data format do you accept?', 'A CSV export of daily or interval volumes, straight from your telephony or workflow system. Exports from Genesys, NICE CXone, Avaya, Amazon Connect, Five9 and Excel are read as they are, including 12-hour times, mm:ss handle times and files with several queues. The import tells you which columns it used.'],
+  ['Can colleagues share a workspace?', 'On the Team plan each planner has their own sign-in. One planner exports their workspace and a colleague opens it, so plans move between you as files and nothing sits on a shared server.'],
   ['Can I cancel?', 'At any time, from the billing page. You keep access until the end of the period you\'ve paid for.'],
 ]
 
@@ -314,7 +314,7 @@ export default function Landing({ onToggleTheme, account }) {
             <h2>Priced per planner, not per agent</h2>
             <p>{pilotMode
               ? 'Pricing from launch. Pilot teams get three months free first, with no card needed.'
-              : 'Fourteen-day trial on Pro and Team. Billed monthly, cancel any time. Prices exclude VAT.'}</p>
+              : 'Fourteen-day trial on Pro and Team. Billed monthly, cancel any time.'}</p>
           </div>
           <div className="prices">
             {PLANS.map((p) => (

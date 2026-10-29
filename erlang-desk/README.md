@@ -28,7 +28,8 @@ Capacity plans and impact assessments have a Print button and a print layout (or
 cd erlang-desk
 npm install
 npm run dev        # UI only, all features unlocked: http://localhost:5173
-npm test           # engine, Erlang A simulation check, API security and billing tests
+npm test           # engine, Erlang A simulation check, import formats, API security and billing tests
+npm run check      # tests plus a production build: run before every merge
 npm run build
 ```
 
