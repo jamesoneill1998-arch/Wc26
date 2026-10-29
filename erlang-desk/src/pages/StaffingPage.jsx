@@ -82,7 +82,7 @@ export default function StaffingPage({ active, site, result, replace, account })
   const weeks = useWeeks(result?.dayReqs)
   const [weekKey, setWeekKey] = useState(null)
   const [dayIdx, setDayIdx] = useState(0)
-  if (!active) return <NoServices title="Intraday staffing" replace={replace} />
+  if (!active) return <NoServices title="Intraday staffing" replace={replace} account={account} />
   const eyebrow = serviceEyebrow(active, site)
   if (!active.history) return <NeedsHistory title="Intraday staffing" eyebrow={eyebrow} />
   if (!weeks.length) return <LoadingPage eyebrow={eyebrow} title="Intraday staffing" />
@@ -153,7 +153,7 @@ export default function StaffingPage({ active, site, result, replace, account })
           }))}
           yFormat={fmtInt}
         />
-        <div className="table-wrap scroll-y" style={{ marginTop: 18 }}>
+        <div className="table-wrap scroll-y" tabIndex={0} role="region" aria-label="Interval detail" style={{ marginTop: 18 }}>
           <table>
             <thead><tr><th>Interval</th><th>{unit}</th><th>AHT</th><th>Staff</th><th>Rostered</th><th>Service level</th>{isA && <th>Abandon</th>}<th>Occupancy</th></tr></thead>
             <tbody>

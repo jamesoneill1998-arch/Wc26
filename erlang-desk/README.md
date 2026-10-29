@@ -28,7 +28,8 @@ Capacity plans and impact assessments have a Print button and a print layout (or
 cd erlang-desk
 npm install
 npm run dev        # UI only, all features unlocked: http://localhost:5173
-npm test           # engine, Erlang A simulation check, API security and billing tests
+npm test           # engine, Erlang A simulation check, import formats, API security and billing tests
+npm run check      # tests plus a production build: run before every merge
 npm run build
 ```
 
@@ -55,7 +56,7 @@ date,time,volume,aht
 2026-01-05,08:30,61,298
 ```
 
-`time` and `aht` (seconds) are optional. Dates can be `YYYY-MM-DD`, `DD/MM/YYYY` or `MM/DD/YYYY`. Common ACD headings such as "Calls Offered" are recognised. Comma, semicolon and tab delimiters all work.
+`time` and `aht` are optional. Exports from Genesys, NICE CXone, Avaya CMS, Amazon Connect and Five9 import as they are: headings are matched loosely (offered is preferred over answered), date and time may share a column (UTC timestamps are converted to local time), times may be 12-hour or a range, and handle time may be seconds, mm:ss, hh:mm:ss, milliseconds or a total. Files with several queues ask which to import. Dates can be `YYYY-MM-DD`, `DD/MM/YYYY` or `MM/DD/YYYY`. Comma, semicolon and tab delimiters all work.
 
 ## Schedule CSV format
 
@@ -95,6 +96,12 @@ test/               node:test suites
 - A change is absorbable when its incremental FTE fits inside operational FTE minus required FTE (after committed changes) minus the buffer, in every affected month. Overtime already used to cover committed work isn't counted again.
 
 - Erlang A service level is "answered within threshold ÷ (offered − abandoned within threshold)", the usual reporting convention.
+- ASA is averaged over answered calls, as phone systems report it. The all-caller average wait (including time before hanging up) is also available as `avgWait`.
+- Checked against published Erlang C tables (exact to 4 places), exact integer arithmetic, and an independent discrete-event simulation (Erlang A service level within 0.4 points, abandonment within 0.1 points, ASA within 0.2 s).
+- Forecast "Auto" blends the methods that beat same-day-last-week on the backtest, weighted by accuracy, when that blend backtests better than the best single method.
+- England and Wales bank holidays (including substitutes and one-offs) are forecast by how past bank holidays ran against the same weekday nearby. Models train on the raw history.
+- A date missing from an import on a normally open weekday is treated as an export gap and filled from the same weekday in nearby weeks; recorded zeros stay zero.
+- On real New York 311 daily call data (20 forecast origins across 2018–19, two years of training each), daily error was 8.8% and weekly-total error 5.6% at up to 13 weeks ahead, and the 80% band held 81% of days.
 - Chat concurrency treats each agent as *k* servers.
 - The forecast's 80% band comes from backtest error and widens with the horizon. Treat it as an indication.
 - Attrition is applied evenly every week, to new starters as well as tenured staff.

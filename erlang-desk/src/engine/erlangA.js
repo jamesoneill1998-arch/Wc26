@@ -76,6 +76,7 @@ export function erlangA(agents, { volume, ahtSec, intervalSec, patienceSec, targ
   let abandoned = 0
   let servedByT = 0
   let abandonedByT = 0
+  let waitServed = 0 // Σ answered mass × steps waited, for the average speed of answer
   let logPois = -lt
   for (let m = 0; m <= steps; m++) {
     if (m > 0) {
@@ -94,6 +95,7 @@ export function erlangA(agents, { volume, ahtSec, intervalSec, patienceSec, targ
       }
       served += nextServed
       abandoned += nextAband
+      waitServed += nextServed * m
       logPois += Math.log(lt / m)
     }
     const w = targetSec > 0 ? Math.exp(logPois) : m === 0 ? 1 : 0
@@ -103,17 +105,47 @@ export function erlangA(agents, { volume, ahtSec, intervalSec, patienceSec, targ
   const answeredWithin = immediate + servedByT
   const serviceLevel = Math.min(1, answeredWithin / Math.max(1e-12, 1 - abandonedByT))
   const answered = 1 - pAbandon
-  return {
+
+  // Average speed of answer over answered calls, as phone systems report it.
+  // Worked out only when read: keep stepping the same chain until the
+  // waiting mass is spent; a call answered on step m has waited m / Lam.
+  const tail = v // not used again below, so the getter can carry on stepping it in place
+  let asaMemo = null
+  const answeredAsa = () => {
+    if (asaMemo != null) return asaMemo
+    let total = waitServed
+    let left = pWait - served - abandoned
+    for (let m = steps + 1; left > 1e-9 * pWait && m < steps + 200000; m++) {
+      let nextServed = 0
+      let nextAband = 0
+      for (let k = 0; k < J; k++) {
+        const mass = tail[k]
+        if (mass === 0) continue
+        const adv = (agents * mu + k * theta) / Lam
+        const ab = theta / Lam
+        nextAband += mass * ab
+        if (k === 0) nextServed += mass * adv
+        else tail[k - 1] += mass * adv
+        tail[k] = mass * (1 - adv - ab)
+      }
+      total += nextServed * m
+      left -= nextServed + nextAband
+    }
+    asaMemo = answered > 0 ? total / Lam / answered : 0
+    return asaMemo
+  }
+  const result = {
     agents,
     traffic: trafficIntensity(volume, ahtSec, intervalSec),
     pWait,
     pAbandon,
     serviceLevel,
-    asa: avgWait,
-    avgWait,
+    avgWait, // every caller, including time spent before hanging up
     occupancy: Math.min(1, (lambda * answered * ahtSec) / agents),
     answered,
   }
+  Object.defineProperty(result, 'asa', { enumerable: true, get: answeredAsa }) // answered calls only
+  return result
 }
 
 const cache = new Map()
@@ -134,7 +166,7 @@ export function requiredAgentsA(p) {
   const q = { volume, ahtSec, intervalSec, patienceSec, targetSec }
   const ok = (r) =>
     (slTarget == null || r.serviceLevel >= slTarget) &&
-    (asaTarget == null || r.avgWait <= asaTarget) &&
+    (asaTarget == null || r.asa <= asaTarget) &&
     (abandonTarget == null || r.pAbandon <= abandonTarget) &&
     (!(maxOccupancy > 0 && maxOccupancy < 1) || r.occupancy <= maxOccupancy)
 
@@ -151,7 +183,9 @@ export function requiredAgentsA(p) {
       const r = erlangA(mid, q)
       if (ok(r)) { hi = mid; hiR = r } else lo = mid
     }
-    result = { ...hiR, agents: Math.ceil(hi / k) }
+    // hiR is a fresh object; set agents in place (spreading would read the lazy ASA for every interval).
+    hiR.agents = Math.ceil(hi / k)
+    result = hiR
   }
   if (cache.size > 50000) cache.clear()
   cache.set(key, result)

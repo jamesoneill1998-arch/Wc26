@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Security · Erlang Desk</title>
+<meta name="description" content="How Erlang Desk handles data, sign-in, payments and security, written for security and procurement reviews." />
+<link rel="stylesheet" href="legal.css" />
+</head>
+<body>
+<main>
+<p class="small"><a href="./">← Erlang Desk</a></p>
+<h1>Security overview</h1>
+<p class="small">For security, procurement and data-protection reviews. Last reviewed October 2026. Questions: <a href="mailto:hello@erlangdesk.com">hello@erlangdesk.com</a>.</p>
+
+<h2>In short</h2>
+<ul>
+<li><strong>Your contact-centre data never reaches us.</strong> Volumes, handle times, rosters, forecasts and plans are read, calculated and stored in the planner's own browser. Nothing is uploaded.</li>
+<li><strong>We hold no customer database.</strong> The only personal data we process is a planner's work email address, to send sign-in links and match them to a subscription.</li>
+<li><strong>No passwords.</strong> Sign-in is by single-use email link, bound to the browser that asked for it.</li>
+<li><strong>Card details go straight to Stripe.</strong> We never see or store them.</li>
+</ul>
+
+<h2>What data goes where</h2>
+<table>
+<thead><tr><th>Data</th><th>Where it's processed</th><th>Where it's stored</th><th>Who can see it</th></tr></thead>
+<tbody>
+<tr><td>Contact history, rosters, forecasts, plans, change register</td><td>The planner's browser</td><td>The planner's browser (local storage), and any file they export</td><td>The planner, and anyone they send an export to</td></tr>
+<tr><td>Planner's work email</td><td>Our sign-in service (Vercel, London region)</td><td>Stripe (as the customer record) and Resend (sign-in email logs)</td><td>Us, Stripe, Resend</td></tr>
+<tr><td>Billing name, address, card</td><td>Stripe Checkout</td><td>Stripe</td><td>Stripe; we see only the plan and status</td></tr>
+<tr><td>Team membership</td><td>Our sign-in service</td><td>Stripe customer metadata</td><td>Us, Stripe</td></tr>
+</tbody>
+</table>
+<p>There is no server-side copy of planning data to breach, and nothing to put in a data-processing agreement for it. Clearing the browser, or <em>Erase all data on this device</em> on the Account page, removes it.</p>
+
+<h2>Sub-processors</h2>
+<ul>
+<li><strong>Vercel</strong>: hosts the website and runs the sign-in and billing functions (London region).</li>
+<li><strong>Stripe</strong>: subscriptions, payments and the billing portal.</li>
+<li><strong>Resend</strong>: sends sign-in emails from erlangdesk.com.</li>
+<li><strong>Upstash</strong>: rate-limit counters. Emails and IP addresses are one-way hashed with a secret before they're stored, and counters expire within an hour.</li>
+</ul>
+
+<h2>Sign-in and sessions</h2>
+<ul>
+<li>Sign-in links are signed, last 15 minutes and work only in the browser that requested them, so a forwarded or intercepted email can't open a session elsewhere.</li>
+<li>Sign-in requests get the same reply whether or not an account exists, so addresses can't be probed.</li>
+<li>Sessions are signed, secure, HttpOnly cookies that expire after seven days. Subscription and team access are re-checked with Stripe regularly, so removing someone takes effect within minutes.</li>
+<li>Requests that change anything must come from our own site, carry JSON, and are rate limited.</li>
+</ul>
+
+<h2>Website hardening</h2>
+<ul>
+<li>HTTPS only, with HSTS. A strict Content Security Policy allows only our own code: no third-party scripts, trackers, analytics or font services.</li>
+<li>The site can't be framed, and sends strict referrer, permissions and cross-origin policies.</li>
+<li>Rated <strong>A+</strong> (12 of 12 tests) by Mozilla's HTTP Observatory, October 2026.</li>
+<li>Imported files are size-limited and validated field by field; spreadsheet exports are protected against formula injection.</li>
+</ul>
+
+<h2>Testing and assurance</h2>
+<ul>
+<li>Automated tests cover sign-in, sessions, CSRF, rate limits, billing, imports and the planning maths.</li>
+<li>Queueing maths is checked against published Erlang C tables and an independent call-centre simulation; forecasts are checked against real public call data.</li>
+<li>Dependency audit: no known vulnerabilities at the last review. The server code uses no third-party packages.</li>
+<li>Accessibility: automated WCAG 2.1 AA checks pass on every page in light and dark themes, and the app can be used by keyboard alone.</li>
+<li>We have not yet commissioned an independent penetration test or certification (such as ISO 27001 or SOC 2). Because planning data never leaves the customer's device, most of those controls apply to the customer's own environment. We're happy to complete your security questionnaire.</li>
+</ul>
+
+<h2>Things to know</h2>
+<ul>
+<li>Planning data is only as secure as the device and browser profile it lives on. On shared computers, erase data after use.</li>
+<li>Sharing a plan with a colleague means exporting a file; treat it like any other internal spreadsheet.</li>
+</ul>
+
+<h2>Reporting a vulnerability</h2>
+<p>Email <a href="mailto:hello@erlangdesk.com">hello@erlangdesk.com</a>. We aim to acknowledge reports within two working days. Our <a href=".well-known/security.txt">security.txt</a> has the same details.</p>
+</main>
+</body>
+</html>

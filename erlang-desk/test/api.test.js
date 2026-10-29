@@ -117,6 +117,8 @@ test('magic-link sign-in sets a hardened session cookie', async () => {
   assert.ok(set.some((c) => /^__Host-ed_session=.+HttpOnly; Secure; SameSite=Lax/.test(c)))
   assert.ok(set.some((c) => /^__Host-ed_login=; .*Max-Age=0/.test(c)), 'login nonce cleared')
   const who = await call(me, { headers: { cookie } })
+  assert.ok(who.json.checked > 0)
+  delete who.json.checked
   assert.deepEqual(who.json, { signedIn: true, email: 'planner@acme.co.uk', plan: null, status: null, role: null, active: false })
 })
 
@@ -211,11 +213,29 @@ test('plan is read from Stripe and refreshed on a stale session', async () => {
   assert.equal(p.json.url, 'https://billing.stripe.com/p/session/1')
 })
 
+test('a new subscription shows straight away on refresh, and a second checkout is refused', async () => {
+  const { cookie } = await signIn('buyer@acme.co.uk')
+  customers[0] ??= { id: 'cus_1', email: 'buyer@acme.co.uk', metadata: {} }
+  // Signed in seconds ago, then paid: the cached plan is empty.
+  subs.push({ customer: customers[0].id, status: 'trialing', items: { data: [{ price: { id: 'price_team' } }] } })
+  assert.equal((await call(me, { headers: { cookie } })).json.active, false, 'normal reads use the cached plan')
+  // Forced reads have a 3-second floor; age the session past it.
+  const payload = verify(decodeURIComponent(cookie.split('=')[1]), process.env.SESSION_SECRET, 'session')
+  const aged = `__Host-ed_session=${sign({ ...payload, chk: payload.chk - 5 }, process.env.SESSION_SECRET, 'session', 3600)}`
+  const fresh = await call(me, { url: '/api/me?refresh=1', headers: { cookie: aged } })
+  assert.equal(fresh.json.active, true)
+  assert.equal(fresh.json.plan, 'team')
+  const again = await call(checkout, { method: 'POST', headers: { ...same, cookie: aged }, body: { plan: 'pro' } })
+  assert.equal(again.statusCode, 409, 'checkout re-reads Stripe before selling a second plan')
+  assert.equal(stripeCalls.filter((c) => c.path === '/v1/checkout/sessions').length, 0)
+})
+
 test('ADMIN_EMAILS gives owners full access without Stripe, and removal revokes it', async () => {
   process.env.ADMIN_EMAILS = ' Founder@ErlangDesk.com , other@x.co '
   try {
     const { cookie } = await signIn('founder@erlangdesk.com')
     const who = await call(me, { headers: { cookie } })
+    delete who.json.checked
     assert.deepEqual(who.json, { signedIn: true, email: 'founder@erlangdesk.com', plan: 'team', status: 'active', role: 'admin', active: true })
     assert.ok(!stripeCalls.some((c) => c.path.includes('/customers')), 'no Stripe lookup for an owner')
     const c = await call(checkout, { method: 'POST', headers: { ...same, cookie }, body: { plan: 'pro' } })

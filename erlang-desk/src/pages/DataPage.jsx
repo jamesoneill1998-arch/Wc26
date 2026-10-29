@@ -12,20 +12,34 @@ import { NoServices, serviceEyebrow } from './common.jsx'
 export default function DataPage({ ws, active, site, updateActive, replace, account }) {
   const [msg, setMsg] = useState(null)
   const [over, setOver] = useState(false)
+  const [pending, setPending] = useState(null) // a multi-queue file waiting for the planner to pick a queue
   const fileRef = useRef(null)
   const wsRef = useRef(null)
-  if (!active) return <NoServices title="Data" replace={replace} />
+  if (!active) return <NoServices title="Data" replace={replace} account={account} />
   const h = active.history
   const unit = CHANNELS[active.channel].unit
 
+  const commit = (res, source) => {
+    if (!res.rows.length) return setMsg({ ok: false, text: res.errors.join(' ') || 'No rows found.' })
+    updateActive({ history: historyFrom(res.kind, res.rows, source.slice(0, 120)), hires: [] })
+    const c = res.columns
+    const read = [`dates${c.time ? '' : res.kind === 'interval' ? ' and times' : ''} from "${c.date}"`, c.time && `times from "${c.time}"`, `volume from "${c.volume}"`, c.aht && `handle time from "${c.aht}"`].filter(Boolean).join(', ')
+    const skipped = res.errors.length ? ` ${res.errors.length >= 10 ? '10 or more' : res.errors.length} rows were skipped, e.g. ${res.errors[0]}` : ''
+    setMsg({ ok: !res.errors.length, text: `Imported ${fmtInt(res.rows.length)} ${res.kind} rows into ${active.name}. Read ${read}. ${res.notes.join(' ')}${skipped}`.trim() })
+  }
   const readFile = async (file) => {
     if (!file) return
     if (file.size > MAX_IMPORT_BYTES) return setMsg({ ok: false, text: 'That file is over 25 MB. Export a shorter date range.' })
-    const res = parseHistoryCSV(await file.text())
-    if (!res.rows.length) return setMsg({ ok: false, text: res.errors.join(' ') || 'No rows found.' })
-    updateActive({ history: historyFrom(res.kind, res.rows, file.name.slice(0, 120)), hires: [] })
-    const skipped = res.errors.length ? ` ${res.errors.length >= 10 ? '10 or more' : res.errors.length} rows were skipped, e.g. ${res.errors[0]}` : ''
-    setMsg({ ok: !res.errors.length, text: `Imported ${fmtInt(res.rows.length)} ${res.kind} rows into ${active.name}.${skipped}` })
+    const text = await file.text()
+    const res = parseHistoryCSV(text)
+    if (res.queues.length > 1 && res.rows.length) { setMsg(null); return setPending({ text, name: file.name, queues: res.queues, column: res.columns.queue }) }
+    setPending(null)
+    commit(res, file.name)
+  }
+  const chooseQueue = (queue) => {
+    const res = parseHistoryCSV(pending.text, { queue })
+    commit(res, queue === '*' ? `${pending.name} (all queues)` : `${pending.name} · ${queue}`)
+    setPending(null)
   }
 
   const exportWorkspace = () => downloadText(`erlang-desk-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(ws), 'application/json')
@@ -56,6 +70,18 @@ export default function DataPage({ ws, active, site, updateActive, replace, acco
 
       {msg && <div className={`notice${msg.ok ? ' ok' : ''}`} role="status">{msg.text}</div>}
 
+      {pending && (
+        <Panel title="This file holds several queues" aside={<button className="btn link" type="button" onClick={() => setPending(null)}>Cancel</button>}>
+          <p className="muted small" style={{ marginBottom: 12 }}>{`"${pending.column}" has ${pending.queues.length} values. Pick the one that belongs to ${active.name}, or combine them all.`}</p>
+          <div className="queue-pick">
+            {pending.queues.slice(0, 30).map((q) => (
+              <button key={q.name} className="btn" type="button" onClick={() => chooseQueue(q.name)}>{q.name}<span className="faint">{fmtInt(q.volume)}</span></button>
+            ))}
+            <button className="btn primary" type="button" onClick={() => chooseQueue('*')}>All queues combined</button>
+          </div>
+        </Panel>
+      )}
+
       <div className="cols">
         <Panel title="Import a CSV" aside={<button className="btn link" type="button" onClick={template}>Download template</button>}>
           {account.entitled ? (
@@ -72,8 +98,8 @@ export default function DataPage({ ws, active, site, updateActive, replace, acco
               >
                 <b>Drop a CSV here, or choose a file</b>
                 <p className="small muted" style={{ marginTop: 8 }}>
-                  Columns <code>date</code>, <code>volume</code>, and optionally <code>time</code> and <code>aht</code> (seconds).
-                  Common ACD headings such as "Calls Offered" are recognised. Read on this device; nothing is uploaded.
+                  Interval or daily exports from Genesys, NICE, Avaya, Amazon Connect, Five9 or Excel. Needs a date (or interval start) and a volume such as
+                  calls offered; handle time is used if present. Read on this device; nothing is uploaded.
                 </p>
               </div>
               <input ref={fileRef} type="file" accept=".csv,text/csv" hidden onChange={(e) => { readFile(e.target.files[0]); e.target.value = '' }} />

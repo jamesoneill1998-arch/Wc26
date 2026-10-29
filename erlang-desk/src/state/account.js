@@ -35,10 +35,13 @@ function goToStripe(url) {
 
 export function useAccount() {
   const [state, setState] = useState({ loading: BILLING, signedIn: false })
-  const refresh = useCallback(async () => {
-    if (!BILLING) return
+  const refresh = useCallback(async ({ force = false } = {}) => {
+    if (!BILLING) return null
     try {
-      setState({ loading: false, ...(await api('/api/me')) })
+      const me = await api(force ? '/api/me?refresh=1' : '/api/me')
+      // Requests can finish out of order; never let an older reading of the plan replace a newer one.
+      setState((prev) => (!me.signedIn || me.email !== prev.email || (me.checked ?? 0) >= (prev.checked ?? 0) ? { loading: false, ...me } : prev))
+      return me
     } catch (e) {
       setState({ loading: false, signedIn: false, error: e.message })
     }

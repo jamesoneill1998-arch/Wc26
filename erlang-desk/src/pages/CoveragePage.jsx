@@ -41,7 +41,7 @@ function RosterEditor({ schedule, setSchedule, onSuggest, intervalMin }) {
       <div className="table-wrap">
         <table className="roster">
           <thead>
-            <tr><th>Start</th><th>End</th><th>Break (min)</th>{WEEKDAYS.map((d) => <th key={d}>{d}</th>)}<th>Paid h / wk</th><th /></tr>
+            <tr><th>Start</th><th>End</th><th>Break (min)</th>{WEEKDAYS.map((d) => <th key={d}>{d}</th>)}<th>Paid h / wk</th><th><span className="sr-only">Actions</span></th></tr>
           </thead>
           <tbody>
             {patterns.map((p) => (
@@ -121,7 +121,7 @@ export default function CoveragePage({ active, site, result, updateActive, repla
   const days = weeks.find((w) => w[0].date === weekKey) ?? weeks[0]
   const cov = useMemo(() => (days && s ? coverageForDays(days, schedule, s, inDay) : null), [days, schedule, s, inDay])
 
-  if (!active) return <NoServices title="Schedule & coverage" replace={replace} />
+  if (!active) return <NoServices title="Schedule & coverage" replace={replace} account={account} />
   const eyebrow = serviceEyebrow(active, site)
   if (!active.history) return <NeedsHistory title="Schedule & coverage" eyebrow={eyebrow} />
   if (!cov) return <LoadingPage eyebrow={eyebrow} title="Schedule & coverage" />
@@ -257,7 +257,7 @@ export default function CoveragePage({ active, site, result, updateActive, repla
           valueFormat={fmt1}
           yFormat={(v) => fmtInt(v)}
         />
-        <div className="table-wrap scroll-y" style={{ marginTop: 16 }}>
+        <div className="table-wrap scroll-y" tabIndex={0} role="region" aria-label="Interval detail" style={{ marginTop: 16 }}>
           <table>
             <thead><tr><th>Interval</th><th>{unit}</th><th>Required</th><th>On shift</th><th>Rostered (net)</th><th>Gap</th><th>Projected SL</th>{s.queueModel === 'erlangA' && <th>Abandon</th>}</tr></thead>
             <tbody>

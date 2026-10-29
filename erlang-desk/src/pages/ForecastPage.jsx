@@ -70,7 +70,7 @@ export default function ForecastPage({ active, site, result, updateActive, repla
     ]
   }, [forecast, daily, grain])
 
-  if (!active) return <NoServices title="Forecast" replace={replace} />
+  if (!active) return <NoServices title="Forecast" replace={replace} account={account} />
   const eyebrow = serviceEyebrow(active, site)
   if (daily.length < 7) return <NeedsHistory title="Forecast" eyebrow={eyebrow} />
   if (!forecast) return <LoadingPage eyebrow={eyebrow} title="Forecast" />
@@ -105,6 +105,19 @@ export default function ForecastPage({ active, site, result, updateActive, repla
         <Figure label="Next four weeks" value={fmtInt(next4)} sub={prior4 ? `${next4 >= prior4 ? '+' : '−'}${fmtPct(Math.abs(next4 / prior4 - 1))} on the last four` : undefined} />
         <Figure label="Bias" value={forecast.accuracy ? `${forecast.accuracy.bias >= 0 ? '+' : '−'}${fmtPct(Math.abs(forecast.accuracy.bias))}` : '–'} sub="Positive means it over-forecast" />
       </Figures>
+      {forecast.holidaysLearned > 0 && (
+        <p className="small muted">
+          Bank holidays (England and Wales) are forecast from how your last {forecast.holidaysLearned} bank holidays ran against a normal day.
+          {forecast.blendParts && ` The forecast blends ${forecast.blendParts.map((p) => `${p.label.toLowerCase()} (${Math.round(p.weight * 100)}%)`).join(', ')}, weighted by how each did on the last ${forecast.accuracy?.holdoutDays} days.`}
+        </p>
+      )}
+      {forecast.filledDays?.length > 0 && (
+        <p className="small muted">
+          {forecast.filledDays.length} day{forecast.filledDays.length > 1 ? 's were' : ' was'} missing from the history on a normally open weekday
+          {forecast.filledDays.length <= 4 ? ` (${forecast.filledDays.map((d) => formatDate(d, { day: 'numeric', month: 'short', year: 'numeric' })).join(', ')})` : ''} and
+          {forecast.filledDays.length > 1 ? ' were' : ' was'} filled from the same weekday in nearby weeks, so an export gap doesn't pull the forecast down.
+        </p>
+      )}
 
       <Panel>
         <div className="fields">
@@ -149,7 +162,7 @@ export default function ForecastPage({ active, site, result, updateActive, repla
           <p className="small faint" style={{ marginTop: 12 }}>Accuracy is 1 − WAPE: total absolute error over total volume. Above 90% is good for a daily contact-centre forecast.</p>
         </Panel>
         <Panel title="By week">
-          <div className="table-wrap scroll-y">
+          <div className="table-wrap scroll-y" tabIndex={0} role="region" aria-label="Forecast by day">
             <table>
               <thead><tr><th>Week of</th><th>Forecast</th><th>80% range</th><th>Last year</th></tr></thead>
               <tbody>

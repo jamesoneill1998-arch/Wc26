@@ -3,6 +3,7 @@
 // bank-holiday dips and noise. Lets prospects try the product instantly.
 
 import { addDays, weekdayIndex, parseISODate } from './dates.js'
+import { bankHolidays } from './holidays.js'
 
 function mulberry32(seed) {
   let a = seed >>> 0
@@ -72,6 +73,7 @@ export function generateSampleHistory({ channel = 'voice', endDate, days = 728, 
   const rand = mulberry32(seed)
   const end = endDate ?? new Date().toISOString().slice(0, 10)
   const start = addDays(end, -(days - 1))
+  const bank = bankHolidays(Number(start.slice(0, 4)), Number(end.slice(0, 4)))
   const rows = []
   for (let i = 0; i < days; i++) {
     const date = addDays(start, i)
@@ -80,7 +82,8 @@ export function generateSampleHistory({ channel = 'voice', endDate, days = 728, 
     const doy = t.getUTCMonth() * 30.4 + t.getUTCDate()
     const trend = 1 + 0.12 * (i / 365)
     const annual = 1 + 0.12 * Math.cos((2 * Math.PI * (doy - 15)) / 365) // January peak
-    const holiday = rand() < 0.012 ? 0.35 : 1
+    rand() // keeps the random sequence stable for the rest of the sample
+    const holiday = bank.has(date) ? 0.35 : 1
     const daily = prof.baseDaily * scale * trend * annual * prof.weekday[wd] * holiday * (1 + 0.05 * gaussian(rand))
     const ahtBase = prof.aht * (1 + (wd === 0 ? 0.05 : 0) + 0.03 * Math.sin((2 * Math.PI * i) / 365))
     if (!prof.intraday) {

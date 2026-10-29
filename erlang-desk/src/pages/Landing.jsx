@@ -4,7 +4,7 @@ import { requiredAgents, withShrinkage } from '../engine/erlang.js'
 import { requiredAgentsA } from '../engine/erlangA.js'
 import { defaultSites, siteShrinkage, SHRINKAGE_COMPONENTS } from '../engine/channels.js'
 import { fmtPct } from '../format.js'
-import { Mark } from '../components/ui.jsx'
+import { Mark, skipToMain } from '../components/ui.jsx'
 
 const [UK, OFFSHORE] = defaultSites()
 
@@ -124,10 +124,10 @@ const SECURITY_DETAIL = [
 
 const FAQ = [
   ['Do I need to upload anything to try it?', 'No. Open the planner and load the sample operation: four services across a UK and an offshore site. When you import your own data, it is read in your browser and never sent to us.'],
-  ['What is Erlang A, and why does it need fewer people?', 'Erlang C assumes every caller waits until answered. In reality some hang up, which shortens the queue for everyone else. Erlang A accounts for that, typically needing 5–15% fewer agents for the same service level, and it reports the abandonment rate you should expect.'],
+  ['What is Erlang A, and why does it need fewer people?', 'Erlang C assumes every caller waits until answered. In reality some hang up, which shortens the queue for everyone else. Erlang A accounts for that. In typical voice queues it needs around 10% fewer agents for the same service level, more when callers give up quickly and less when they\'re patient, and it tells you the abandonment rate to expect.'],
   ['Can I plan UK and offshore teams together?', 'Yes. Each service belongs to a site, and each site has its own shrinkage components, contracted hours and attrition. The overview adds them up.'],
-  ['What data format do you accept?', 'A CSV with a date column, a volume column, and optionally an interval start time and average handle time. Column names from common ACDs are recognised.'],
-  ['Can colleagues share a workspace?', 'On the Team plan each planner has their own sign-in. Workspaces are exported and imported as files, so nothing sits on a shared server.'],
+  ['What data format do you accept?', 'A CSV export of daily or interval volumes, straight from your telephony or workflow system. Exports from Genesys, NICE CXone, Avaya, Amazon Connect, Five9 and Excel are read as they are, including 12-hour times, mm:ss handle times and files with several queues. The import tells you which columns it used.'],
+  ['Can colleagues share a workspace?', 'On the Team plan each planner has their own sign-in. One planner exports their workspace and a colleague opens it, so plans move between you as files and nothing sits on a shared server.'],
   ['Can I cancel?', 'At any time, from the billing page. You keep access until the end of the period you\'ve paid for.'],
 ]
 
@@ -152,6 +152,7 @@ export default function Landing({ onToggleTheme, account }) {
   const planCta = (p) => (p.id !== 'free' && pilotMode ? 'Join the pilot' : p.cta)
   return (
     <div>
+      <a className="skip" href="#main" onClick={skipToMain}>Skip to content</a>
       <div className="site-top">
         <header className="wrap masthead">
           <a className="nameplate" href="#/"><Mark />Erlang Desk</a>
@@ -167,6 +168,7 @@ export default function Landing({ onToggleTheme, account }) {
         </header>
       </div>
 
+      <main id="main" tabIndex={-1}>
       <section className="lp-hero">
         <div className="wrap">
           <div>
@@ -235,7 +237,7 @@ export default function Landing({ onToggleTheme, account }) {
           </div>
           <div className="table-wrap">
             <table className="compare">
-              <thead><tr><th /><th>Spreadsheet model</th><th className="us">{BRAND.name}</th><th>Enterprise WFM suite</th></tr></thead>
+              <thead><tr><th><span className="sr-only">Compared on</span></th><th>Spreadsheet model</th><th className="us">{BRAND.name}</th><th>Enterprise WFM suite</th></tr></thead>
               <tbody>
                 {COMPARE.map(([row, a, b, c]) => (
                   <tr key={row}><td>{row}</td><td>{a}</td><td className="us">{b}</td><td>{c}</td></tr>
@@ -302,6 +304,7 @@ export default function Landing({ onToggleTheme, account }) {
             <summary>Technical detail for your security team</summary>
             <ul>{SECURITY_DETAIL.map((d) => <li key={d}>{d}</li>)}</ul>
           </details>
+          <p style={{ marginTop: 14 }}><a href="security.html">Read the full security overview</a>, written for procurement and data-protection reviews.</p>
         </div>
       </section>
 
@@ -311,7 +314,7 @@ export default function Landing({ onToggleTheme, account }) {
             <h2>Priced per planner, not per agent</h2>
             <p>{pilotMode
               ? 'Pricing from launch. Pilot teams get three months free first, with no card needed.'
-              : 'Fourteen-day trial on Pro and Team. Billed monthly, cancel any time. Prices exclude VAT.'}</p>
+              : 'Fourteen-day trial on Pro and Team. Billed monthly, cancel any time.'}</p>
           </div>
           <div className="prices">
             {PLANS.map((p) => (
@@ -344,10 +347,13 @@ export default function Landing({ onToggleTheme, account }) {
         </div>
       </section>
 
+      </main>
+
       <footer className="wrap colophon">
         <span>© {new Date().getFullYear()} {BRAND.name}</span>
         <span>Named for A. K. Erlang, who worked out the mathematics of call queues for the Copenhagen Telephone Company.</span>
         <span className="spacer" />
+        <a href="security.html">Security</a>
         <a href="privacy.html">Privacy</a>
         <a href="terms.html">Terms</a>
         {BRAND.contactEmail && <a href={`mailto:${BRAND.contactEmail}`}>Contact</a>}

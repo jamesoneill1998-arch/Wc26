@@ -18,7 +18,7 @@ Written for customers' security and procurement reviews. Keep it accurate as the
 ## Request protection
 
 - **CSRF:** every state-changing endpoint requires a same-origin `Origin` (or `Sec-Fetch-Site: same-origin`), accepts JSON bodies only, and relies on `SameSite` cookies.
-- **Rate limiting:** sign-in (10 per IP and 5 per email per 15 minutes), checkout and team changes. Shared across instances via Upstash Redis when configured.
+- **Rate limiting:** sign-in (10 per IP and 5 per email per 15 minutes), checkout, plan refreshes and team changes. Shared across instances via Upstash Redis when configured. Keys are keyed SHA-256 hashes, so no email or IP address is stored there, and counters expire with their window.
 - **Input validation:** emails are normalised and pattern-checked, bodies are size-capped, plans are whitelisted and prices are fixed server-side. The app URL comes from configuration, never the `Host` header, so links and redirects can't be poisoned. Redirects only go to our own origin or to Stripe's hosted pages, which the client also checks.
 - Errors return generic messages. Details go to server logs only, and misconfiguration fails closed (503).
 
@@ -42,6 +42,11 @@ Written for customers' security and procurement reviews. Keep it accurate as the
 - Because computation is client-side, the paywall is enforced in the client, with the entitlement held server-side. A determined user could modify their own copy of the app; the terms of service cover licence misuse.
 - Without Upstash configured, rate limits apply per serverless instance only.
 - Workspaces in `localStorage` are only as secure as the device and browser profile. Advise customers against using shared machines, or to erase data afterwards.
+
+## Hosting
+
+- Serverless functions run in Vercel's London region (`lhr1`). Static files are served from Vercel's edge network.
+- A plain-English version of this page for customers is published at `/security.html`, with `/.well-known/security.txt` for reporting.
 
 ## Reporting a vulnerability
 

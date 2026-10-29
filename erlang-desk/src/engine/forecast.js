@@ -6,15 +6,34 @@
 
 import { addDays, daysBetween, weekdayIndex, parseISODate } from './dates.js'
 
-/** Turn sparse {date, volume} rows into a contiguous daily series (gaps = 0, i.e. closed). */
+/**
+ * Turn sparse {date, volume} rows into a contiguous daily series.
+ * A date with no row is either a closure or a gap in the export. If that
+ * weekday is normally open in the surrounding weeks it's treated as a gap and
+ * filled with the median of the same weekday nearby; otherwise it's closed
+ * (zero). Days recorded as zero always stay zero.
+ */
 export function toDailySeries(rows) {
-  if (!rows.length) return { start: null, values: [] }
+  if (!rows.length) return { start: null, values: [], filled: [] }
   const sorted = [...rows].sort((a, b) => (a.date < b.date ? -1 : 1))
   const start = sorted[0].date
   const n = daysBetween(start, sorted[sorted.length - 1].date) + 1
   const values = new Array(n).fill(0)
-  for (const r of sorted) values[daysBetween(start, r.date)] += r.volume
-  return { start, values }
+  const present = new Array(n).fill(false)
+  for (const r of sorted) { const i = daysBetween(start, r.date); values[i] += r.volume; present[i] = true }
+  const filled = []
+  for (let i = 0; i < n; i++) {
+    if (present[i]) continue
+    const same = []
+    for (let k = -4; k <= 4; k++) { const j = i + 7 * k; if (k !== 0 && j >= 0 && j < n && present[j]) same.push(values[j]) }
+    const open = same.filter((v) => v > 0)
+    if (same.length >= 3 && open.length / same.length >= 0.75) {
+      open.sort((a, b) => a - b)
+      values[i] = open[Math.floor(open.length / 2)]
+      filled.push(addDays(start, i))
+    }
+  }
+  return { start, values, filled }
 }
 
 // ── Accuracy ────────────────────────────────────────────────────────────────
@@ -177,28 +196,84 @@ function regression(values, start, h) {
   })
 }
 
+// A 28-day backtest understates how far later weeks can drift; this widens
+// the band so it holds about 80% of actual days (checked on NYC 311 calls).
+const BAND_SCALE = 1.2
+
 export const METHODS = {
-  auto: { label: 'Auto (best backtest)' },
+  auto: { label: 'Auto (best or blended)' },
   regression: { label: 'Trend + weekly + annual seasonality', fn: regression, minDays: 56 },
   holtWinters: { label: 'Holt-Winters (damped)', fn: holtWinters, minDays: 21 },
   weekdayAverage: { label: '6-week weekday average', fn: weekdayAverage, minDays: 14 },
   seasonalNaive: { label: 'Same day last week', fn: seasonalNaive, minDays: 7 },
 }
 
+const median = (xs) => { const a = [...xs].sort((p, q) => p - q); return a.length ? a[Math.floor(a.length / 2)] : null }
+
 /**
- * Backtest every eligible method on the last `holdout` days.
- * @returns {Array<{method, label, wape, bias}>} sorted best first
+ * How bank holidays run against a normal day, learned from the history:
+ * each past holiday is compared with the same weekday in nearby weeks.
+ * Models still train on the raw history (tested on real call data, swapping
+ * holidays out of it pushed ordinary weeks too high); `factorFor` scales a
+ * forecast date that falls on a holiday.
  */
-export function backtest(values, start, holdout = 28) {
+export function holidayEffects(values, start, holidays) {
+  if (!holidays?.size) return { factorFor: () => 1, seen: 0 }
+  const byName = new Map()
+  const all = []
+  for (let i = 0; i < values.length; i++) {
+    const name = holidays.get(addDays(start, i))
+    if (!name) continue
+    const same = []
+    for (let k = -4; k <= 4; k++) { const j = i + 7 * k; if (k !== 0 && j >= 0 && j < values.length && !holidays.has(addDays(start, j))) same.push(values[j]) }
+    const open = same.filter((v) => v > 0)
+    if (same.length < 3 || open.length / same.length < 0.75) continue // a weekday that's normally closed
+    const r = values[i] / median(open)
+    all.push(r)
+    byName.set(name, [...(byName.get(name) ?? []), r])
+  }
+  const overall = all.length >= 2 ? median(all) : 1
+  const factorFor = (date) => {
+    const name = holidays.get(date)
+    if (!name) return 1
+    const f = byName.has(name) ? median(byName.get(name)) : overall
+    return Math.min(1.5, Math.max(0, f))
+  }
+  return { factorFor, seen: all.length }
+}
+
+/**
+ * Backtest every eligible method on the last `holdout` days, against what
+ * actually happened (holiday effects learned from the training part only).
+ * @returns {Array<{method, label, wape, bias, forecast}>} sorted best first
+ */
+export function backtest(values, start, holdout = 28, holidays = null) {
   const results = []
-  const train = values.slice(0, values.length - holdout)
-  const test = values.slice(values.length - holdout)
+  const n = values.length
+  const train = values.slice(0, n - holdout)
+  const eff = holidayEffects(train, start, holidays)
+  const test = values.slice(n - holdout)
+  const factors = test.map((_, i) => eff.factorFor(addDays(start, n - holdout + i)))
   for (const [key, m] of Object.entries(METHODS)) {
     if (!m.fn || train.length < m.minDays) continue
-    const fc = m.fn(train, start, holdout)
+    const fc = m.fn(train, start, holdout).map((v, i) => v * factors[i])
     results.push({ method: key, label: m.label, wape: wape(test, fc), bias: bias(test, fc), forecast: fc })
   }
-  return results.sort((a, b) => a.wape - b.wape)
+  results.sort((a, b) => a.wape - b.wape)
+  // Blend the methods that beat "same day last week", weighted by accuracy.
+  const naive = results.find((r) => r.method === 'seasonalNaive')
+  const parts = results.filter((r) => r.method !== 'seasonalNaive' && (!naive || r.wape < naive.wape))
+  if (parts.length >= 2) {
+    const w = parts.map((r) => 1 / Math.max(r.wape, 0.005))
+    const ws = w.reduce((s, x) => s + x, 0)
+    const fc = test.map((_, i) => parts.reduce((s, r, k) => s + r.forecast[i] * w[k], 0) / ws)
+    results.push({
+      method: 'blend', label: `Blend of ${parts.length} methods`, wape: wape(test, fc), bias: bias(test, fc), forecast: fc,
+      parts: parts.map((r, k) => ({ method: r.method, weight: w[k] / ws })),
+    })
+    results.sort((a, b) => a.wape - b.wape)
+  }
+  return results
 }
 
 /**
@@ -209,17 +284,22 @@ export function backtest(values, start, holdout = 28) {
  * @param {string} [opts.method] key of METHODS, default 'auto'
  * @param {number} [opts.adjustPct] planner overlay, e.g. 0.05 for +5%
  */
-export function forecastDaily(dailyRows, { horizon = 91, method = 'auto', adjustPct = 0 } = {}) {
-  const { start, values } = toDailySeries(dailyRows)
+export function forecastDaily(dailyRows, { horizon = 91, method = 'auto', adjustPct = 0, holidays = null } = {}) {
+  const { start, values, filled } = toDailySeries(dailyRows)
   if (values.length < 7) {
     return { error: 'Need at least 7 days of history to forecast.', points: [], backtest: [] }
   }
   const holdout = Math.min(28, Math.max(7, Math.floor(values.length / 5)))
-  const bt = values.length >= 14 ? backtest(values, start, holdout) : []
+  const bt = values.length >= 14 ? backtest(values, start, holdout, holidays) : []
   const chosen = method === 'auto' || !METHODS[method]?.fn ? bt[0]?.method ?? 'seasonalNaive' : method
-  const fn = METHODS[chosen].fn
-  const raw = fn(values, start, horizon)
   const btRow = bt.find((r) => r.method === chosen)
+  const eff = holidayEffects(values, start, holidays)
+  const run = (key) => METHODS[key].fn(values, start, horizon)
+  const base = chosen === 'blend'
+    ? btRow.parts.reduce((acc, p) => { const f = run(p.method); return acc.map((v, i) => v + f[i] * p.weight) }, new Array(horizon).fill(0))
+    : run(chosen)
+  const firstDate = addDays(start, values.length)
+  const raw = base.map((v, i) => v * eff.factorFor(addDays(firstDate, i)))
   // Spread of backtest errors drives an approximate 80% band.
   let sigmaPct = 0.1
   if (btRow) {
@@ -233,7 +313,7 @@ export function forecastDaily(dailyRows, { horizon = 91, method = 'auto', adjust
   const lastDate = addDays(start, values.length - 1)
   const points = raw.map((v, i) => {
     const volume = v * (1 + adjustPct)
-    const spread = 1.2816 * sigmaPct * Math.sqrt(1 + i / 28) // widens with horizon
+    const spread = 1.2816 * BAND_SCALE * sigmaPct * Math.sqrt(1 + i / 28) // widens with horizon
     return {
       date: addDays(lastDate, i + 1),
       volume,
@@ -243,10 +323,13 @@ export function forecastDaily(dailyRows, { horizon = 91, method = 'auto', adjust
   })
   return {
     method: chosen,
-    methodLabel: METHODS[chosen].label,
+    methodLabel: chosen === 'blend' ? `${btRow.label}, weighted by accuracy` : METHODS[chosen].label,
+    blendParts: chosen === 'blend' ? btRow.parts.map((p) => ({ ...p, label: METHODS[p.method].label })) : null,
+    holidaysLearned: eff.seen,
     accuracy: btRow ? { wape: btRow.wape, bias: btRow.bias, holdoutDays: holdout } : null,
-    backtest: bt.map(({ forecast, ...r }) => r),
+    backtest: bt.map(({ forecast, parts, ...r }) => r),
     lastActualDate: lastDate,
+    filledDays: filled,
     points,
   }
 }

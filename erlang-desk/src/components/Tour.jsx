@@ -24,6 +24,11 @@ export default function Tour({ step, setStep }) {
   useEffect(() => {
     if (s) window.location.hash = `#/app/${s.page}`
   }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') { markSeen(); setStep(null) } }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [setStep])
   if (!s) return null
   const end = () => { markSeen(); setStep(null) }
   return (

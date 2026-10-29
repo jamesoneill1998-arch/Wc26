@@ -232,11 +232,13 @@ export function Heatmap({ rows, colLabels, onCell, selectedRow, valueLabel = 'Ag
   const every = Math.max(1, Math.ceil(colLabels.length / 12))
   return (
     <div className="chart">
-      <div className="table-wrap">
+      <div className="table-wrap" tabIndex={0} role="region" aria-label={`${valueLabel} by day and interval`}>
         <div className="heat" style={{ gridTemplateColumns: `44px repeat(${colLabels.length}, minmax(14px, 1fr))`, minWidth: 44 + colLabels.length * 16 }}>
           {rows.map((r, ri) => (
             <div key={r.label} style={{ display: 'contents' }}>
-              <div className="lab" style={{ fontWeight: selectedRow === ri ? 700 : 400, color: selectedRow === ri ? 'var(--ink)' : undefined }}>{r.label}</div>
+              {onCell
+                ? <button type="button" className="lab lab-btn" aria-pressed={selectedRow === ri} onClick={() => onCell(ri, 0)} style={{ fontWeight: selectedRow === ri ? 700 : 400, color: selectedRow === ri ? 'var(--ink)' : undefined }}>{r.label}</button>
+                : <div className="lab">{r.label}</div>}
               {r.cells.map((c, ci) => (
                 <div
                   key={ci}
@@ -245,6 +247,7 @@ export function Heatmap({ rows, colLabels, onCell, selectedRow, valueLabel = 'Ag
                   onMouseEnter={() => setHover({ r: ri, c: ci })}
                   onMouseLeave={() => setHover(null)}
                   onClick={() => onCell?.(ri, ci)}
+                  role="img"
                   aria-label={`${r.label} ${colLabels[ci]}: ${c.value == null ? 'closed' : `${format(c.value)} ${valueLabel}`}`}
                 />
               ))}

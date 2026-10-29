@@ -62,7 +62,7 @@ Add these in Vercel under **erlang-desk → Settings → Environment Variables**
 
 No dependencies to install: the Stripe client is plain `fetch`. No publishable key is needed, because customers are redirected to Stripe's hosted page.
 
-In the Stripe Dashboard, under **Settings → Billing → Customer portal**, activate the portal. Allow cancellation, payment method updates and invoice history.
+In the Stripe Dashboard, under **Settings → Billing → Customer portal**, activate the portal. Allow cancellation, payment method updates and invoice history. Set cancellations to happen **at the end of the billing period**: the site's terms and FAQ promise access until the end of the paid period.
 
 ## Files involved
 

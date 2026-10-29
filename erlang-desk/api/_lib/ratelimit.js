@@ -2,10 +2,15 @@
 // serverless instances) when configured, otherwise a per-instance memory
 // map — still useful, but configure Upstash in production.
 
+import { createHash } from 'node:crypto'
+
 const memory = new Map()
 
 export async function rateLimit(cfg, key, max, windowSec) {
-  const bucket = `rl:${key}:${Math.floor(Date.now() / 1000 / windowSec)}`
+  // Keys carry emails and IP addresses, so only a one-way hash leaves this server.
+  const [kind] = key.split(':', 1)
+  const digest = createHash('sha256').update(`${cfg.sessionSecret}|${key}`).digest('base64url').slice(0, 32)
+  const bucket = `rl:${kind}:${digest}:${Math.floor(Date.now() / 1000 / windowSec)}`
   if (cfg.upstashUrl && cfg.upstashToken) {
     try {
       const r = await fetch(`${cfg.upstashUrl}/pipeline`, {

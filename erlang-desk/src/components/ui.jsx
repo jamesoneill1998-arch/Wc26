@@ -274,3 +274,11 @@ export function LoadingPage({ eyebrow, title }) {
     </div>
   )
 }
+
+/** Hash routing owns the URL fragment, so skip links move focus by hand. */
+export function skipToMain(e) {
+  e.preventDefault()
+  const main = document.getElementById('main')
+  main?.focus()
+  main?.scrollIntoView()
+}
