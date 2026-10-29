@@ -105,6 +105,13 @@ export default function ForecastPage({ active, site, result, updateActive, repla
         <Figure label="Next four weeks" value={fmtInt(next4)} sub={prior4 ? `${next4 >= prior4 ? '+' : '−'}${fmtPct(Math.abs(next4 / prior4 - 1))} on the last four` : undefined} />
         <Figure label="Bias" value={forecast.accuracy ? `${forecast.accuracy.bias >= 0 ? '+' : '−'}${fmtPct(Math.abs(forecast.accuracy.bias))}` : '–'} sub="Positive means it over-forecast" />
       </Figures>
+      {forecast.filledDays?.length > 0 && (
+        <p className="small muted">
+          {forecast.filledDays.length} day{forecast.filledDays.length > 1 ? 's were' : ' was'} missing from the history on a normally open weekday
+          {forecast.filledDays.length <= 4 ? ` (${forecast.filledDays.map((d) => formatDate(d, { day: 'numeric', month: 'short', year: 'numeric' })).join(', ')})` : ''} and
+          {forecast.filledDays.length > 1 ? ' were' : ' was'} filled from the same weekday in nearby weeks, so an export gap doesn't pull the forecast down.
+        </p>
+      )}
 
       <Panel>
         <div className="fields">

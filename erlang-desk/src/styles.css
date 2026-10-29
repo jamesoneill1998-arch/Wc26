@@ -558,3 +558,7 @@ select:disabled, input:disabled { opacity: 0.55; cursor: not-allowed; }
 .module.start p { flex: 1; }
 .module.start.featured { border: 2px solid var(--ink); }
 @media (max-width: 900px) { .start-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.queue-pick { display: flex; flex-wrap: wrap; gap: 8px; }
+.queue-pick .btn { display: inline-flex; gap: 10px; align-items: baseline; }
+.queue-pick .btn .faint { font-size: 12.5px; font-variant-numeric: tabular-nums; }

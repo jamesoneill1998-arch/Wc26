@@ -11,7 +11,7 @@
 // minutes from the shift date's midnight (end may pass 1440 for overnight).
 
 import { parseTime, weekdayIndex, daysBetween, formatTime, addDays } from './dates.js'
-import { splitCSVLine, detectDelimiter, normaliseDate, guessSlashOrder } from './csv.js'
+import { splitCSVLine, detectDelimiter, normaliseDate, guessSlashOrder, normaliseHeader, parseClock } from './csv.js'
 import { metricsFor } from './erlang.js'
 import { erlangA } from './erlangA.js'
 import { openWindow, slotsPerDay } from './profiles.js'
@@ -209,14 +209,14 @@ export function coverageForDays(dayReqs, schedule, s, inDay) {
 // ── Import ──────────────────────────────────────────────────────────────────
 
 const COLS = {
-  date: ['date', 'day', 'shift_date'],
-  start: ['start', 'shift_start', 'start_time', 'from', 'in'],
-  end: ['end', 'shift_end', 'end_time', 'to', 'out', 'finish'],
-  count: ['count', 'headcount', 'agents', 'staff', 'fte'],
-  breakStart: ['break_start', 'break1_start'],
-  breakEnd: ['break_end', 'break1_end'],
-  lunchStart: ['lunch_start', 'break2_start'],
-  lunchEnd: ['lunch_end', 'break2_end'],
+  date: ['date', 'day', 'shift_date', 'schedule_date', 'work_date'],
+  start: ['start', 'shift_start', 'start_time', 'shift_start_time', 'scheduled_start', 'from', 'in'],
+  end: ['end', 'shift_end', 'end_time', 'shift_end_time', 'scheduled_end', 'to', 'out', 'finish'],
+  count: ['count', 'headcount', 'heads', 'agents', 'staff', 'fte'],
+  breakStart: ['break_start', 'break1_start', 'break_1_start'],
+  breakEnd: ['break_end', 'break1_end', 'break_1_end'],
+  lunchStart: ['lunch_start', 'break2_start', 'break_2_start'],
+  lunchEnd: ['lunch_end', 'break2_end', 'break_2_end'],
   breakMin: ['break_minutes', 'break_min', 'break_mins', 'unpaid_break', 'break'],
 }
 
@@ -233,7 +233,7 @@ export function parseScheduleCSV(text) {
   if (lines.length < 2) return { shifts: [], rows: 0, errors: ['File has no data rows.'] }
   if (lines.length > MAX_SCHEDULE_ROWS + 1) return { shifts: [], rows: 0, errors: [`File has more than ${MAX_SCHEDULE_ROWS.toLocaleString()} rows.`] }
   const delim = detectDelimiter(lines[0])
-  const header = splitCSVLine(lines[0], delim).map((h) => h.toLowerCase().replace(/\s+/g, '_'))
+  const header = splitCSVLine(lines[0], delim).map(normaliseHeader)
   const col = Object.fromEntries(Object.entries(COLS).map(([k, names]) => [k, header.findIndex((h) => names.includes(h))]))
   const errors = []
   if (col.date < 0 || col.start < 0 || col.end < 0) {
@@ -245,8 +245,8 @@ export function parseScheduleCSV(text) {
   let rows = 0
   body.forEach((r, i) => {
     const date = normaliseDate(r[col.date] ?? '', order)
-    const start = parseTime(r[col.start] ?? '')
-    let end = parseTime(r[col.end] ?? '')
+    const start = parseClock(r[col.start] ?? '')
+    let end = parseClock(r[col.end] ?? '')
     const count = col.count >= 0 && r[col.count] !== '' ? Number(r[col.count]) : 1
     if (!date || start == null || end == null || !Number.isFinite(count) || count <= 0 || count > 10000) {
       if (errors.length < 10) errors.push(`Row ${i + 2}: could not read "${r.join(delim).slice(0, 80)}".`)
@@ -256,8 +256,8 @@ export function parseScheduleCSV(text) {
     const breaks = []
     for (const [a, b] of [['breakStart', 'breakEnd'], ['lunchStart', 'lunchEnd']]) {
       if (col[a] < 0 || col[b] < 0) continue
-      const x = parseTime(r[col[a]] ?? '')
-      let y = parseTime(r[col[b]] ?? '')
+      const x = parseClock(r[col[a]] ?? '')
+      let y = parseClock(r[col[b]] ?? '')
       if (x == null || y == null) continue
       let from = x < start ? x + 1440 : x
       if (y < x) y += 1440

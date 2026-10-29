@@ -6,15 +6,34 @@
 
 import { addDays, daysBetween, weekdayIndex, parseISODate } from './dates.js'
 
-/** Turn sparse {date, volume} rows into a contiguous daily series (gaps = 0, i.e. closed). */
+/**
+ * Turn sparse {date, volume} rows into a contiguous daily series.
+ * A date with no row is either a closure or a gap in the export. If that
+ * weekday is normally open in the surrounding weeks it's treated as a gap and
+ * filled with the median of the same weekday nearby; otherwise it's closed
+ * (zero). Days recorded as zero always stay zero.
+ */
 export function toDailySeries(rows) {
-  if (!rows.length) return { start: null, values: [] }
+  if (!rows.length) return { start: null, values: [], filled: [] }
   const sorted = [...rows].sort((a, b) => (a.date < b.date ? -1 : 1))
   const start = sorted[0].date
   const n = daysBetween(start, sorted[sorted.length - 1].date) + 1
   const values = new Array(n).fill(0)
-  for (const r of sorted) values[daysBetween(start, r.date)] += r.volume
-  return { start, values }
+  const present = new Array(n).fill(false)
+  for (const r of sorted) { const i = daysBetween(start, r.date); values[i] += r.volume; present[i] = true }
+  const filled = []
+  for (let i = 0; i < n; i++) {
+    if (present[i]) continue
+    const same = []
+    for (let k = -4; k <= 4; k++) { const j = i + 7 * k; if (k !== 0 && j >= 0 && j < n && present[j]) same.push(values[j]) }
+    const open = same.filter((v) => v > 0)
+    if (same.length >= 3 && open.length / same.length >= 0.75) {
+      open.sort((a, b) => a - b)
+      values[i] = open[Math.floor(open.length / 2)]
+      filled.push(addDays(start, i))
+    }
+  }
+  return { start, values, filled }
 }
 
 // ── Accuracy ────────────────────────────────────────────────────────────────
@@ -210,7 +229,7 @@ export function backtest(values, start, holdout = 28) {
  * @param {number} [opts.adjustPct] planner overlay, e.g. 0.05 for +5%
  */
 export function forecastDaily(dailyRows, { horizon = 91, method = 'auto', adjustPct = 0 } = {}) {
-  const { start, values } = toDailySeries(dailyRows)
+  const { start, values, filled } = toDailySeries(dailyRows)
   if (values.length < 7) {
     return { error: 'Need at least 7 days of history to forecast.', points: [], backtest: [] }
   }
@@ -247,6 +266,7 @@ export function forecastDaily(dailyRows, { horizon = 91, method = 'auto', adjust
     accuracy: btRow ? { wape: btRow.wape, bias: btRow.bias, holdoutDays: holdout } : null,
     backtest: bt.map(({ forecast, ...r }) => r),
     lastActualDate: lastDate,
+    filledDays: filled,
     points,
   }
 }
