@@ -33,7 +33,7 @@ export default function Calculator({ ws }) {
       </Panel>
 
       <Figures>
-        <Figure hero label="Erlang A" value={a.agents} sub={`SL ${fmtPct(a.serviceLevel)} · abandon ${fmtPct(a.pAbandon)} · wait ${fmtSec(a.avgWait)}`} />
+        <Figure hero label="Erlang A" value={a.agents} sub={`SL ${fmtPct(a.serviceLevel)} · abandon ${fmtPct(a.pAbandon)} · ASA ${fmtSec(a.asa)}`} />
         <Figure label="Erlang C" value={c.agents} sub={`SL ${fmtPct(c.serviceLevel)} · ASA ${fmtSec(c.asa)}`} />
         <Figure label="Difference" value={saved > 0 ? `${saved} fewer` : saved < 0 ? `${-saved} more` : 'None'} sub={saved > 0 ? `${fmtPct(saved / c.agents, 0)} lower with Erlang A` : 'Abandonment makes little difference here'} />
         <Figure label="Traffic" value={`${fmt1(c.traffic)} E`} sub="Erlangs: agents busy on average" />

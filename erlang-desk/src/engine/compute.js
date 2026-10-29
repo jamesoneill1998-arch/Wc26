@@ -6,6 +6,7 @@
 // the stages downstream of it.
 
 import { forecastDaily } from './forecast.js'
+import { bankHolidays } from './holidays.js'
 import { defaultProfiles, learnProfiles, weekdayAht } from './profiles.js'
 import { intervalRequirements, weeklyRequirements, simulateSupply, recommendHires, unfixableWeeks } from './capacity.js'
 import { resolveSettings, resolveCapacity } from './channels.js'
@@ -43,7 +44,8 @@ export function computeService(service, site, cache = createCache()) {
     const next = addDays(last, 1)
     const firstMonday = weekStart(next) === next ? next : addDays(weekStart(next), 7)
     const lead = Math.round((Date.parse(firstMonday) - Date.parse(last)) / 864e5) - 1
-    return forecastDaily(daily, { horizon: lead + plan.horizonWeeks * 7, method: plan.method, adjustPct: plan.volumeAdjustPct })
+    const holidays = bankHolidays(Number(daily[0].date.slice(0, 4)), Number(addDays(last, lead + plan.horizonWeeks * 7).slice(0, 4)))
+    return forecastDaily(daily, { horizon: lead + plan.horizonWeeks * 7, method: plan.method, adjustPct: plan.volumeAdjustPct, holidays })
   })
   if (forecast.error) return { ...empty, forecast }
 
