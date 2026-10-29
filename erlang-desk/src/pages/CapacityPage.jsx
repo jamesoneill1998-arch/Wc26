@@ -115,7 +115,7 @@ export default function CapacityPage({ active, site, result, updateActive, updat
             <p className="small muted" style={{ marginBottom: 14 }}>None planned yet. Add one, or accept a suggestion.</p>
           ) : (
             <table style={{ marginBottom: 16 }}>
-              <thead><tr><th>Starts</th><th>Hires</th><th /></tr></thead>
+              <thead><tr><th>Starts</th><th>Hires</th><th><span className="sr-only">Actions</span></th></tr></thead>
               <tbody>
                 {active.hires.map((h) => (
                   <tr key={h.week}>
@@ -138,7 +138,7 @@ export default function CapacityPage({ active, site, result, updateActive, updat
             <p className="status good"><span className="glyph">▲</span> The plan covers every week a new class could reach.</p>
           ) : (
             <table>
-              <thead><tr><th>Starts</th><th>Hires</th><th>Productive from</th><th /></tr></thead>
+              <thead><tr><th>Starts</th><th>Hires</th><th>Productive from</th><th><span className="sr-only">Actions</span></th></tr></thead>
               <tbody>
                 {recs.map((r) => (
                   <tr key={r.week}>
@@ -155,7 +155,7 @@ export default function CapacityPage({ active, site, result, updateActive, updat
       </div>
 
       <Panel title="Week by week">
-        <div className="table-wrap scroll-y">
+        <div className="table-wrap scroll-y" tabIndex={0} role="region" aria-label="Week by week">
           <table>
             <thead><tr><th>Week of</th><th>Volume</th><th>AHT</th><th>Required</th><th>Available</th><th>Headcount</th><th>In training</th><th>Gap</th></tr></thead>
             <tbody>

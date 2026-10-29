@@ -153,7 +153,7 @@ export default function StaffingPage({ active, site, result, replace, account })
           }))}
           yFormat={fmtInt}
         />
-        <div className="table-wrap scroll-y" style={{ marginTop: 18 }}>
+        <div className="table-wrap scroll-y" tabIndex={0} role="region" aria-label="Interval detail" style={{ marginTop: 18 }}>
           <table>
             <thead><tr><th>Interval</th><th>{unit}</th><th>AHT</th><th>Staff</th><th>Rostered</th><th>Service level</th>{isA && <th>Abandon</th>}<th>Occupancy</th></tr></thead>
             <tbody>

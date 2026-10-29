@@ -162,7 +162,7 @@ export default function ForecastPage({ active, site, result, updateActive, repla
           <p className="small faint" style={{ marginTop: 12 }}>Accuracy is 1 − WAPE: total absolute error over total volume. Above 90% is good for a daily contact-centre forecast.</p>
         </Panel>
         <Panel title="By week">
-          <div className="table-wrap scroll-y">
+          <div className="table-wrap scroll-y" tabIndex={0} role="region" aria-label="Forecast by day">
             <table>
               <thead><tr><th>Week of</th><th>Forecast</th><th>80% range</th><th>Last year</th></tr></thead>
               <tbody>

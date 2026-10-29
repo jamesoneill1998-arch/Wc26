@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useWorkspace } from './state/store.js'
 import { useModel } from './state/model.js'
 import { useAccount } from './state/account.js'
 import { CHANNELS } from './engine/channels.js'
-import { Mark } from './components/ui.jsx'
+import { Mark, skipToMain } from './components/ui.jsx'
 import Tour, { tourSeen } from './components/Tour.jsx'
 import Landing from './pages/Landing.jsx'
 import Overview from './pages/Overview.jsx'
@@ -97,6 +97,14 @@ export default function App() {
     }))
   }, [model, ws.services, update])
 
+  // Moving between pages: put focus on the new page so screen readers announce it.
+  const firstRoute = useRef(true)
+  const pageKey = route.parts[0] === 'app' ? route.parts[1] ?? 'overview' : 'landing'
+  useEffect(() => {
+    if (firstRoute.current) { firstRoute.current = false; return }
+    document.getElementById('main')?.focus({ preventScroll: true })
+  }, [pageKey])
+
   if (route.parts[0] !== 'app') return <Landing onToggleTheme={toggleTheme} account={account} />
 
   const key = PAGES[route.parts[1]] ? route.parts[1] : 'overview'
@@ -105,6 +113,7 @@ export default function App() {
 
   return (
     <div className="shell">
+      <a className="skip" href="#main" onClick={skipToMain}>Skip to content</a>
       {busy && <div className="busy" role="progressbar" aria-label="Recalculating" />}
       <aside className="side">
         <a className="nameplate" href="#/"><Mark />Erlang Desk</a>
@@ -146,7 +155,7 @@ export default function App() {
           </div>
         </div>
       </aside>
-      <main className="main" id="main">
+      <main className="main" id="main" tabIndex={-1}>
         <div className="print-only print-head">{ws.name} · Erlang Desk · printed {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
         {store.saveError && <div className="notice" style={{ marginBottom: 20 }}>{store.saveError}</div>}
         {error && <div className="notice" style={{ marginBottom: 20 }}>The planning model hit a problem: {error}</div>}

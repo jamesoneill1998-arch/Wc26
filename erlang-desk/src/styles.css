@@ -11,7 +11,7 @@
   --surface-2: #f5f7f9;
   --ink: #0f1720;
   --ink-2: #445060;
-  --muted: #76808e;
+  --muted: #5f6977; /* 4.8:1 or better on every light surface */
   --rule: #dde2e8;
   --rule-2: #c3cad3;
   --accent: #0b5d6b;
@@ -554,7 +554,7 @@ select:disabled, input:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .start-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
 .module.start { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; padding: 22px; }
-.module.start h3 { margin: 0; }
+.module.start h3, .module.start h2 { margin: 0; }
 .module.start p { flex: 1; }
 .module.start.featured { border: 2px solid var(--ink); }
 @media (max-width: 900px) { .start-grid { grid-template-columns: minmax(0, 1fr); } }
@@ -562,3 +562,11 @@ select:disabled, input:disabled { opacity: 0.55; cursor: not-allowed; }
 .queue-pick { display: flex; flex-wrap: wrap; gap: 8px; }
 .queue-pick .btn { display: inline-flex; gap: 10px; align-items: baseline; }
 .queue-pick .btn .faint { font-size: 12.5px; font-variant-numeric: tabular-nums; }
+
+.lab-btn { border: 0; background: none; padding: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.lab-btn:hover { color: var(--ink); text-decoration: underline; }
+.module h2.h3 { font-size: 22px; font-weight: 700; font-stretch: var(--narrow); letter-spacing: -0.005em; }
+tr.quiet td, tr.quiet td * { color: var(--muted); } /* months the change doesn't touch: muted, still readable */
+.skip { position: absolute; left: 12px; top: -60px; z-index: 100; padding: 10px 14px; border-radius: 6px; background: var(--ink); color: var(--canvas); font-weight: 600; text-decoration: none; }
+.skip:focus { top: 12px; }
+main:focus { outline: none; }

@@ -4,7 +4,7 @@ import { requiredAgents, withShrinkage } from '../engine/erlang.js'
 import { requiredAgentsA } from '../engine/erlangA.js'
 import { defaultSites, siteShrinkage, SHRINKAGE_COMPONENTS } from '../engine/channels.js'
 import { fmtPct } from '../format.js'
-import { Mark } from '../components/ui.jsx'
+import { Mark, skipToMain } from '../components/ui.jsx'
 
 const [UK, OFFSHORE] = defaultSites()
 
@@ -152,6 +152,7 @@ export default function Landing({ onToggleTheme, account }) {
   const planCta = (p) => (p.id !== 'free' && pilotMode ? 'Join the pilot' : p.cta)
   return (
     <div>
+      <a className="skip" href="#main" onClick={skipToMain}>Skip to content</a>
       <div className="site-top">
         <header className="wrap masthead">
           <a className="nameplate" href="#/"><Mark />Erlang Desk</a>
@@ -167,6 +168,7 @@ export default function Landing({ onToggleTheme, account }) {
         </header>
       </div>
 
+      <main id="main" tabIndex={-1}>
       <section className="lp-hero">
         <div className="wrap">
           <div>
@@ -235,7 +237,7 @@ export default function Landing({ onToggleTheme, account }) {
           </div>
           <div className="table-wrap">
             <table className="compare">
-              <thead><tr><th /><th>Spreadsheet model</th><th className="us">{BRAND.name}</th><th>Enterprise WFM suite</th></tr></thead>
+              <thead><tr><th><span className="sr-only">Compared on</span></th><th>Spreadsheet model</th><th className="us">{BRAND.name}</th><th>Enterprise WFM suite</th></tr></thead>
               <tbody>
                 {COMPARE.map(([row, a, b, c]) => (
                   <tr key={row}><td>{row}</td><td>{a}</td><td className="us">{b}</td><td>{c}</td></tr>
@@ -343,6 +345,8 @@ export default function Landing({ onToggleTheme, account }) {
           </div>
         </div>
       </section>
+
+      </main>
 
       <footer className="wrap colophon">
         <span>© {new Date().getFullYear()} {BRAND.name}</span>

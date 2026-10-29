@@ -364,7 +364,7 @@ function ChangeRegister({ ws, area, ctx, update, account }) {
             <thead><tr><th>Month</th><th>Contacts</th><th>Workload h</th><th>Incremental FTE</th><th>Headroom before</th><th>After</th><th>Service level</th><th>Status</th></tr></thead>
             <tbody>
               {r.rows.map((m) => (
-                <tr key={m.month} style={{ opacity: Math.abs(m.incrementalFte) > 0.05 ? 1 : 0.55 }}>
+                <tr key={m.month} className={Math.abs(m.incrementalFte) > 0.05 ? '' : 'quiet'}>
                   <td>{monthLabel(m.month)}</td>
                   <td>{fmtInt(m.contacts)}</td>
                   <td>{fmtInt(m.workloadHours + m.abstractionHours)}</td>
