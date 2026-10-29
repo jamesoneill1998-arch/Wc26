@@ -1,7 +1,29 @@
+import { useRef, useState } from 'react'
 import { PageHead } from '../components/ui.jsx'
 import { buildSampleWorkspace } from '../state/sample.js'
 
-export function NoServices({ title, replace }) {
+/** Open a workspace file a colleague exported (Data → Export workspace). */
+function OpenSharedPlan({ replace }) {
+  const ref = useRef(null)
+  const [error, setError] = useState(null)
+  const open = async (file) => {
+    if (!file) return
+    if (file.size > 50 * 1024 * 1024) return setError('That file is too large to be a workspace.')
+    try { replace(JSON.parse(await file.text())) } catch { setError('That file is not an Erlang Desk workspace export.') }
+  }
+  return (
+    <div className="module start">
+      <div className="method">From a colleague</div>
+      <h3>Open a shared plan</h3>
+      <p>A teammate exports their workspace from Data. Open the file here to pick up exactly where they left off.</p>
+      <button className="btn" type="button" onClick={() => ref.current?.click()}>Open a workspace file</button>
+      <input ref={ref} type="file" accept=".json,application/json" hidden onChange={(e) => { open(e.target.files[0]); e.target.value = '' }} />
+      {error && <p className="status bad" role="alert">{error}</p>}
+    </div>
+  )
+}
+
+export function NoServices({ title, replace, account }) {
   return (
     <div className="stack">
       <PageHead eyebrow="Getting started" title={title === 'Overview' ? 'Welcome to Erlang Desk' : title} lede="Plan one service or a whole operation. Everything you enter stays in this browser." />
@@ -25,6 +47,7 @@ export function NoServices({ title, replace }) {
           <p>No interval data needed. Enter a monthly forecast and operational FTE for an area, then test whether a project can be absorbed.</p>
           <a className="btn" href="#/app/impact">Open impact assessment</a>
         </div>
+        {account?.entitled && <OpenSharedPlan replace={replace} />}
       </div>
     </div>
   )

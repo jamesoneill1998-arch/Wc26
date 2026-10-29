@@ -121,7 +121,7 @@ export default function CoveragePage({ active, site, result, updateActive, repla
   const days = weeks.find((w) => w[0].date === weekKey) ?? weeks[0]
   const cov = useMemo(() => (days && s ? coverageForDays(days, schedule, s, inDay) : null), [days, schedule, s, inDay])
 
-  if (!active) return <NoServices title="Schedule & coverage" replace={replace} />
+  if (!active) return <NoServices title="Schedule & coverage" replace={replace} account={account} />
   const eyebrow = serviceEyebrow(active, site)
   if (!active.history) return <NeedsHistory title="Schedule & coverage" eyebrow={eyebrow} />
   if (!cov) return <LoadingPage eyebrow={eyebrow} title="Schedule & coverage" />

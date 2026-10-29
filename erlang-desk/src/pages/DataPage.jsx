@@ -14,7 +14,7 @@ export default function DataPage({ ws, active, site, updateActive, replace, acco
   const [over, setOver] = useState(false)
   const fileRef = useRef(null)
   const wsRef = useRef(null)
-  if (!active) return <NoServices title="Data" replace={replace} />
+  if (!active) return <NoServices title="Data" replace={replace} account={account} />
   const h = active.history
   const unit = CHANNELS[active.channel].unit
 

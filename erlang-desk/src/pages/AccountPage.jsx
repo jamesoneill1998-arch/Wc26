@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CURRENCY, PLANS } from '../config.js'
+import { BRAND, CURRENCY, PLANS } from '../config.js'
 import { PageHead, Panel, TextField, ConfirmButton } from '../components/ui.jsx'
 import { clearStoredWorkspace, emptyWorkspace } from '../state/store.js'
 
@@ -72,13 +72,34 @@ export default function AccountPage({ account, query, replace, ws, update }) {
     }
   }, [account.signedIn]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Back from checkout: read the plan straight from Stripe, retrying briefly
+  // in case the subscription is still being created.
+  const [gaveUp, setGaveUp] = useState(false)
+  useEffect(() => {
+    if (checkout !== 'success' || !account.billing) return undefined
+    let stop = false
+    ;(async () => {
+      for (let i = 0; i < 6 && !stop; i++) {
+        const me = await account.refresh({ force: true })
+        if (me?.active) break
+        await new Promise((r) => setTimeout(r, 3500))
+      }
+      if (!stop) setGaveUp(true)
+    })()
+    return () => { stop = true }
+  }, [checkout]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const act = (fn) => async () => { setError(null); try { await fn() } catch (e) { setError(e.message) } }
 
   return (
     <div className="stack">
       <PageHead eyebrow="Account" title="Account and billing" lede="Your planning data never leaves this browser. Your account only holds your email and subscription." />
       {signin === 'failed' && <div className="notice">That sign-in link didn't work. Links last 15 minutes and must be opened in the browser that asked for them. Request a new one below.</div>}
-      {checkout === 'success' && <div className="notice ok">Thank you. Your subscription is active; it may take a moment to show here.</div>}
+      {checkout === 'success' && (account.active
+        ? <div className="notice ok">Thank you. Your {account.plan === 'team' ? 'Team' : 'Pro'} plan is active.</div>
+        : !gaveUp
+          ? <div className="notice">Confirming your subscription with Stripe…</div>
+          : <div className="notice">Payment received. If your plan doesn't show yet, refresh this page in a minute, or email {BRAND.contactEmail || 'us'}.</div>)}
       {error && <div className="notice" role="alert">{error}</div>}
 
       {!account.billing && (

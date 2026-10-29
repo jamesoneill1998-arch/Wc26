@@ -4,9 +4,11 @@
 import { sign, verify, now } from './tokens.js'
 import { parseCookies, cookie, appendCookie, SESSION_COOKIE } from './http.js'
 import { entitlementFor } from './stripe.js'
+import { rateLimit } from './ratelimit.js'
 
 export const SESSION_TTL = 7 * 24 * 3600
 const RECHECK_SEC = 10 * 60 // re-read the subscription from Stripe at most every 10 minutes
+const FORCE_MIN_SEC = 3 // ...or sooner on request (just back from checkout), but not in a tight loop
 
 export function readSession(req, cfg) {
   const token = parseCookies(req.headers.cookie)[SESSION_COOKIE]
@@ -33,10 +35,13 @@ export async function freshEntitlement(cfg, email) {
 }
 
 /** Session with an up-to-date plan; rewrites the cookie when it refreshes. */
-export async function currentSession(req, res, cfg) {
+export async function currentSession(req, res, cfg, { force = false } = {}) {
   const s = readSession(req, cfg)
   if (!s) return null
-  if (now() - (s.chk ?? 0) < RECHECK_SEC) return s
+  const age = now() - (s.chk ?? 0)
+  if (age < (force ? FORCE_MIN_SEC : RECHECK_SEC)) return s
+  // An old cookie can be replayed to dodge the floor, so forced reads are also capped per person.
+  if (force && age < RECHECK_SEC && !(await rateLimit(cfg, `refresh:${s.email}`, 30, 600))) return s
   const ent = await freshEntitlement(cfg, s.email)
   const next = { ...s, ...ent, chk: now() }
   writeSession(res, cfg, next)

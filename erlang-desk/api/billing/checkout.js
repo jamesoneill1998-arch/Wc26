@@ -11,7 +11,8 @@ export default handler(async (req, res) => {
   if (!allowMethods(req, res, ['POST'])) return
   const cfg = getConfig()
   if (!requireSameOrigin(req, res, cfg.appUrl)) return
-  const s = await currentSession(req, res, cfg)
+  // The session's plan can be up to 10 minutes old; read it fresh before selling a second subscription.
+  const s = await currentSession(req, res, cfg, { force: true })
   if (!s) return send(res, 401, { error: 'Sign in first.' })
   const plan = jsonBody(req)?.plan
   if (plan !== 'pro' && plan !== 'team') return send(res, 400, { error: 'Unknown plan.' })

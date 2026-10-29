@@ -82,7 +82,7 @@ export default function StaffingPage({ active, site, result, replace, account })
   const weeks = useWeeks(result?.dayReqs)
   const [weekKey, setWeekKey] = useState(null)
   const [dayIdx, setDayIdx] = useState(0)
-  if (!active) return <NoServices title="Intraday staffing" replace={replace} />
+  if (!active) return <NoServices title="Intraday staffing" replace={replace} account={account} />
   const eyebrow = serviceEyebrow(active, site)
   if (!active.history) return <NeedsHistory title="Intraday staffing" eyebrow={eyebrow} />
   if (!weeks.length) return <LoadingPage eyebrow={eyebrow} title="Intraday staffing" />

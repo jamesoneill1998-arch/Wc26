@@ -70,7 +70,7 @@ export default function ForecastPage({ active, site, result, updateActive, repla
     ]
   }, [forecast, daily, grain])
 
-  if (!active) return <NoServices title="Forecast" replace={replace} />
+  if (!active) return <NoServices title="Forecast" replace={replace} account={account} />
   const eyebrow = serviceEyebrow(active, site)
   if (daily.length < 7) return <NeedsHistory title="Forecast" eyebrow={eyebrow} />
   if (!forecast) return <LoadingPage eyebrow={eyebrow} title="Forecast" />

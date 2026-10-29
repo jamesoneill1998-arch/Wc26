@@ -91,8 +91,8 @@ function Attention({ items, update }) {
   )
 }
 
-export default function Overview({ ws, model, replace, update }) {
-  if (!ws.services.length) return <NoServices title="Overview" replace={replace} />
+export default function Overview({ ws, model, replace, update, account }) {
+  if (!ws.services.length) return <NoServices title="Overview" replace={replace} account={account} />
   const sites = new Map(ws.sites.map((s) => [s.id, s]))
   const total = model.total
   const next = total[0]

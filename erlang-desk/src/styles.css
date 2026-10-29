@@ -552,7 +552,7 @@ select:disabled, input:disabled { opacity: 0.55; cursor: not-allowed; }
 .icon-btn { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 6px; border: 0; background: transparent; color: var(--ink-2); cursor: pointer; }
 .icon-btn:hover { background: var(--surface-2, rgba(0,0,0,0.05)); color: var(--ink); }
 
-.start-grid { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 16px; }
+.start-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
 .module.start { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; padding: 22px; }
 .module.start h3 { margin: 0; }
 .module.start p { flex: 1; }

@@ -9,7 +9,9 @@ const ACTIVE = new Set(['active', 'trialing', 'past_due'])
 export default handler(async (req, res) => {
   if (!allowMethods(req, res, ['GET'])) return
   const cfg = getConfig()
-  const s = await currentSession(req, res, cfg)
+  // ?refresh=1 re-reads the plan straight away, e.g. on return from checkout.
+  const force = new URL(req.url, cfg.appUrl).searchParams.get('refresh') === '1'
+  const s = await currentSession(req, res, cfg, { force })
   if (!s) return send(res, 200, { signedIn: false })
   send(res, 200, {
     signedIn: true,
@@ -18,5 +20,6 @@ export default handler(async (req, res) => {
     status: s.status ?? null,
     role: s.role ?? null,
     active: !!s.plan && ACTIVE.has(s.status),
+    checked: s.chk ?? 0, // when the plan was last read from Stripe; the client keeps the freshest answer
   })
 })

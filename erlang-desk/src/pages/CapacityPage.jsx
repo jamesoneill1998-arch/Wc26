@@ -13,7 +13,7 @@ export default function CapacityPage({ active, site, result, updateActive, updat
   const [newWeek, setNewWeek] = useState('')
   const [newCount, setNewCount] = useState(10)
   const [view, setView] = useState('gap')
-  if (!active) return <NoServices title="Capacity plan" replace={replace} />
+  if (!active) return <NoServices title="Capacity plan" replace={replace} account={account} />
   const eyebrow = serviceEyebrow(active, site)
   if (!active.history) return <NeedsHistory title="Capacity plan" eyebrow={eyebrow} />
   if (!result?.sim?.length) return <LoadingPage eyebrow={eyebrow} title="Capacity plan" />
