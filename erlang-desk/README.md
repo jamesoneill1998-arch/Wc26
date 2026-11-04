@@ -101,6 +101,7 @@ test/               node:test suites
 - Forecast "Auto" blends the methods that beat same-day-last-week on the backtest, weighted by accuracy, when that blend backtests better than the best single method.
 - England and Wales bank holidays (including substitutes and one-offs) are forecast by how past bank holidays ran against the same weekday nearby. Models train on the raw history.
 - A date missing from an import on a normally open weekday is treated as an export gap and filled from the same weekday in nearby weeks; recorded zeros stay zero.
+- Planners can leave out outage or incident days (Data page). They're treated as export gaps for the forecast, weekday AHT and the intraday shape. The Data page suggests days more than 40% below or 60% above the same weekday nearby, ignoring bank holidays.
 - On real New York 311 daily call data (20 forecast origins across 2018–19, two years of training each), daily error was 8.8% and weekly-total error 5.6% at up to 13 weeks ahead, and the 80% band held 81% of days.
 - Chat concurrency treats each agent as *k* servers.
 - The forecast's 80% band comes from backtest error and widens with the horizon. Treat it as an indication.

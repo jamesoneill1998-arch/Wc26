@@ -11,16 +11,21 @@ import { addDays, daysBetween, weekdayIndex, parseISODate } from './dates.js'
  * A date with no row is either a closure or a gap in the export. If that
  * weekday is normally open in the surrounding weeks it's treated as a gap and
  * filled with the median of the same weekday nearby; otherwise it's closed
- * (zero). Days recorded as zero always stay zero.
+ * (zero). Days recorded as zero always stay zero. Days the planner excludes
+ * (outages, incidents) are treated exactly like export gaps.
  */
-export function toDailySeries(rows) {
-  if (!rows.length) return { start: null, values: [], filled: [] }
+export function toDailySeries(rows, excluded = null) {
+  if (!rows.length) return { start: null, values: [], filled: [], excludedDays: [] }
   const sorted = [...rows].sort((a, b) => (a.date < b.date ? -1 : 1))
   const start = sorted[0].date
   const n = daysBetween(start, sorted[sorted.length - 1].date) + 1
   const values = new Array(n).fill(0)
   const present = new Array(n).fill(false)
-  for (const r of sorted) { const i = daysBetween(start, r.date); values[i] += r.volume; present[i] = true }
+  const excludedDays = []
+  for (const r of sorted) {
+    if (excluded?.has(r.date)) { if (excludedDays.at(-1) !== r.date) excludedDays.push(r.date); continue }
+    const i = daysBetween(start, r.date); values[i] += r.volume; present[i] = true
+  }
   const filled = []
   for (let i = 0; i < n; i++) {
     if (present[i]) continue
@@ -30,10 +35,37 @@ export function toDailySeries(rows) {
     if (same.length >= 3 && open.length / same.length >= 0.75) {
       open.sort((a, b) => a - b)
       values[i] = open[Math.floor(open.length / 2)]
-      filled.push(addDays(start, i))
+      const d = addDays(start, i)
+      if (!excluded?.has(d)) filled.push(d)
     }
   }
-  return { start, values, filled }
+  return { start, values, filled, excludedDays }
+}
+
+/**
+ * Days that look like incidents rather than demand: well below or above the
+ * same weekday in nearby weeks, on a weekday that's normally open and isn't a
+ * bank holiday. Offered to the planner to exclude; never excluded silently.
+ * @returns {Array<{date, volume, expected, ratio}>} most unusual first
+ */
+export function unusualDays(dailyRows, { holidays = null, excluded = null, lookbackDays = 365, limit = 8, low = 0.6, high = 1.6 } = {}) {
+  const { start, values } = toDailySeries(dailyRows)
+  if (!start) return []
+  const byDate = new Map(dailyRows.map((r) => [r.date, r.volume]))
+  const skip = (i) => { const d = addDays(start, i); return !byDate.has(d) || holidays?.has(d) || excluded?.has(d) }
+  const out = []
+  for (let i = Math.max(0, values.length - lookbackDays); i < values.length; i++) {
+    const date = addDays(start, i)
+    if (!byDate.has(date) || holidays?.has(date) || excluded?.has(date)) continue
+    const same = []
+    for (let k = -4; k <= 4; k++) { const j = i + 7 * k; if (k !== 0 && j >= 0 && j < values.length && !skip(j)) same.push(values[j]) }
+    const open = same.filter((v) => v > 0)
+    if (same.length < 3 || open.length / same.length < 0.75) continue
+    const expected = median(open)
+    const ratio = byDate.get(date) / expected
+    if (ratio < low || ratio > high) out.push({ date, volume: byDate.get(date), expected, ratio })
+  }
+  return out.sort((a, b) => Math.abs(Math.log(Math.max(b.ratio, 0.01))) - Math.abs(Math.log(Math.max(a.ratio, 0.01)))).slice(0, limit)
 }
 
 // ── Accuracy ────────────────────────────────────────────────────────────────
@@ -284,8 +316,8 @@ export function backtest(values, start, holdout = 28, holidays = null) {
  * @param {string} [opts.method] key of METHODS, default 'auto'
  * @param {number} [opts.adjustPct] planner overlay, e.g. 0.05 for +5%
  */
-export function forecastDaily(dailyRows, { horizon = 91, method = 'auto', adjustPct = 0, holidays = null } = {}) {
-  const { start, values, filled } = toDailySeries(dailyRows)
+export function forecastDaily(dailyRows, { horizon = 91, method = 'auto', adjustPct = 0, holidays = null, excluded = null } = {}) {
+  const { start, values, filled, excludedDays } = toDailySeries(dailyRows, excluded)
   if (values.length < 7) {
     return { error: 'Need at least 7 days of history to forecast.', points: [], backtest: [] }
   }
@@ -330,6 +362,7 @@ export function forecastDaily(dailyRows, { horizon = 91, method = 'auto', adjust
     backtest: bt.map(({ forecast, parts, ...r }) => r),
     lastActualDate: lastDate,
     filledDays: filled,
+    excludedDays,
     points,
   }
 }

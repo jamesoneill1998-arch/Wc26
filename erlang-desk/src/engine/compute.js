@@ -34,7 +34,10 @@ export function computeService(service, site, cache = createCache()) {
   const capacity = resolveCapacity(service, site)
   const plan = service.plan
   const daily = service.history?.dailyRows ?? []
-  const hk = `${service.id}|${historyKey(service.history)}`
+  // Days the planner left out (outages, incidents) are gaps for the forecast, AHT and intraday shape.
+  const excludedList = (service.excludedDays ?? []).map((x) => x.date).sort()
+  const excluded = new Set(excludedList)
+  const hk = `${service.id}|${historyKey(service.history)}|x${excludedList.join(',')}`
   const empty = { serviceId: service.id, forecast: null, dayReqs: [], weeks: [], sim: [], recs: [], simWithRecs: [], unfixable: [], settings: s }
   if (daily.length < 7) return empty
 
@@ -45,15 +48,16 @@ export function computeService(service, site, cache = createCache()) {
     const firstMonday = weekStart(next) === next ? next : addDays(weekStart(next), 7)
     const lead = Math.round((Date.parse(firstMonday) - Date.parse(last)) / 864e5) - 1
     const holidays = bankHolidays(Number(daily[0].date.slice(0, 4)), Number(addDays(last, lead + plan.horizonWeeks * 7).slice(0, 4)))
-    return forecastDaily(daily, { horizon: lead + plan.horizonWeeks * 7, method: plan.method, adjustPct: plan.volumeAdjustPct, holidays })
+    return forecastDaily(daily, { horizon: lead + plan.horizonWeeks * 7, method: plan.method, adjustPct: plan.volumeAdjustPct, holidays, excluded })
   })
   if (forecast.error) return { ...empty, forecast }
 
   const profiles = memo(cache, `${hk}|p|${s.intervalMin}|${JSON.stringify(s.hours)}`, () => {
-    const learnt = service.history?.intervalRows?.length ? learnProfiles(service.history.intervalRows, s.intervalMin) : null
+    const rows = (service.history?.intervalRows ?? []).filter((r) => !excluded.has(r.date))
+    const learnt = rows.length ? learnProfiles(rows, s.intervalMin) : null
     return learnt ?? defaultProfiles(s)
   })
-  const ahtByWeekday = memo(cache, `${hk}|a|${s.defaultAht}`, () => weekdayAht(daily, s.defaultAht))
+  const ahtByWeekday = memo(cache, `${hk}|a|${s.defaultAht}`, () => weekdayAht(daily.filter((r) => !excluded.has(r.date)), s.defaultAht))
   const dayReqs = memo(cache, `${fKey}|r|${JSON.stringify(s)}|${plan.ahtAdjustPct}`, () =>
     intervalRequirements(forecast.points, profiles, ahtByWeekday, s, { ahtAdjustPct: plan.ahtAdjustPct }))
   const weeks = weeklyRequirements(dayReqs, s).filter((w) => !w.partial)

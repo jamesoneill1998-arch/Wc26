@@ -1,13 +1,108 @@
 import { useRef, useState } from 'react'
 import { parseHistoryCSV, toCSV, MAX_IMPORT_BYTES } from '../engine/csv.js'
 import { formatDate } from '../engine/dates.js'
+import { unusualDays } from '../engine/forecast.js'
+import { bankHolidays } from '../engine/holidays.js'
 import { CHANNELS } from '../engine/channels.js'
 import { buildSampleWorkspace, historyFrom, sampleHistory } from '../state/sample.js'
 import { clearStoredWorkspace, emptyWorkspace } from '../state/store.js'
 import { PageHead, Figures, Figure, Panel, Locked, ConfirmButton } from '../components/ui.jsx'
 import { LineChart } from '../components/charts.jsx'
-import { downloadText, fmtInt } from '../format.js'
+import { downloadText, fmtInt, fmtPct } from '../format.js'
 import { NoServices, serviceEyebrow } from './common.jsx'
+
+const longDate = (d) => formatDate(d, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+
+/**
+ * Outages and one-off incidents, left out of the forecast at the planner's
+ * request. Suggestions come from days far off the same weekday nearby.
+ */
+function UnusualDays({ active, days, unit, updateActive }) {
+  const [date, setDate] = useState('')
+  const [note, setNote] = useState('')
+  const excluded = active.excludedDays ?? []
+  const excludedSet = new Set(excluded.map((x) => x.date))
+  const first = days[0].date
+  const last = days[days.length - 1].date
+  const holidays = bankHolidays(Number(first.slice(0, 4)), Number(last.slice(0, 4)))
+  const suggestions = unusualDays(days, { holidays, excluded: excludedSet })
+  const byDate = new Map(days.map((r) => [r.date, r.volume]))
+  const save = (list) => updateActive({ excludedDays: [...new Map(list.map((x) => [x.date, x])).values()].sort((a, b) => (a.date < b.date ? -1 : 1)) })
+  const leaveOut = (d, why) => save([...excluded, { date: d, note: why.slice(0, 80) }])
+  const putBack = (d) => save(excluded.filter((x) => x.date !== d))
+  const add = (e) => {
+    e.preventDefault()
+    if (!date || date < first || date > last) return
+    leaveOut(date, note.trim())
+    setDate(''); setNote('')
+  }
+  return (
+    <Panel title="Unusual days" aside={excluded.length ? `${excluded.length} left out of the forecast` : undefined}>
+      <p className="muted small" style={{ marginBottom: 14 }}>
+        Outages, system faults and one-off incidents distort the forecast. A day you leave out is treated like a gap in the export: the forecast,
+        handle time and intraday shape use the same weekday in nearby weeks instead. Bank holidays are handled automatically, so they don't need leaving out.
+      </p>
+      {suggestions.length > 0 ? (
+        <>
+          <h3 style={{ marginBottom: 6 }}>Worth checking</h3>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Day</th><th>{unit[0].toUpperCase() + unit.slice(1)}</th><th>Typical for that weekday</th><th>Difference</th><th><span className="sr-only">Action</span></th></tr></thead>
+              <tbody>
+                {suggestions.map((u) => {
+                  const diff = u.ratio - 1
+                  const why = `${diff < 0 ? 'Unusually low' : 'Unusually high'}: ${diff < 0 ? '−' : '+'}${fmtPct(Math.abs(diff), 0)} on a typical ${formatDate(u.date, { weekday: 'long' })}`
+                  return (
+                    <tr key={u.date}>
+                      <td>{longDate(u.date)}</td>
+                      <td>{fmtInt(u.volume)}</td>
+                      <td>{fmtInt(u.expected)}</td>
+                      <td className={diff < 0 ? 'bad' : ''}>{diff < 0 ? '−' : '+'}{fmtPct(Math.abs(diff), 0)}</td>
+                      <td><button className="btn sm" type="button" onClick={() => leaveOut(u.date, why)}>Leave out</button></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : <p className="small" style={{ marginBottom: 6 }}>{excluded.length ? 'Nothing else stands out in the last year.' : 'Nothing stands out in the last year.'}</p>}
+
+      {excluded.length > 0 && (
+        <>
+          <h3 style={{ margin: '18px 0 6px' }}>Left out of the forecast</h3>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Day</th><th>{unit[0].toUpperCase() + unit.slice(1)}</th><th className="text">Reason</th><th><span className="sr-only">Action</span></th></tr></thead>
+              <tbody>
+                {excluded.map((x) => (
+                  <tr key={x.date}>
+                    <td>{longDate(x.date)}</td>
+                    <td>{byDate.has(x.date) ? fmtInt(byDate.get(x.date)) : <span className="faint">not in history</span>}</td>
+                    <td className="text">{x.note || <span className="faint">–</span>}</td>
+                    <td><button className="btn sm" type="button" onClick={() => putBack(x.date)}>Put back</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      <form className="row" style={{ marginTop: 16, alignItems: 'flex-end' }} onSubmit={add}>
+        <div className="field">
+          <label htmlFor="exclude-date">Leave out another day</label>
+          <input id="exclude-date" type="date" min={first} max={last} value={date} onChange={(e) => setDate(e.target.value)} />
+        </div>
+        <div className="field" style={{ flex: 1, minWidth: 200 }}>
+          <label htmlFor="exclude-note">Reason (optional)</label>
+          <input id="exclude-note" type="text" maxLength={80} value={note} placeholder="e.g. Telephony outage" onChange={(e) => setNote(e.target.value)} />
+        </div>
+        <button className="btn" type="submit" disabled={!date || date < first || date > last || excludedSet.has(date)}>Leave out</button>
+      </form>
+    </Panel>
+  )
+}
 
 export default function DataPage({ ws, active, site, updateActive, replace, account }) {
   const [msg, setMsg] = useState(null)
@@ -136,6 +231,7 @@ export default function DataPage({ ws, active, site, updateActive, replace, acco
               valueFormat={fmtInt}
             />
           </Panel>
+          <UnusualDays active={active} days={days} unit={unit} updateActive={updateActive} />
         </>
       )}
 

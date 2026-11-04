@@ -278,6 +278,7 @@ input:focus-visible, select:focus-visible, .btn:focus-visible, a:focus-visible, 
 table { border-collapse: collapse; width: 100%; font-size: 14px; }
 th, td { padding: 9px 12px; text-align: right; white-space: nowrap; }
 th:first-child, td:first-child { text-align: left; padding-left: 0; }
+th.text, td.text { text-align: left; white-space: normal; } /* words, not figures */
 th:last-child, td:last-child { padding-right: 0; }
 th { font-size: 11.5px; font-weight: 600; font-stretch: var(--semi); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--rule-2); position: sticky; top: 0; background: var(--surface); }
 td { border-bottom: 1px solid var(--rule); font-variant-numeric: tabular-nums; }
@@ -570,3 +571,4 @@ tr.quiet td, tr.quiet td * { color: var(--muted); } /* months the change doesn't
 .skip { position: absolute; left: 12px; top: -60px; z-index: 100; padding: 10px 14px; border-radius: 6px; background: var(--ink); color: var(--canvas); font-weight: 600; text-decoration: none; }
 .skip:focus { top: 12px; }
 main:focus { outline: none; }
+td.bad { color: var(--critical-ink); }

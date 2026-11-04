@@ -74,6 +74,9 @@ export function generateSampleHistory({ channel = 'voice', endDate, days = 728, 
   const end = endDate ?? new Date().toISOString().slice(0, 10)
   const start = addDays(end, -(days - 1))
   const bank = bankHolidays(Number(start.slice(0, 4)), Number(end.slice(0, 4)))
+  // A telephony outage on a Tuesday about five weeks back, for the unusual-days check to find.
+  let incidentDate = addDays(end, -40)
+  while (weekdayIndex(incidentDate) !== 1) incidentDate = addDays(incidentDate, 1)
   const rows = []
   for (let i = 0; i < days; i++) {
     const date = addDays(start, i)
@@ -84,7 +87,8 @@ export function generateSampleHistory({ channel = 'voice', endDate, days = 728, 
     const annual = 1 + 0.12 * Math.cos((2 * Math.PI * (doy - 15)) / 365) // January peak
     rand() // keeps the random sequence stable for the rest of the sample
     const holiday = bank.has(date) ? 0.35 : 1
-    const daily = prof.baseDaily * scale * trend * annual * prof.weekday[wd] * holiday * (1 + 0.05 * gaussian(rand))
+    const incident = date === incidentDate ? 0.3 : 1
+    const daily = prof.baseDaily * scale * trend * annual * prof.weekday[wd] * holiday * incident * (1 + 0.05 * gaussian(rand))
     const ahtBase = prof.aht * (1 + (wd === 0 ? 0.05 : 0) + 0.03 * Math.sin((2 * Math.PI * i) / 365))
     if (!prof.intraday) {
       rows.push({ date, volume: Math.max(0, Math.round(daily)), aht: Math.round(ahtBase * (1 + 0.04 * gaussian(rand))) })
