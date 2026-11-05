@@ -111,6 +111,13 @@ export default function ForecastPage({ active, site, result, updateActive, repla
           {forecast.blendParts && ` The forecast blends ${forecast.blendParts.map((p) => `${p.label.toLowerCase()} (${Math.round(p.weight * 100)}%)`).join(', ')}, weighted by how each did on the last ${forecast.accuracy?.holdoutDays} days.`}
         </p>
       )}
+      {forecast.excludedDays?.length > 0 && (
+        <p className="small muted">
+          {forecast.excludedDays.length} day{forecast.excludedDays.length > 1 ? 's are' : ' is'} left out at your request
+          {forecast.excludedDays.length <= 4 ? ` (${forecast.excludedDays.map((d) => formatDate(d, { day: 'numeric', month: 'short', year: 'numeric' })).join(', ')})` : ''} and
+          treated like a gap in the history. <a href="#/app/data">Review them on the Data page</a>.
+        </p>
+      )}
       {forecast.filledDays?.length > 0 && (
         <p className="small muted">
           {forecast.filledDays.length} day{forecast.filledDays.length > 1 ? 's were' : ' was'} missing from the history on a normally open weekday

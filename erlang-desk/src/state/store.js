@@ -40,6 +40,7 @@ export function newService({ name, channel = 'voice', siteId = 'uk' } = {}) {
     capacity: defaultCapacity(channel),
     hires: [],
     history: null,
+    excludedDays: [],
     schedule: emptySchedule(),
   }
 }
@@ -274,6 +275,16 @@ function sanitizeSchedule(sc) {
   }
 }
 
+/** Planner-excluded days: [{date, note}], unique and sorted. */
+function sanitizeExcluded(list) {
+  if (!Array.isArray(list)) return []
+  const seen = new Map()
+  for (const x of list.slice(0, 500)) {
+    if (x && ISO.test(x.date) && !seen.has(x.date)) seen.set(x.date, { date: x.date, note: str(x.note, 80, '') })
+  }
+  return [...seen.values()].sort((a, b) => (a.date < b.date ? -1 : 1))
+}
+
 function sanitizeService(svc, siteIds) {
   if (!svc || typeof svc !== 'object') return null
   const channel = CHANNELS[svc.channel] ? svc.channel : 'voice'
@@ -305,6 +316,7 @@ function sanitizeService(svc, siteIds) {
       ? svc.hires.filter((h) => h && ISO.test(h.week) && Number.isFinite(h.count)).slice(0, 200).map((h) => ({ week: h.week, count: Math.round(num(h.count, 1, 10000, 1)) }))
       : [],
     history: sanitizeHistory(svc.history),
+    excludedDays: sanitizeExcluded(svc.excludedDays),
     schedule: sanitizeSchedule(svc.schedule),
   }
 }
