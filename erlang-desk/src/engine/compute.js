@@ -37,7 +37,8 @@ export function computeService(service, site, cache = createCache()) {
   // Days the planner left out (outages, incidents) are gaps for the forecast, AHT and intraday shape.
   const excludedList = (service.excludedDays ?? []).map((x) => x.date).sort()
   const excluded = new Set(excludedList)
-  const hk = `${service.id}|${historyKey(service.history)}|x${excludedList.join(',')}`
+  const region = site?.holidayRegion ?? 'england-wales'
+  const hk = `${service.id}|${historyKey(service.history)}|x${excludedList.join(',')}|h${region}`
   const empty = { serviceId: service.id, forecast: null, dayReqs: [], weeks: [], sim: [], recs: [], simWithRecs: [], unfixable: [], settings: s }
   if (daily.length < 7) return empty
 
@@ -47,7 +48,7 @@ export function computeService(service, site, cache = createCache()) {
     const next = addDays(last, 1)
     const firstMonday = weekStart(next) === next ? next : addDays(weekStart(next), 7)
     const lead = Math.round((Date.parse(firstMonday) - Date.parse(last)) / 864e5) - 1
-    const holidays = bankHolidays(Number(daily[0].date.slice(0, 4)), Number(addDays(last, lead + plan.horizonWeeks * 7).slice(0, 4)))
+    const holidays = bankHolidays(Number(daily[0].date.slice(0, 4)), Number(addDays(last, lead + plan.horizonWeeks * 7).slice(0, 4)), region)
     return forecastDaily(daily, { horizon: lead + plan.horizonWeeks * 7, method: plan.method, adjustPct: plan.volumeAdjustPct, holidays, excluded })
   })
   if (forecast.error) return { ...empty, forecast }

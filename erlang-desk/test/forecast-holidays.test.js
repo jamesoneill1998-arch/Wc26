@@ -32,3 +32,49 @@ test('forecasts on bank holidays follow how past ones ran', () => {
   const plain = forecastDaily(rows, { horizon: 120 })
   assert.ok(plain.points.find((p) => p.date === '2026-12-25').volume > 800, 'without the calendar the dip is missed')
 })
+
+test('Scotland and Northern Ireland follow gov.uk too (2019–2028, every date)', async () => {
+  const { readFileSync } = await import('node:fs')
+  const fx = JSON.parse(readFileSync(new URL('./fixtures/govuk-bank-holidays.json', import.meta.url), 'utf8'))
+  for (const [key, region] of [['england-and-wales', 'england-wales'], ['scotland', 'scotland'], ['northern-ireland', 'northern-ireland']]) {
+    assert.deepEqual([...bankHolidays(2019, 2028, region).keys()].sort(), fx[key], region)
+  }
+  assert.equal(bankHolidays(2026, 2026, 'none').size, 0)
+  assert.equal(bankHolidays(2026, 2026, 'scotland').get('2026-06-15'), 'World Cup bank holiday')
+  assert.ok(!bankHolidays(2026, 2026, 'england-wales').has('2026-06-15'))
+})
+
+test("a site's holiday region reaches its forecast, and each region's holidays are learned", async () => {
+  const { buildSampleWorkspace } = await import('../src/state/sample.js')
+  const { computeService } = await import('../src/engine/compute.js')
+  const ws = buildSampleWorkspace()
+  const svc = ws.services[0]
+  const site = ws.sites.find((x) => x.id === svc.siteId)
+  const learned = (r) => computeService(svc, { ...site, holidayRegion: r }).forecast.holidaysLearned
+  assert.equal(learned('none'), 0)
+  assert.notEqual(learned('scotland'), learned('england-wales'), 'a different calendar is used')
+
+  // Scottish history: quiet on Scottish bank holidays, normal on English-only ones.
+  const scot = bankHolidays(2024, 2027, 'scotland')
+  const rows = []
+  for (let i = 0; i < 730; i++) {
+    const date = addDays('2024-11-04', i)
+    const base = weekdayIndex(date) >= 5 ? 300 : 1000
+    rows.push({ date, volume: scot.has(date) ? base * 0.3 : base })
+  }
+  const at = (f, d) => f.points.find((p) => p.date === d)?.volume
+  const fScot = forecastDaily(rows, { horizon: 120, holidays: scot })
+  const fEw = forecastDaily(rows, { horizon: 120, holidays: bankHolidays(2024, 2027, 'england-wales') })
+  assert.ok(at(fScot, '2026-11-30') < 400, "St Andrew's Day dips with the Scottish calendar")
+  assert.ok(at(fEw, '2026-11-30') > 800, 'but not with the English one')
+})
+
+test('older workspaces and bad values fall back to England and Wales', async () => {
+  const { sanitizeWorkspace } = await import('../src/state/store.js')
+  const { buildSampleWorkspace } = await import('../src/state/sample.js')
+  const ws = buildSampleWorkspace()
+  const sites = ws.sites.map((s, i) => { const { holidayRegion, ...rest } = s; return i === 0 ? rest : { ...rest, holidayRegion: 'mars' } })
+  const clean = sanitizeWorkspace({ ...ws, sites })
+  assert.deepEqual(clean.sites.map((s) => s.holidayRegion), ['england-wales', 'england-wales'])
+  assert.equal(sanitizeWorkspace({ ...ws, sites: [{ ...ws.sites[0], holidayRegion: 'scotland' }, ws.sites[1]] }).sites[0].holidayRegion, 'scotland')
+})

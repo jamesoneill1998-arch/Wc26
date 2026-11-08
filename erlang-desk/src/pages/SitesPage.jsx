@@ -1,5 +1,6 @@
 import { SHRINKAGE_COMPONENTS, siteShrinkage, defaultSites } from '../engine/channels.js'
-import { PageHead, NumberField, TextField, Panel, Figures, Figure, ConfirmButton } from '../components/ui.jsx'
+import { PageHead, NumberField, TextField, SelectField, Panel, Figures, Figure, ConfirmButton } from '../components/ui.jsx'
+import { HOLIDAY_REGIONS } from '../engine/holidays.js'
 import { fmtPct } from '../format.js'
 
 function PctCell({ value, onChange, label }) {
@@ -58,6 +59,14 @@ export default function SitesPage({ ws, update, updateSite }) {
               <TextField label="Short code" value={site.code} maxLength={4} onChange={(code) => updateSite(site.id, { code: code.toUpperCase() })} />
               <NumberField label="Contracted hours per FTE" suffix="per week" min={1} max={80} step={0.5} value={site.fteHoursPerWeek} onChange={(fteHoursPerWeek) => updateSite(site.id, { fteHoursPerWeek })} />
               <NumberField label="Attrition" pct suffix="% per month" min={0} max={50} step={0.1} value={site.monthlyAttrition} onChange={(monthlyAttrition) => updateSite(site.id, { monthlyAttrition })} />
+              <SelectField
+                label="Bank holidays"
+                id={`hol-${site.id}`}
+                value={site.holidayRegion ?? 'england-wales'}
+                onChange={(holidayRegion) => updateSite(site.id, { holidayRegion })}
+                options={Object.entries(HOLIDAY_REGIONS).map(([value, label]) => ({ value, label }))}
+                hint="Use your customers' region, not where agents sit: offshore teams serving UK customers follow UK holidays."
+              />
             </div>
             {ws.sites.length > 1 && used(site.id) === 0 && (
               <button className="btn sm" type="button" style={{ marginTop: 16 }} onClick={() => update((cur) => ({ sites: cur.sites.filter((s) => s.id !== site.id) }))}>Remove site</button>

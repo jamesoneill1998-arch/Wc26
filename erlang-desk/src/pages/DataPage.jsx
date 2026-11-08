@@ -17,14 +17,14 @@ const longDate = (d) => formatDate(d, { weekday: 'short', day: 'numeric', month:
  * Outages and one-off incidents, left out of the forecast at the planner's
  * request. Suggestions come from days far off the same weekday nearby.
  */
-function UnusualDays({ active, days, unit, updateActive }) {
+function UnusualDays({ active, site, days, unit, updateActive }) {
   const [date, setDate] = useState('')
   const [note, setNote] = useState('')
   const excluded = active.excludedDays ?? []
   const excludedSet = new Set(excluded.map((x) => x.date))
   const first = days[0].date
   const last = days[days.length - 1].date
-  const holidays = bankHolidays(Number(first.slice(0, 4)), Number(last.slice(0, 4)))
+  const holidays = bankHolidays(Number(first.slice(0, 4)), Number(last.slice(0, 4)), site?.holidayRegion)
   const suggestions = unusualDays(days, { holidays, excluded: excludedSet })
   const byDate = new Map(days.map((r) => [r.date, r.volume]))
   const save = (list) => updateActive({ excludedDays: [...new Map(list.map((x) => [x.date, x])).values()].sort((a, b) => (a.date < b.date ? -1 : 1)) })
@@ -231,7 +231,7 @@ export default function DataPage({ ws, active, site, updateActive, replace, acco
               valueFormat={fmtInt}
             />
           </Panel>
-          <UnusualDays active={active} days={days} unit={unit} updateActive={updateActive} />
+          <UnusualDays active={active} site={site} days={days} unit={unit} updateActive={updateActive} />
         </>
       )}
 
