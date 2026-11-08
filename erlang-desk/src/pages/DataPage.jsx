@@ -1,17 +1,96 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { parseHistoryCSV, toCSV, MAX_IMPORT_BYTES } from '../engine/csv.js'
-import { formatDate } from '../engine/dates.js'
+import { formatDate, formatTime } from '../engine/dates.js'
 import { unusualDays } from '../engine/forecast.js'
 import { bankHolidays } from '../engine/holidays.js'
 import { CHANNELS } from '../engine/channels.js'
 import { buildSampleWorkspace, historyFrom, sampleHistory } from '../state/sample.js'
 import { clearStoredWorkspace, emptyWorkspace } from '../state/store.js'
-import { PageHead, Figures, Figure, Panel, Locked, ConfirmButton } from '../components/ui.jsx'
+import { PageHead, Figures, Figure, Panel, Locked, ConfirmButton, SelectField } from '../components/ui.jsx'
 import { LineChart } from '../components/charts.jsx'
 import { downloadText, fmtInt, fmtPct } from '../format.js'
 import { NoServices, serviceEyebrow } from './common.jsx'
 
 const longDate = (d) => formatDate(d, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+const shortDate = (d) => formatDate(d, { day: 'numeric', month: 'short', year: 'numeric' })
+
+/**
+ * Check an import before it lands: which column was read as what (each can be
+ * changed), which queue, a preview of the first rows and the totals.
+ */
+function ImportPreview({ pending, setPending, onImport, unit }) {
+  const res = useMemo(() => parseHistoryCSV(pending.text, { columns: pending.columns, queue: pending.queue ?? undefined }), [pending])
+  const multi = res.queues.length > 1
+  const needsQueue = multi && !pending.queue
+  const set = (key) => (v) => setPending({ ...pending, columns: { ...pending.columns, [key]: Number(v) }, queue: key === 'queue' ? null : pending.queue })
+  const options = (none) => [...(none ? [{ value: -1, label: none }] : []), ...res.headers.map((h, i) => ({ value: i, label: h || `Column ${i + 1}` }))]
+  const d = res.detected
+  const days = new Set(res.rows.map((r) => r.date))
+  const total = res.rows.reduce((t, r) => t + r.volume, 0)
+  const ahtVol = res.rows.filter((r) => r.aht).reduce((t, r) => t + r.volume, 0)
+  const aht = ahtVol ? res.rows.filter((r) => r.aht).reduce((t, r) => t + r.aht * r.volume, 0) / ahtVol : null
+  const first = res.rows[0]?.date
+  const last = res.rows[res.rows.length - 1]?.date
+  return (
+    <Panel title={`Check the import: ${pending.name}`} aside={<button className="btn link" type="button" onClick={() => setPending(null)}>Cancel</button>}>
+      <p className="muted small" style={{ marginBottom: 14 }}>
+        These are the columns we read. If one is wrong, pick the right one: the preview and totals update as you go. Nothing is imported until you confirm.
+      </p>
+      <div className="fields import-map">
+        <SelectField id="map-date" label="Date, or date and time" value={d.date} onChange={set('date')} options={options('Choose a column')} />
+        {res.dateHasTime
+          ? <div className="field"><label htmlFor="map-time-note">Time of interval</label><p id="map-time-note" className="small muted" style={{ marginTop: 8 }}>Taken from the date column</p></div>
+          : <SelectField id="map-time" label="Time of interval" value={d.time} onChange={set('time')} options={options('None: daily totals')} />}
+        <SelectField id="map-volume" label={`Volume (${unit} offered)`} value={d.volume} onChange={set('volume')} options={options('Choose a column')} />
+        <SelectField id="map-aht" label="Handle time" value={d.aht} onChange={set('aht')} options={options('None')} hint="Seconds, mm:ss, hh:mm:ss or milliseconds" />
+        <SelectField id="map-queue" label="Queue or skill" value={d.queue} onChange={set('queue')} options={options('None')} />
+        {multi && (
+          <SelectField
+            id="map-which-queue"
+            label="Which queue"
+            value={pending.queue ?? ''}
+            onChange={(queue) => setPending({ ...pending, queue: queue || null })}
+            options={[{ value: '', label: `Choose one of ${res.queues.length}` }, ...res.queues.slice(0, 50).map((q) => ({ value: q.name, label: `${q.name} (${fmtInt(q.volume)})` })), { value: '*', label: 'All queues combined' }]}
+          />
+        )}
+      </div>
+
+      {res.rows.length > 0 && (
+        <>
+          <div className="import-summary">
+            <span><b>{fmtInt(res.rows.length)}</b> {res.kind} rows</span>
+            <span><b>{fmtInt(days.size)}</b> days, {shortDate(first)} to {shortDate(last)}</span>
+            <span><b>{fmtInt(total)}</b> {unit}{needsQueue ? ', all queues' : ''}</span>
+            <span>{aht ? <><b>{Math.round(aht)}s</b> average handle time</> : 'No handle time'}</span>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Date</th>{res.kind === 'interval' && <th>Time</th>}<th>{unit[0].toUpperCase() + unit.slice(1)}</th><th>Handle time</th></tr></thead>
+              <tbody>
+                {res.rows.slice(0, 10).map((r, i) => (
+                  <tr key={i}><td>{longDate(r.date)}</td>{res.kind === 'interval' && <td>{formatTime(r.time)}</td>}<td>{fmtInt(r.volume)}</td><td>{r.aht ? `${Math.round(r.aht)}s` : '–'}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="small faint" style={{ marginTop: 6 }}>First 10 of {fmtInt(res.rows.length)} rows, as they'll be imported.</p>
+        </>
+      )}
+      {res.notes.length > 0 && <p className="small" style={{ marginTop: 10 }}>{res.notes.join(' ')}</p>}
+      {res.errors.length > 0 && (
+        <p className={`small${res.rows.length ? '' : ' status bad'}`} role={res.rows.length ? undefined : 'alert'} style={{ marginTop: 10 }}>
+          {res.rows.length ? `${res.errors.length >= 10 ? '10 or more' : res.errors.length} rows will be skipped, e.g. ${res.errors[0]}` : res.errors.join(' ')}
+        </p>
+      )}
+      <div className="row" style={{ marginTop: 16 }}>
+        <button className="btn primary" type="button" disabled={!res.rows.length || needsQueue} onClick={() => onImport(res)}>
+          {needsQueue ? 'Choose a queue first' : `Import ${fmtInt(res.rows.length)} rows`}
+        </button>
+        <button className="btn" type="button" onClick={() => setPending(null)}>Cancel</button>
+      </div>
+    </Panel>
+  )
+}
 
 /**
  * Outages and one-off incidents, left out of the forecast at the planner's
@@ -107,7 +186,7 @@ function UnusualDays({ active, site, days, unit, updateActive }) {
 export default function DataPage({ ws, active, site, updateActive, replace, account }) {
   const [msg, setMsg] = useState(null)
   const [over, setOver] = useState(false)
-  const [pending, setPending] = useState(null) // a multi-queue file waiting for the planner to pick a queue
+  const [pending, setPending] = useState(null) // a chosen file being checked before import: { text, name, columns, queue }
   const fileRef = useRef(null)
   const wsRef = useRef(null)
   if (!active) return <NoServices title="Data" replace={replace} account={account} />
@@ -125,15 +204,12 @@ export default function DataPage({ ws, active, site, updateActive, replace, acco
   const readFile = async (file) => {
     if (!file) return
     if (file.size > MAX_IMPORT_BYTES) return setMsg({ ok: false, text: 'That file is over 25 MB. Export a shorter date range.' })
-    const text = await file.text()
-    const res = parseHistoryCSV(text)
-    if (res.queues.length > 1 && res.rows.length) { setMsg(null); return setPending({ text, name: file.name, queues: res.queues, column: res.columns.queue }) }
-    setPending(null)
-    commit(res, file.name)
+    setMsg(null)
+    setPending({ text: await file.text(), name: file.name.slice(0, 100), columns: {}, queue: null })
   }
-  const chooseQueue = (queue) => {
-    const res = parseHistoryCSV(pending.text, { queue })
-    commit(res, queue === '*' ? `${pending.name} (all queues)` : `${pending.name} · ${queue}`)
+  const importChecked = (res) => {
+    const q = pending.queue
+    commit(res, q && q !== '*' ? `${pending.name} · ${q}` : q === '*' ? `${pending.name} (all queues)` : pending.name)
     setPending(null)
   }
 
@@ -165,17 +241,7 @@ export default function DataPage({ ws, active, site, updateActive, replace, acco
 
       {msg && <div className={`notice${msg.ok ? ' ok' : ''}`} role="status">{msg.text}</div>}
 
-      {pending && (
-        <Panel title="This file holds several queues" aside={<button className="btn link" type="button" onClick={() => setPending(null)}>Cancel</button>}>
-          <p className="muted small" style={{ marginBottom: 12 }}>{`"${pending.column}" has ${pending.queues.length} values. Pick the one that belongs to ${active.name}, or combine them all.`}</p>
-          <div className="queue-pick">
-            {pending.queues.slice(0, 30).map((q) => (
-              <button key={q.name} className="btn" type="button" onClick={() => chooseQueue(q.name)}>{q.name}<span className="faint">{fmtInt(q.volume)}</span></button>
-            ))}
-            <button className="btn primary" type="button" onClick={() => chooseQueue('*')}>All queues combined</button>
-          </div>
-        </Panel>
-      )}
+      {pending && <ImportPreview pending={pending} setPending={setPending} onImport={importChecked} unit={unit} />}
 
       <div className="cols">
         <Panel title="Import a CSV" aside={<button className="btn link" type="button" onClick={template}>Download template</button>}>

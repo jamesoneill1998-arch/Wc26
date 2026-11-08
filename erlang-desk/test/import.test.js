@@ -117,3 +117,33 @@ test('export gaps are filled on open weekdays; closures and recorded zeros stay 
   assert.equal(s.values[5], 0, 'Saturday stays closed')
   assert.equal(s.values[37], 0, 'recorded zero stays zero')
 })
+
+test('planner-chosen columns override detection, even for unrecognised headings', () => {
+  const t = 'Datum;Tijd;Aantal;Beantwoord\n13/01/2026;08:00;10;9\n13/01/2026;08:30;14;12\n'
+  const auto = parseHistoryCSV(t)
+  assert.equal(auto.rows.length, 0)
+  assert.deepEqual(auto.headers, ['Datum', 'Tijd', 'Aantal', 'Beantwoord'], 'headers come back so the planner can map them')
+  const mapped = parseHistoryCSV(t, { columns: { date: 0, time: 1, volume: 2 } })
+  assert.equal(mapped.kind, 'interval')
+  assert.deepEqual(mapped.rows.map((r) => r.volume), [10, 14])
+  assert.deepEqual(mapped.detected, { date: 0, time: 1, volume: 2, aht: -1, queue: -1 })
+  const daily = parseHistoryCSV(t, { columns: { date: 0, time: -1, volume: 3 } })
+  assert.equal(daily.kind, 'daily', 'choosing no time column gives daily totals')
+  assert.deepEqual(daily.rows.map((r) => r.volume), [21])
+})
+
+test('switching volume to an answered column warns, and bad choices are ignored', () => {
+  const t = 'Date,Calls Answered,Calls Offered\n2026-01-05,90,100\n'
+  assert.equal(parseHistoryCSV(t).rows[0].volume, 100, 'offered by default')
+  const answered = parseHistoryCSV(t, { columns: { volume: 1 } })
+  assert.equal(answered.rows[0].volume, 90)
+  assert.match(answered.notes.join(' '), /answered/)
+  assert.equal(parseHistoryCSV(t, { columns: { volume: 99, date: 'x' } }).rows[0].volume, 100)
+})
+
+test('choosing a combined date-time column takes the time from it', () => {
+  const t = 'Start,Queue,Offer\n2026-02-02 09:00,A,5\n2026-02-02 09:30,A,7\n'
+  const r = parseHistoryCSV(t, { columns: { date: 0, volume: 2 } })
+  assert.equal(r.dateHasTime, true)
+  assert.deepEqual(r.rows.map((x) => x.time), [540, 570])
+})
