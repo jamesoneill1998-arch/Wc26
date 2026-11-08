@@ -560,9 +560,6 @@ select:disabled, input:disabled { opacity: 0.55; cursor: not-allowed; }
 .module.start.featured { border: 2px solid var(--ink); }
 @media (max-width: 900px) { .start-grid { grid-template-columns: minmax(0, 1fr); } }
 
-.queue-pick { display: flex; flex-wrap: wrap; gap: 8px; }
-.queue-pick .btn { display: inline-flex; gap: 10px; align-items: baseline; }
-.queue-pick .btn .faint { font-size: 12.5px; font-variant-numeric: tabular-nums; }
 
 .lab-btn { border: 0; background: none; padding: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
 .lab-btn:hover { color: var(--ink); text-decoration: underline; }
@@ -581,3 +578,6 @@ td.bad { color: var(--critical-ink); }
 .signin-card input[type='email'] { width: 100%; }
 .signin-foot { border-top: 1px solid var(--rule); padding-top: 14px; display: flex; flex-direction: column; gap: 6px; }
 @media (max-width: 480px) { .signin-card { padding: 22px 18px 18px; } .signin-card h1 { font-size: 26px; } }
+.import-map { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); margin-bottom: 16px; }
+.import-summary { display: flex; flex-wrap: wrap; gap: 6px 22px; margin-bottom: 10px; font-size: 14px; color: var(--ink-2); }
+.import-summary b { color: var(--ink); font-variant-numeric: tabular-nums; }

@@ -56,7 +56,7 @@ date,time,volume,aht
 2026-01-05,08:30,61,298
 ```
 
-`time` and `aht` are optional. Exports from Genesys, NICE CXone, Avaya CMS, Amazon Connect and Five9 import as they are: headings are matched loosely (offered is preferred over answered), date and time may share a column (UTC timestamps are converted to local time), times may be 12-hour or a range, and handle time may be seconds, mm:ss, hh:mm:ss, milliseconds or a total. Files with several queues ask which to import. Dates can be `YYYY-MM-DD`, `DD/MM/YYYY` or `MM/DD/YYYY`. Comma, semicolon and tab delimiters all work.
+`time` and `aht` are optional. Exports from Genesys, NICE CXone, Avaya CMS, Amazon Connect and Five9 import as they are: headings are matched loosely (offered is preferred over answered), date and time may share a column (UTC timestamps are converted to local time), times may be 12-hour or a range, and handle time may be seconds, mm:ss, hh:mm:ss, milliseconds or a total. Before anything is imported, a preview shows which column was read as what (each can be changed), which queue to use, the first 10 rows and the totals, so files with unfamiliar headings can be mapped by hand. Dates can be `YYYY-MM-DD`, `DD/MM/YYYY` or `MM/DD/YYYY`. Comma, semicolon and tab delimiters all work.
 
 ## Schedule CSV format
 

@@ -17,7 +17,7 @@ const COLUMNS = {
   aht: ['aht', 'aht_sec', 'aht_secs', 'aht_seconds', 'avg_handle_time', 'average_handle_time', 'avg_handle', 'average_handle', 'handle_time', 'avg_aht', 'avg_acd_time', 'average_acd_time', 'total_handle_time', 'avg_talk_time'],
   queue: ['queue', 'queue_name', 'skill', 'skill_name', 'split', 'split_skill', 'split_skill_name', 'campaign', 'line_of_business', 'lob'],
 }
-const ANSWERED = new Set(['acd_calls', 'calls_handled', 'contacts_handled', 'handled', 'answered', 'answer'])
+const ANSWERED = new Set(['acd_calls', 'calls_handled', 'contacts_handled', 'handled', 'answered', 'answer', 'calls_answered', 'contacts_answered'])
 
 export const normaliseHeader = (h) => h.toLowerCase().replace(/\(.*?\)/g, ' ').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
 
@@ -126,14 +126,18 @@ const median = (xs) => { const a = xs.filter((x) => x > 0).sort((p, q) => p - q)
 /**
  * Parse history CSV text.
  * @param {string} text
- * @param {{queue?: string}} [opts] queue to keep when the file holds several ('*' keeps all, combined)
- * @returns {{kind:'daily'|'interval', rows:Array, errors:string[], queues:Array<{name:string, volume:number}>, columns:Object, notes:string[]}}
+ * @param {{queue?: string, columns?: {date?: number, time?: number, volume?: number, aht?: number, queue?: number}}} [opts]
+ *   queue: which queue to keep when the file holds several ('*' keeps all, combined).
+ *   columns: header indices chosen by the planner (-1 for none), overriding detection.
+ * @returns {{kind:'daily'|'interval', rows:Array, errors:string[], queues:Array<{name:string, volume:number}>, columns:Object, notes:string[],
+ *   headers:string[], detected:{date:number, time:number, volume:number, aht:number, queue:number}, dateHasTime:boolean}}
  */
 export const MAX_IMPORT_BYTES = 25 * 1024 * 1024
 export const MAX_IMPORT_ROWS = 500000
 
-export function parseHistoryCSV(text, { queue } = {}) {
-  const empty = (errors) => ({ kind: 'daily', rows: [], errors, queues: [], columns: {}, notes: [] })
+export function parseHistoryCSV(text, { queue, columns: chosen = {} } = {}) {
+  const empty = (errors, headers = [], detected = { date: -1, time: -1, volume: -1, aht: -1, queue: -1 }) =>
+    ({ kind: 'daily', rows: [], errors, queues: [], columns: {}, notes: [], headers, detected, dateHasTime: false })
   if (text.length > MAX_IMPORT_BYTES) return empty(['File is larger than 25 MB. Export a shorter date range.'])
   const lines = text.replace(/^﻿/, '').split(/\r?\n/).filter((l) => l.trim() !== '')
   if (lines.length < 2) return empty(['File has no data rows.'])
@@ -146,22 +150,29 @@ export function parseHistoryCSV(text, { queue } = {}) {
 
   // A column is a combined timestamp if its values carry both a date and a time.
   const looksDateTime = (i) => i >= 0 && sample.some((r) => /\d{4}|\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}/.test(r[i] ?? '') && /\d{1,2}:\d{2}/.test(r[i] ?? ''))
-  let date = pick(header, COLUMNS.date)
+  const valid = (i) => Number.isInteger(i) && i >= -1 && i < raw.length
+  const choose = (key, detect) => (valid(chosen[key]) ? chosen[key] : detect())
+  let date = choose('date', () => {
+    const d = pick(header, COLUMNS.date)
+    if (d >= 0) return d
+    const c = pick(header, COLUMNS.datetime)
+    return looksDateTime(c) ? c : -1
+  })
   let dt = -1
   if (date >= 0 && looksDateTime(date)) { dt = date; date = -1 }
-  if (date < 0 && dt < 0) { const c = pick(header, COLUMNS.datetime); if (looksDateTime(c)) dt = c }
   const used = new Set([date, dt].filter((i) => i >= 0))
-  const time = date >= 0 ? pick(header, COLUMNS.time, used) : -1
+  const time = date >= 0 ? choose('time', () => pick(header, COLUMNS.time, used)) : -1
   if (time >= 0) used.add(time)
-  const volume = pick(header, COLUMNS.volume, used)
+  const volume = choose('volume', () => pick(header, COLUMNS.volume, used))
   if (volume >= 0) used.add(volume)
-  const aht = pick(header, COLUMNS.aht, used)
-  const q = pick(header, COLUMNS.queue, used)
+  const aht = choose('aht', () => pick(header, COLUMNS.aht, used))
+  const q = choose('queue', () => pick(header, COLUMNS.queue, used))
+  const detected = { date: dt >= 0 ? dt : date, time, volume, aht, queue: q }
 
   const errors = []
   if (date < 0 && dt < 0) errors.push('Missing a date column (for example "Date" or "Interval Start").')
   if (volume < 0) errors.push('Missing a volume column (for example "Calls Offered", "Offered" or "Contacts").')
-  if (errors.length) return empty(errors)
+  if (errors.length) return empty(errors, raw, detected)
 
   const kind = dt >= 0 || time >= 0 ? 'interval' : 'daily'
   const order = guessSlashOrder(body.map((r) => r[dt >= 0 ? dt : date] ?? ''))
@@ -230,7 +241,7 @@ export function parseHistoryCSV(text, { queue } = {}) {
     ...(q >= 0 ? { queue: raw[q] } : {}),
   }
   return {
-    kind, rows, errors, notes, columns,
+    kind, rows, errors, notes, columns, headers: raw, detected, dateHasTime: dt >= 0,
     queues: [...queues.entries()].map(([name, v]) => ({ name, volume: v })).sort((a, b) => b.volume - a.volume),
   }
 }
