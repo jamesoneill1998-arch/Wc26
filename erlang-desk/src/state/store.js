@@ -6,6 +6,7 @@
 // Every workspace that enters the app (storage, file import) goes through
 // `sanitizeWorkspace`, which rebuilds it from known fields only.
 
+import { HOLIDAY_REGIONS } from '../engine/holidays.js'
 import { useCallback, useEffect, useState } from 'react'
 import { CHANNELS, defaultServiceSettings, defaultSites, SHRINKAGE_COMPONENTS } from '../engine/channels.js'
 
@@ -332,6 +333,7 @@ function sanitizeSite(site, i) {
     code: str(site.code, 4, d.code).toUpperCase(),
     fteHoursPerWeek: num(site.fteHoursPerWeek, 1, 80, d.fteHoursPerWeek),
     monthlyAttrition: num(site.monthlyAttrition, 0, 0.5, d.monthlyAttrition),
+    holidayRegion: HOLIDAY_REGIONS[site.holidayRegion] ? site.holidayRegion : d.holidayRegion,
     shrinkage,
   }
 }

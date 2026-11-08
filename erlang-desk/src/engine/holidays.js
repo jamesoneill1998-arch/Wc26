@@ -17,30 +17,51 @@ const firstMonday = (y, m) => { let d = iso(y, m, 1); while (weekdayIndex(d) !==
 const lastMonday = (y, m) => { let d = addDays(iso(m === 12 ? y + 1 : y, m === 12 ? 1 : m + 1, 1), -1); while (weekdayIndex(d) !== 0) d = addDays(d, -1); return d }
 const nextWeekday = (d) => { while (weekdayIndex(d) >= 5) d = addDays(d, 1); return d }
 
-// One-off changes announced by the government.
+// One-off changes announced by the government, by region.
 const SPECIAL = {
   2011: { add: [['2011-04-29', 'Royal wedding']] },
   2012: { move: { spring: '2012-06-04' }, add: [['2012-06-05', 'Diamond Jubilee']] },
   2020: { move: { earlyMay: '2020-05-08' } },
   2022: { move: { spring: '2022-06-02' }, add: [['2022-06-03', 'Platinum Jubilee'], ['2022-09-19', 'State funeral']] },
   2023: { add: [['2023-05-08', 'Coronation']] },
+  2026: { add: [['2026-06-15', 'World Cup bank holiday', ['scotland']]] },
+}
+
+export const HOLIDAY_REGIONS = {
+  'england-wales': 'England and Wales',
+  scotland: 'Scotland',
+  'northern-ireland': 'Northern Ireland',
+  none: 'None',
 }
 
 /**
- * England and Wales bank holidays for the given years.
+ * UK bank holidays for the given years, following gov.uk's rules for each
+ * region, including substitute days and announced one-offs.
+ * @param {'england-wales'|'scotland'|'northern-ireland'|'none'} region
  * @returns {Map<string, string>} ISO date → holiday name
  */
-export function bankHolidays(fromYear, toYear) {
+export function bankHolidays(fromYear, toYear, region = 'england-wales') {
   const out = new Map()
+  if (region === 'none' || !HOLIDAY_REGIONS[region]) return out
+  const scot = region === 'scotland'
+  const ni = region === 'northern-ireland'
   for (let y = fromYear; y <= toYear; y++) {
     const sp = SPECIAL[y] ?? {}
     const easter = easterSunday(y)
-    out.set(nextWeekday(iso(y, 1, 1)), "New Year's Day")
+    const newYear = nextWeekday(iso(y, 1, 1))
+    out.set(newYear, "New Year's Day")
+    if (scot) {
+      const second = iso(y, 1, 2) > newYear ? iso(y, 1, 2) : addDays(newYear, 1)
+      out.set(nextWeekday(second), '2nd January')
+    }
+    if (ni) out.set(nextWeekday(iso(y, 3, 17)), "St Patrick's Day")
     out.set(addDays(easter, -2), 'Good Friday')
-    out.set(addDays(easter, 1), 'Easter Monday')
+    if (!scot) out.set(addDays(easter, 1), 'Easter Monday')
     out.set(sp.move?.earlyMay ?? firstMonday(y, 5), 'Early May bank holiday')
     out.set(sp.move?.spring ?? lastMonday(y, 5), 'Spring bank holiday')
-    out.set(lastMonday(y, 8), 'Summer bank holiday')
+    if (ni) out.set(nextWeekday(iso(y, 7, 12)), 'Battle of the Boyne')
+    out.set(scot ? firstMonday(y, 8) : lastMonday(y, 8), 'Summer bank holiday')
+    if (scot) out.set(nextWeekday(iso(y, 11, 30)), "St Andrew's Day")
     // Christmas and Boxing Day move to the next free weekdays.
     const xmas = iso(y, 12, 25)
     const xmasWd = weekdayIndex(xmas)
@@ -48,7 +69,7 @@ export function bankHolidays(fromYear, toYear) {
     else if (xmasWd === 6) { out.set(iso(y, 12, 26), 'Boxing Day'); out.set(iso(y, 12, 27), 'Christmas Day') }
     else if (xmasWd === 4) { out.set(xmas, 'Christmas Day'); out.set(iso(y, 12, 28), 'Boxing Day') }
     else { out.set(xmas, 'Christmas Day'); out.set(iso(y, 12, 26), 'Boxing Day') }
-    for (const [d, name] of sp.add ?? []) out.set(d, name)
+    for (const [d, name, regions] of sp.add ?? []) if (!regions || regions.includes(region)) out.set(d, name)
   }
   return out
 }

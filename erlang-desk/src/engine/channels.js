@@ -66,6 +66,7 @@ export function defaultSites() {
       code: 'UK',
       fteHoursPerWeek: 37.5,
       monthlyAttrition: 0.025,
+      holidayRegion: 'england-wales',
       shrinkage: { leave: 0.12, sickness: 0.05, breaks: 0.08, training: 0.05, meetings: 0.03, other: 0.02 },
     },
     {
@@ -74,6 +75,7 @@ export function defaultSites() {
       code: 'OS',
       fteHoursPerWeek: 40,
       monthlyAttrition: 0.045,
+      holidayRegion: 'england-wales', // follows the customers, who are in the UK
       shrinkage: { leave: 0.07, sickness: 0.03, breaks: 0.05, training: 0.03, meetings: 0.01, other: 0.01 },
     },
   ]
