@@ -111,7 +111,7 @@ test('magic-link sign-in sets a hardened session cookie', async () => {
   const loginCookie = [].concat(r1.headers['set-cookie'])[0]
   assert.match(loginCookie, /^__Host-ed_login=.+; Path=\/; Max-Age=900; HttpOnly; Secure; SameSite=Lax$/)
   assert.equal(r2.statusCode, 302)
-  assert.equal(r2.headers.location, 'https://app.example.com/#/app/account?signin=ok')
+  assert.equal(r2.headers.location, 'https://app.example.com/#/signin?signin=ok')
   assert.equal(r2.headers['referrer-policy'], 'no-referrer')
   const set = [].concat(r2.headers['set-cookie'])
   assert.ok(set.some((c) => /^__Host-ed_session=.+HttpOnly; Secure; SameSite=Lax/.test(c)))
@@ -125,7 +125,7 @@ test('magic-link sign-in sets a hardened session cookie', async () => {
 test('a sign-in link opened in another browser (no nonce) is refused', async () => {
   const { link } = await signIn()
   const r = await call(verifyLink, { url: link.pathname + link.search })
-  assert.equal(r.headers.location, 'https://app.example.com/#/app/account?signin=failed')
+  assert.equal(r.headers.location, 'https://app.example.com/#/signin?signin=failed')
   assert.equal(r.headers['set-cookie'], undefined)
   const wrong = await call(verifyLink, { url: link.pathname + link.search, headers: { cookie: '__Host-ed_login=someone-elses-nonce' } })
   assert.match(wrong.headers.location, /signin=failed/)

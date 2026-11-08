@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { signInHref } from '../state/signin.js'
 
 const SHORT_UNITS = { sec: 's', weeks: 'wks', 'per week': 'h/wk', 'working days': 'days', months: 'mo', '% per month': '%/mo' }
 
@@ -193,7 +194,7 @@ export function Locked({ account, what }) {
         <b>{what} is part of Pro.</b>{' '}
         <span className="muted">{account.signedIn ? 'Start a 14-day trial to use it with your own data.' : 'Sign in, then start a 14-day trial. No card needed to explore the sample.'}</span>
       </div>
-      <a className="btn primary sm" href="#/app/account">{account.signedIn ? 'Start trial' : 'Sign in'}</a>
+      <a className="btn primary sm" href={account.signedIn ? '#/app/account' : signInHref(window.location.hash.slice(1).split('?')[0])}>{account.signedIn ? 'Start trial' : 'Sign in'}</a>
     </div>
   )
 }

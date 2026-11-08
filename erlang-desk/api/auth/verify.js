@@ -12,7 +12,7 @@ export default handler(async (req, res) => {
   const payload = verify(url.searchParams.get('token') || '', cfg.sessionSecret, 'login')
   const nonce = parseCookies(req.headers.cookie)[LOGIN_COOKIE]
   if (!payload || !nonce || !safeEqual(sha256(nonce), payload.n)) {
-    return redirect(res, `${cfg.appUrl}/#/app/account?signin=failed`)
+    return redirect(res, `${cfg.appUrl}/#/signin?signin=failed`)
   }
   let ent = { plan: null, status: null, role: null, customerId: null }
   let checked = 0 // 0 forces a fresh plan lookup on the next request
@@ -24,5 +24,6 @@ export default handler(async (req, res) => {
   }
   appendCookie(res, cookie(LOGIN_COOKIE, '', 0))
   writeSession(res, cfg, { email: payload.email, ...ent, chk: checked, exp: now() + SESSION_TTL })
-  redirect(res, `${cfg.appUrl}/#/app/account?signin=ok`)
+  // The sign-in page sends the planner on (to checkout, or back where they were).
+  redirect(res, `${cfg.appUrl}/#/signin?signin=ok`)
 })

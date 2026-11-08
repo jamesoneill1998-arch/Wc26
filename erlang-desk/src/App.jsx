@@ -17,6 +17,7 @@ import ServicePage from './pages/ServicePage.jsx'
 import SitesPage from './pages/SitesPage.jsx'
 import Calculator from './pages/Calculator.jsx'
 import AccountPage from './pages/AccountPage.jsx'
+import SignInPage from './pages/SignInPage.jsx'
 
 const PAGES = {
   overview: Overview,
@@ -105,6 +106,7 @@ export default function App() {
     document.getElementById('main')?.focus({ preventScroll: true })
   }, [pageKey])
 
+  if (route.parts[0] === 'signin') return <SignInPage account={account} query={route.query} />
   if (route.parts[0] !== 'app') return <Landing onToggleTheme={toggleTheme} account={account} />
 
   const key = PAGES[route.parts[1]] ? route.parts[1] : 'overview'

@@ -2,32 +2,15 @@ import { useEffect, useState } from 'react'
 import { BRAND, CURRENCY, PLANS } from '../config.js'
 import { PageHead, Panel, TextField, ConfirmButton } from '../components/ui.jsx'
 import { clearStoredWorkspace, emptyWorkspace } from '../state/store.js'
+import { signInHref } from '../state/signin.js'
 
-function SignIn({ account, plan }) {
-  const [email, setEmail] = useState('')
-  const [state, setState] = useState({ sent: false, error: null, busy: false })
+function SignIn({ plan }) {
   return (
     <Panel title="Sign in">
-      {state.sent ? (
-        <p>Check <b>{email}</b> for a sign-in link. It works for 15 minutes, in this browser only.{plan ? ' You\'ll come back here to finish starting your trial.' : ''}</p>
-      ) : (
-        <form className="stack-s" onSubmit={async (e) => {
-          e.preventDefault()
-          setState({ sent: false, error: null, busy: true })
-          try {
-            await account.requestLink(email)
-            try { if (plan) sessionStorage.setItem('erlang-desk:plan', plan) } catch { /* storage blocked */ }
-            setState({ sent: true, error: null, busy: false })
-          } catch (err) {
-            setState({ sent: false, error: err.message, busy: false })
-          }
-        }}>
-          <p className="muted">No passwords. We'll email you a link that signs you in on this device.</p>
-          <div style={{ maxWidth: 380 }}><TextField label="Work email" type="email" autoComplete="email" maxLength={254} value={email} onChange={setEmail} /></div>
-          {state.error && <p className="status bad" role="alert">{state.error}</p>}
-          <div><button className="btn primary" type="submit" disabled={state.busy || !email}>Email me a link</button></div>
-        </form>
-      )}
+      <div className="stack-s">
+        <p className="muted">No passwords. We email you a link that signs you in on this device.</p>
+        <div><a className="btn primary" href={signInHref('/app/account', plan)}>{plan ? 'Sign in to start your trial' : 'Sign in'}</a></div>
+      </div>
     </Panel>
   )
 }
@@ -94,7 +77,6 @@ export default function AccountPage({ account, query, replace, ws, update }) {
   return (
     <div className="stack">
       <PageHead eyebrow="Account" title="Account and billing" lede="Your planning data never leaves this browser. Your account only holds your email and subscription." />
-      {signin === 'failed' && <div className="notice">That sign-in link didn't work. Links last 15 minutes and must be opened in the browser that asked for them. Request a new one below.</div>}
       {checkout === 'success' && (account.active
         ? <div className="notice ok">Thank you. Your {account.plan === 'team' ? 'Team' : 'Pro'} plan is active.</div>
         : !gaveUp
@@ -106,7 +88,7 @@ export default function AccountPage({ account, query, replace, ws, update }) {
         <div className="notice ok">Billing isn't switched on for this installation, so every feature is available.</div>
       )}
 
-      {account.billing && !account.loading && !account.signedIn && <SignIn account={account} plan={wanted} />}
+      {account.billing && !account.loading && !account.signedIn && <SignIn plan={wanted === 'pro' || wanted === 'team' ? wanted : null} />}
 
       {account.billing && account.signedIn && (
         <Panel title={account.email} aside={<button className="btn link" type="button" onClick={act(account.signOut)}>Sign out</button>}>

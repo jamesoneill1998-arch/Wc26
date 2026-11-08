@@ -5,6 +5,7 @@ import { requiredAgentsA } from '../engine/erlangA.js'
 import { defaultSites, siteShrinkage, SHRINKAGE_COMPONENTS } from '../engine/channels.js'
 import { fmtPct } from '../format.js'
 import { Mark, skipToMain } from '../components/ui.jsx'
+import { signInHref } from '../state/signin.js'
 
 const [UK, OFFSHORE] = defaultSites()
 
@@ -148,7 +149,7 @@ export default function Landing({ onToggleTheme, account }) {
   const jump = (id) => (e) => { e.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }) }
   // Before billing is switched on, paid plans point at the pilot instead of a trial.
   const pilotMode = !account.billing
-  const planHref = (p) => (p.id === 'free' ? '#/app/calculator' : pilotMode ? '#pilot' : `#/app/account?plan=${p.id}`)
+  const planHref = (p) => (p.id === 'free' ? '#/app/calculator' : pilotMode ? '#pilot' : account.signedIn ? '#/app/account' : signInHref(null, p.id))
   const planCta = (p) => (p.id !== 'free' && pilotMode ? 'Join the pilot' : p.cta)
   return (
     <div>
@@ -162,7 +163,7 @@ export default function Landing({ onToggleTheme, account }) {
             <a href="#pilot" className="hide-sm" onClick={jump('pilot')}>Pilot</a>
             <a href="#pricing" className="hide-sm" onClick={jump('pricing')}>Pricing</a>
             <button className="icon-btn" type="button" onClick={onToggleTheme} aria-label="Switch light or dark theme" title="Light or dark"><ThemeIcon /></button>
-            {account.billing && !account.signedIn && <a href="#/app/account">Sign in</a>}
+            {account.billing && !account.signedIn && <a href="#/signin">Sign in</a>}
             <a className="btn dark sm" href="#/app">Open the planner</a>
           </nav>
         </header>

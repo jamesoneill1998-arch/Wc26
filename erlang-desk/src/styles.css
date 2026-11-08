@@ -572,3 +572,12 @@ tr.quiet td, tr.quiet td * { color: var(--muted); } /* months the change doesn't
 .skip:focus { top: 12px; }
 main:focus { outline: none; }
 td.bad { color: var(--critical-ink); }
+
+/* Sign-in page: one focused card, outside the app shell. */
+.signin-page { min-height: 100vh; display: grid; place-items: center; padding: 32px 16px; background: var(--canvas); }
+.signin-card { width: 100%; max-width: 440px; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 28px 28px 22px; display: flex; flex-direction: column; gap: 18px; }
+.signin-card h1 { font-size: 30px; line-height: 1.1; font-weight: 700; font-stretch: var(--narrow); letter-spacing: -0.012em; margin: 4px 0 2px; }
+.signin-card .btn.primary { align-self: flex-start; }
+.signin-card input[type='email'] { width: 100%; }
+.signin-foot { border-top: 1px solid var(--rule); padding-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+@media (max-width: 480px) { .signin-card { padding: 22px 18px 18px; } .signin-card h1 { font-size: 26px; } }
