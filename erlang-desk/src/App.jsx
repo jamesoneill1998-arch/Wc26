@@ -62,9 +62,49 @@ function useTheme() {
   }
 }
 
-function NavLink({ to, label, current }) {
+function NavLink({ to, label, current, step }) {
   return (
-    <a href={`#/app/${to}`} className={current === to ? 'active' : ''} aria-current={current === to ? 'page' : undefined}>{label}</a>
+    <a href={`#/app/${to}`} className={current === to ? 'active' : ''} aria-current={current === to ? 'page' : undefined}>
+      {step && <span className="step" aria-hidden="true">{step}</span>}{label}
+    </a>
+  )
+}
+
+/** The planning steps for one service, in the order a planner works through them. */
+const STEPS = [
+  ['data', 'Data'],
+  ['forecast', 'Forecast'],
+  ['staffing', 'Intraday staffing'],
+  ['coverage', 'Schedule & coverage'],
+  ['capacity', 'Capacity plan'],
+]
+
+function useNarrow() {
+  const q = '(max-width: 900px)'
+  const [narrow, setNarrow] = useState(() => window.matchMedia(q).matches)
+  useEffect(() => {
+    const m = window.matchMedia(q)
+    const on = () => setNarrow(m.matches)
+    m.addEventListener('change', on)
+    return () => m.removeEventListener('change', on)
+  }, [])
+  return narrow
+}
+
+/** Previous and next planning step, at the foot of each service page. */
+function StepNav({ current, label }) {
+  const i = STEPS.findIndex(([k]) => k === current)
+  if (i < 0) return null
+  const prev = STEPS[i - 1]
+  const next = STEPS[i + 1]
+  return (
+    <nav className="step-nav no-print" aria-label="Planning steps">
+      {prev ? <a href={`#/app/${prev[0]}`}><span aria-hidden="true">←</span> {label(prev)}</a> : <span />}
+      <span className="faint small">Step {i + 1} of {STEPS.length}</span>
+      {next
+        ? <a className="next" href={`#/app/${next[0]}`}>Next: {label(next)} <span aria-hidden="true">→</span></a>
+        : <a className="next" href="#/app/overview">Back to the overview <span aria-hidden="true">→</span></a>}
+    </nav>
   )
 }
 
@@ -76,6 +116,7 @@ export default function App() {
   const { result: model, busy, error } = useModel(store.ws)
   const { ws, active, updateService, update } = store
   const [tourStep, setTourStep] = useState(null)
+  const narrow = useNarrow()
 
   // First time the sample operation is loaded, offer the tour automatically.
   const isSample = ws.name.endsWith('(sample)') && ws.services.length > 0
@@ -106,12 +147,29 @@ export default function App() {
     document.getElementById('main')?.focus({ preventScroll: true })
   }, [pageKey])
 
+  // On a phone the pages are a scrolling strip of tabs: keep the current one in view.
+  useEffect(() => {
+    if (narrow) document.querySelector('.nav a.active')?.scrollIntoView({ block: 'nearest', inline: 'center' })
+  }, [narrow, pageKey])
+
   if (route.parts[0] === 'signin') return <SignInPage account={account} query={route.query} />
   if (route.parts[0] !== 'app') return <Landing onToggleTheme={toggleTheme} account={account} />
 
   const key = PAGES[route.parts[1]] ? route.parts[1] : 'overview'
   const Page = PAGES[key]
   const site = ws.sites.find((s) => s.id === active?.siteId)
+  const stepLabel = ([k, l]) => (k === 'staffing' && active?.channel === 'backoffice' ? 'Daily workload' : l)
+  const switcher = ws.services.length > 0 && (
+    <div className="switcher">
+      <label className="sr-only" htmlFor="svc">Service</label>
+      <select id="svc" value={active?.id ?? ''} onChange={(e) => update({ activeServiceId: e.target.value })}>
+        {ws.services.map((s) => (
+          <option key={s.id} value={s.id}>{s.name} · {CHANNELS[s.channel].label} · {ws.sites.find((x) => x.id === s.siteId)?.code}</option>
+        ))}
+      </select>
+      {active && <span className="meta">{CHANNELS[active.channel].method} · {site?.name}</span>}
+    </div>
+  )
 
   return (
     <div className="shell">
@@ -119,34 +177,19 @@ export default function App() {
       {busy && <div className="busy" role="progressbar" aria-label="Recalculating" />}
       <aside className="side">
         <a className="nameplate" href="#/"><Mark />Erlang Desk</a>
-        {ws.services.length > 0 && (
-          <div className="switcher">
-            <label className="label" htmlFor="svc">Service</label>
-            <select id="svc" value={active?.id ?? ''} onChange={(e) => update({ activeServiceId: e.target.value })}>
-              {ws.services.map((s) => (
-                <option key={s.id} value={s.id}>{s.name} · {CHANNELS[s.channel].label} · {ws.sites.find((x) => x.id === s.siteId)?.code}</option>
-              ))}
-            </select>
-            {active && <span className="meta">{CHANNELS[active.channel].method} · {site?.name}</span>}
-          </div>
-        )}
+        {narrow && switcher}
         <nav className="nav" aria-label="Main">
           <div className="group label">Operation</div>
           <NavLink to="overview" label="Overview" current={key} />
           <NavLink to="sites" label="Sites & shrinkage" current={key} />
-          <div className="group label">This service</div>
-          <NavLink to="data" label="Data" current={key} />
-          <NavLink to="forecast" label="Forecast" current={key} />
-          <NavLink to="staffing" label={active?.channel === 'backoffice' ? 'Daily workload' : 'Intraday staffing'} current={key} />
-
-          <NavLink to="coverage" label="Schedule & coverage" current={key} />
-          <NavLink to="capacity" label="Capacity plan" current={key} />
-          <NavLink to="service" label="Service settings" current={key} />
-          <div className="group label">Change delivery</div>
           <NavLink to="impact" label="Impact assessment" current={key} />
-          <div className="group label">Tools</div>
+          <div className="group label">Plan a service</div>
+          {!narrow && switcher}
+          {STEPS.map((st, i) => <NavLink key={st[0]} to={st[0]} label={stepLabel(st)} current={key} step={i + 1} />)}
+          <NavLink to="service" label="Service settings" current={key} />
+          <div className="group label">More</div>
           <NavLink to="calculator" label="Erlang calculator" current={key} />
-          <NavLink to="account" label="Account" current={key} />
+          <NavLink to="account" label="Account & workspace" current={key} />
         </nav>
         <div className="side-foot">
           <span>Data is held in this browser only.</span>
@@ -163,6 +206,7 @@ export default function App() {
         {error && <div className="notice" style={{ marginBottom: 20 }}>The planning model hit a problem: {error}</div>}
         {tourStep != null && <Tour step={tourStep} setStep={setTourStep} />}
         <Page {...store} model={model} account={account} query={route.query} result={active ? model.services[active.id] : null} updateActive={(patch) => active && updateService(active.id, patch)} site={site} />
+        {active?.history && <StepNav current={key} label={stepLabel} />}
       </main>
     </div>
   )

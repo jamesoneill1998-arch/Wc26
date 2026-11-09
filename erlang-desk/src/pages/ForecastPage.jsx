@@ -106,36 +106,13 @@ export default function ForecastPage({ active, site, result, updateActive, repla
         <Figure label="Next four weeks" value={fmtInt(next4)} sub={prior4 ? `${next4 >= prior4 ? '+' : '−'}${fmtPct(Math.abs(next4 / prior4 - 1))} on the last four` : undefined} />
         <Figure label="Bias" value={forecast.accuracy ? `${forecast.accuracy.bias >= 0 ? '+' : '−'}${fmtPct(Math.abs(forecast.accuracy.bias))}` : '–'} sub="Positive means it over-forecast" />
       </Figures>
-      {(forecast.holidaysLearned > 0 || forecast.blendParts) && (
-        <p className="small muted">
-          {forecast.holidaysLearned > 0 && `Bank holidays (${HOLIDAY_REGIONS[site?.holidayRegion] ?? HOLIDAY_REGIONS['england-wales']}, set on Sites) are forecast from how your last ${forecast.holidaysLearned} bank holidays ran against a normal day. `}
-          {forecast.blendParts && `The forecast blends ${forecast.blendParts.map((p) => `${p.label.toLowerCase()} (${Math.round(p.weight * 100)}%)`).join(', ')}, weighted by how each did on the last ${forecast.accuracy?.holdoutDays} days.`}
-        </p>
-      )}
-      {forecast.excludedDays?.length > 0 && (
-        <p className="small muted">
-          {forecast.excludedDays.length} day{forecast.excludedDays.length > 1 ? 's are' : ' is'} left out at your request
-          {forecast.excludedDays.length <= 4 ? ` (${forecast.excludedDays.map((d) => formatDate(d, { day: 'numeric', month: 'short', year: 'numeric' })).join(', ')})` : ''} and
-          treated like a gap in the history. <a href="#/app/data">Review them on the Data page</a>.
-        </p>
-      )}
-      {forecast.filledDays?.length > 0 && (
-        <p className="small muted">
-          {forecast.filledDays.length} day{forecast.filledDays.length > 1 ? 's were' : ' was'} missing from the history on a normally open weekday
-          {forecast.filledDays.length <= 4 ? ` (${forecast.filledDays.map((d) => formatDate(d, { day: 'numeric', month: 'short', year: 'numeric' })).join(', ')})` : ''} and
-          {forecast.filledDays.length > 1 ? ' were' : ' was'} filled from the same weekday in nearby weeks, so an export gap doesn't pull the forecast down.
-        </p>
-      )}
 
-      <Panel>
-        <div className="fields">
+      <Panel title="Actuals and forecast" aside={<Segmented label="Granularity" value={grain} onChange={setGrain} options={[{ value: 'daily', label: 'Daily' }, { value: 'weekly', label: 'Weekly' }]} />}>
+        <div className="fields chart-controls">
           <SelectField label="Method" value={plan.method} onChange={(method) => setPlan({ method })} options={Object.entries(METHODS).map(([value, m]) => ({ value, label: m.label }))} />
           <SelectField label="Horizon" value={String(plan.horizonWeeks)} onChange={(v) => setPlan({ horizonWeeks: Number(v) })} options={[13, 26, 39, 52].map((w) => ({ value: String(w), label: `${w} weeks` }))} />
           <NumberField label="Planner overlay" pct step={1} min={-90} max={500} value={plan.volumeAdjustPct} onChange={(volumeAdjustPct) => setPlan({ volumeAdjustPct })} hint="For known events: campaigns, price changes, migrations" />
         </div>
-      </Panel>
-
-      <Panel title="Actuals and forecast" aside={<Segmented label="Granularity" value={grain} onChange={setGrain} options={[{ value: 'daily', label: 'Daily' }, { value: 'weekly', label: 'Weekly' }]} />}>
         <Legend items={[{ label: 'Actual', color: 'var(--series-1)' }, { label: 'Forecast', color: 'var(--series-2)' }, { label: '80% range', color: 'var(--series-2)', band: true }]} />
         <LineChart
           rows={chartRows}
@@ -145,6 +122,28 @@ export default function ForecastPage({ active, site, result, updateActive, repla
           valueFormat={fmtInt}
           markers={[{ x: chartRows.find((r) => r.forecast != null)?.x, label: 'Forecast' }]}
         />
+        <ul className="chart-notes">
+          {(forecast.holidaysLearned > 0 || forecast.blendParts) && (
+            <li>
+              {forecast.holidaysLearned > 0 && `Bank holidays (${HOLIDAY_REGIONS[site?.holidayRegion] ?? HOLIDAY_REGIONS['england-wales']}, set on Sites) are forecast from how your last ${forecast.holidaysLearned} bank holidays ran against a normal day. `}
+              {forecast.blendParts && `The forecast blends ${forecast.blendParts.map((p) => `${p.label.toLowerCase()} (${Math.round(p.weight * 100)}%)`).join(', ')}, weighted by how each did on the last ${forecast.accuracy?.holdoutDays} days.`}
+            </li>
+          )}
+          {forecast.excludedDays?.length > 0 && (
+            <li>
+              {forecast.excludedDays.length} day{forecast.excludedDays.length > 1 ? 's are' : ' is'} left out at your request
+              {forecast.excludedDays.length <= 4 ? ` (${forecast.excludedDays.map((d) => formatDate(d, { day: 'numeric', month: 'short', year: 'numeric' })).join(', ')})` : ''} and
+              treated like a gap in the history. <a href="#/app/data">Review them on the Data page</a>.
+            </li>
+          )}
+          {forecast.filledDays?.length > 0 && (
+            <li>
+              {forecast.filledDays.length} day{forecast.filledDays.length > 1 ? 's were' : ' was'} missing from the history on a normally open weekday
+              {forecast.filledDays.length <= 4 ? ` (${forecast.filledDays.map((d) => formatDate(d, { day: 'numeric', month: 'short', year: 'numeric' })).join(', ')})` : ''} and
+              {forecast.filledDays.length > 1 ? ' were' : ' was'} filled from the same weekday in nearby weeks, so an export gap doesn't pull the forecast down.
+            </li>
+          )}
+        </ul>
       </Panel>
 
       {active.channel !== 'backoffice' && result?.dayReqs?.length > 0 && (

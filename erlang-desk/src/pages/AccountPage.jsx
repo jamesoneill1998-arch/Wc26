@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { BRAND, CURRENCY, PLANS } from '../config.js'
-import { PageHead, Panel, TextField, ConfirmButton } from '../components/ui.jsx'
+import { PageHead, Panel, TextField, ConfirmButton, Locked } from '../components/ui.jsx'
 import { clearStoredWorkspace, emptyWorkspace } from '../state/store.js'
+import { buildSampleWorkspace } from '../state/sample.js'
+import { exportWorkspace } from './common.jsx'
 import { signInHref } from '../state/signin.js'
 
 function SignIn({ plan }) {
@@ -72,11 +74,24 @@ export default function AccountPage({ account, query, replace, ws, update }) {
     return () => { stop = true }
   }, [checkout]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const wsRef = useRef(null)
+  const [wsMsg, setWsMsg] = useState(null)
+  const importWorkspace = async (file) => {
+    if (!file) return
+    if (file.size > 50 * 1024 * 1024) return setWsMsg({ ok: false, text: 'That file is too large to be a workspace.' })
+    try {
+      replace(JSON.parse(await file.text()))
+      setWsMsg({ ok: true, text: 'Workspace opened.' })
+    } catch {
+      setWsMsg({ ok: false, text: 'That file is not an Erlang Desk workspace export.' })
+    }
+  }
+
   const act = (fn) => async () => { setError(null); try { await fn() } catch (e) { setError(e.message) } }
 
   return (
     <div className="stack">
-      <PageHead eyebrow="Account" title="Account and billing" lede="Your planning data never leaves this browser. Your account only holds your email and subscription." />
+      <PageHead eyebrow="Account" title="Account & workspace" lede="Your planning data stays in this browser. Your account only holds your email and subscription." />
       {checkout === 'success' && (account.active
         ? <div className="notice ok">Thank you. Your {account.plan === 'team' ? 'Team' : 'Pro'} plan is active.</div>
         : !gaveUp
@@ -120,10 +135,22 @@ export default function AccountPage({ account, query, replace, ws, update }) {
         </div>
       </Panel>
 
-      <Panel title="Data on this device">
+      <Panel title="Workspace">
         <div className="stack-s">
-          <p className="muted small">Workspaces are kept in this browser's storage. On a shared computer, erase them when you finish.</p>
-          <div><ConfirmButton confirmLabel="Click again to erase everything" onConfirm={() => { clearStoredWorkspace(); replace(emptyWorkspace()) }}>Erase all data on this device</ConfirmButton></div>
+          <p className="muted small">Your whole plan lives in this browser. Export a copy to back it up, move it to another device or hand it to a colleague; they open it here or from their welcome screen. Imported files are checked field by field before they load.</p>
+          {wsMsg && <p className={`status${wsMsg.ok ? ' good' : ' bad'}`} role="status">{wsMsg.text}</p>}
+          {account.entitled ? (
+            <div className="row">
+              <button className="btn" type="button" onClick={() => exportWorkspace(ws)}>Export workspace</button>
+              <button className="btn" type="button" onClick={() => wsRef.current?.click()}>Import workspace</button>
+              <input ref={wsRef} type="file" accept=".json,application/json" hidden onChange={(e) => { importWorkspace(e.target.files[0]); e.target.value = '' }} />
+            </div>
+          ) : <Locked account={account} what="Exporting and importing workspaces" />}
+          <p className="muted small" style={{ marginTop: 6 }}>On a shared computer, erase the data when you finish.</p>
+          <div className="row">
+            <ConfirmButton className="btn sm" confirmLabel="Click again to replace your workspace" onConfirm={() => replace(buildSampleWorkspace())}>Load the sample operation</ConfirmButton>
+            <ConfirmButton className="btn sm" confirmLabel="Click again to erase everything" onConfirm={() => { clearStoredWorkspace(); replace(emptyWorkspace()) }}>Erase all data on this device</ConfirmButton>
+          </div>
         </div>
       </Panel>
     </div>

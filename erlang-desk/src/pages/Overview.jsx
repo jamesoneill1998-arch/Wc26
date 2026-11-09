@@ -5,7 +5,7 @@ import { assessChange, monthLabel } from '../engine/impact.js'
 import { weekStart } from '../engine/dates.js'
 import { StackedColumns, Legend } from '../components/charts.jsx'
 import { fmtInt, fmt1, fmtPct } from '../format.js'
-import { NoServices } from './common.jsx'
+import { NoServices, exportWorkspace } from './common.jsx'
 
 const CHANNEL_COLORS = { voice: 'var(--series-1)', chat: 'var(--series-2)', backoffice: 'var(--series-3)', branch: 'var(--series-4)' }
 const ORDER = ['voice', 'chat', 'backoffice', 'branch']
@@ -111,8 +111,10 @@ export default function Overview({ ws, model, replace, update, account }) {
       <PageHead
         eyebrow={`Operation overview${next ? ` · plan from ${formatDate(next.week, { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}`}
         title={ws.name}
-        lede="Required and available full-time equivalents across every service and site, after shrinkage, attrition and the ramp-up of new starters."
-      />
+        lede="Required against available FTE for every service and site, after shrinkage, attrition and new-starter ramp-up."
+      >
+        {account?.entitled && <button className="btn no-print" type="button" onClick={() => exportWorkspace(ws)} title="Save the whole plan as a file to back up or share">Export plan</button>}
+      </PageHead>
       {next ? (
         <Figures>
           <Figure hero label="Required FTE, next week" value={fmt1(next.requiredFte)} sub={`${ws.services.length} services, ${ws.sites.length} sites`} />
