@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { CHANNELS, siteShrinkage } from '../engine/channels.js'
+import { readChecklist, setChecklistHidden, checklistItems } from '../state/checklist.js'
 import { formatDate } from '../engine/dates.js'
 import { PageHead, Figures, Figure, Gap, Panel, Sparkline } from '../components/ui.jsx'
 import { assessChange, monthLabel } from '../engine/impact.js'
@@ -91,7 +93,32 @@ function Attention({ items, update }) {
   )
 }
 
-export default function Overview({ ws, model, replace, update, account }) {
+/** The steps from a new workspace to a first plan. Hidden once done or dismissed; the sample has the tour. */
+function FirstPlan({ ws, active }) {
+  const [state, setState] = useState(readChecklist)
+  if (state.hidden) return null
+  const items = checklistItems(ws, active, state.seen)
+  const left = items.filter((i) => !i.done).length
+  if (!left) return null
+  const next = items.find((i) => !i.done)
+  return (
+    <Panel title="Your first plan" className="no-print" aside={<><span>{items.length - left} of {items.length} done</span><button className="btn link small" type="button" onClick={() => { setChecklistHidden(true); setState({ ...state, hidden: true }) }}>Hide</button></>}>
+      <ol className="checklist">
+        {items.map((i) => (
+          <li key={i.key} className={i.done ? 'done' : i === next ? 'next' : ''}>
+            <span className="tick" aria-hidden="true">{i.done ? '✓' : ''}</span>
+            <span>
+              <a href={`#/app/${i.to}`}>{i.label}</a><span className="sr-only">{i.done ? ' (done)' : ' (to do)'}</span>
+              <span className="small faint"> {i.detail}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </Panel>
+  )
+}
+
+export default function Overview({ ws, model, replace, update, account, active, isSample }) {
   if (!ws.services.length) return <NoServices title="Overview" replace={replace} account={account} />
   const sites = new Map(ws.sites.map((s) => [s.id, s]))
   const total = model.total
@@ -115,6 +142,7 @@ export default function Overview({ ws, model, replace, update, account }) {
       >
         {account?.entitled && <button className="btn no-print" type="button" onClick={() => exportWorkspace(ws)} title="Save the whole plan as a file to back up or share">Export plan</button>}
       </PageHead>
+      {!isSample && <FirstPlan ws={ws} active={active} />}
       {next ? (
         <Figures>
           <Figure hero label="Required FTE, next week" value={fmt1(next.requiredFte)} sub={`${ws.services.length} services, ${ws.sites.length} sites`} />
