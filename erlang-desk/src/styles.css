@@ -609,4 +609,12 @@ td.bad { color: var(--critical-ink); }
 .chart-controls { margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--rule); grid-template-columns: repeat(auto-fill, minmax(190px, 240px)); }
 .chart-notes { margin: 14px 0 0; padding: 12px 0 0 18px; border-top: 1px solid var(--rule); display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
 .chart-notes:empty { display: none; }
+.checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.checklist li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; align-items: baseline; padding: 9px 0; border-top: 1px solid var(--rule); }
+.checklist li:first-child { border-top: 0; padding-top: 0; }
+.checklist li:last-child { padding-bottom: 0; }
+.checklist .tick { width: 18px; height: 18px; border: 1px solid var(--rule-2); border-radius: 3px; display: grid; place-items: center; font-size: 12px; font-weight: 700; align-self: start; margin-top: 2px; }
+.checklist li.done .tick { border-color: var(--good-ink); color: var(--good-ink); }
+.checklist li.done a { color: var(--ink-2); }
+.checklist li.next a { font-weight: 600; }
 .pack-points { margin: 12px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; color: var(--ink-2); font-size: 14.5px; max-width: 86ch; }

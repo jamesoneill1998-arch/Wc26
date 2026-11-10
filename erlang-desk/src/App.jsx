@@ -5,6 +5,7 @@ import { useAccount } from './state/account.js'
 import { CHANNELS } from './engine/channels.js'
 import { Mark, skipToMain } from './components/ui.jsx'
 import Tour, { tourSeen } from './components/Tour.jsx'
+import { markPageSeen } from './state/checklist.js'
 import Landing from './pages/Landing.jsx'
 import Overview from './pages/Overview.jsx'
 import DataPage from './pages/DataPage.jsx'
@@ -147,6 +148,9 @@ export default function App() {
     document.getElementById('main')?.focus({ preventScroll: true })
   }, [pageKey])
 
+  // First-plan checklist: opening a page ticks its step.
+  useEffect(() => { markPageSeen(pageKey) }, [pageKey])
+
   // On a phone the pages are a scrolling strip of tabs: keep the current one in view.
   useEffect(() => {
     if (narrow) document.querySelector('.nav a.active')?.scrollIntoView({ block: 'nearest', inline: 'center' })
@@ -205,7 +209,7 @@ export default function App() {
         {store.saveError && <div className="notice" style={{ marginBottom: 20 }}>{store.saveError}</div>}
         {error && <div className="notice" style={{ marginBottom: 20 }}>The planning model hit a problem: {error}</div>}
         {tourStep != null && <Tour step={tourStep} setStep={setTourStep} />}
-        <Page {...store} model={model} account={account} query={route.query} result={active ? model.services[active.id] : null} updateActive={(patch) => active && updateService(active.id, patch)} site={site} />
+        <Page {...store} isSample={isSample} model={model} account={account} query={route.query} result={active ? model.services[active.id] : null} updateActive={(patch) => active && updateService(active.id, patch)} site={site} />
         {active?.history && <StepNav current={key} label={stepLabel} />}
       </main>
     </div>
