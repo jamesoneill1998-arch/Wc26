@@ -89,27 +89,25 @@ export default function CapacityPage({ active, site, result, updateActive, updat
       </Panel>
 
       <div className="cols">
-        <Panel title="Supply" aside={<button className="btn link" type="button" onClick={() => setC({ startHeadcount: Math.round(sim[0].requiredFte * 2) / 2 })}>Match next week's need</button>}>
-          <div className="fields">
-            <NumberField label="Productive FTE today" value={c.startHeadcount} min={0} step={0.5} onChange={(startHeadcount) => setC({ startHeadcount })} />
-            <NumberField label={`Monthly attrition, ${site?.code}`} pct step={0.1} min={0} max={50} value={attrition} onChange={(monthlyAttrition) => updateSite(site.id, { monthlyAttrition })} hint="Set per site" />
-            <NumberField label="Training" suffix="weeks" min={0} max={52} value={c.trainingWeeks} onChange={(v) => setC({ trainingWeeks: Math.round(v) })} />
-            <NumberField label="Nesting" suffix="weeks" min={0} max={52} value={c.nestingWeeks} onChange={(v) => setC({ nestingWeeks: Math.round(v) })} />
-            <NumberField label="Nesting productivity" pct min={0} max={100} value={c.nestingProductivity} onChange={(nestingProductivity) => setC({ nestingProductivity })} />
-            <NumberField label="Weeks between classes" min={1} max={52} value={c.classCadenceWeeks} onChange={(v) => setC({ classCadenceWeeks: Math.round(v) })} />
-          </div>
+        <Panel title="Suggested classes" aside={recs.length > 1 && <button className="btn sm" type="button" onClick={() => recs.forEach((r) => addHire(r.week, r.count))}>Accept all</button>}>
+          {recs.length === 0 ? (
+            <p className="status good"><span className="glyph">▲</span> The plan covers every week a new class could reach.</p>
+          ) : (
+            <table>
+              <thead><tr><th>Starts</th><th>Hires</th><th>Productive from</th><th><span className="sr-only">Actions</span></th></tr></thead>
+              <tbody>
+                {recs.map((r) => (
+                  <tr key={r.week}>
+                    <td>{formatDate(r.week, { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                    <td>{r.count}</td>
+                    <td>{formatDate(new Date(Date.parse(r.week) + lead * 7 * 864e5).toISOString().slice(0, 10))}</td>
+                    <td><button className="btn sm" type="button" onClick={() => addHire(r.week, r.count)}>Add to plan</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </Panel>
-        <Panel title="What if" aside="Applies across this service's plan">
-          <div className="fields">
-            <NumberField label="Volume change" pct step={1} min={-90} max={500} slider={[-50, 100]} value={plan.volumeAdjustPct} onChange={(volumeAdjustPct) => setPlan({ volumeAdjustPct })} />
-            <NumberField label="AHT change" pct step={1} min={-90} max={500} slider={[-50, 100]} value={plan.ahtAdjustPct} onChange={(ahtAdjustPct) => setPlan({ ahtAdjustPct })} />
-            {active.channel !== 'backoffice' && <NumberField label="Service level goal" pct step={1} min={1} max={99.9} slider={[50, 99]} value={active.settings.slTarget} onChange={(slTarget) => setS({ slTarget })} />}
-            <NumberField label="Shrinkage override" pct step={1} min={0} max={90} slider={[10, 60]} value={active.settings.shrinkageOverride ?? s.shrinkage} onChange={(shrinkageOverride) => setS({ shrinkageOverride })} hint={active.settings.shrinkageOverride != null ? <button className="btn link small" type="button" onClick={() => setS({ shrinkageOverride: null })}>Use site default</button> : 'Site default in use'} />
-          </div>
-        </Panel>
-      </div>
-
-      <div className="cols">
         <Panel title="Planned classes">
           {active.hires.length === 0 ? (
             <p className="small muted" style={{ marginBottom: 14 }}>None planned yet. Add one, or accept a suggestion.</p>
@@ -133,24 +131,26 @@ export default function CapacityPage({ active, site, result, updateActive, updat
             <button className="btn" type="button" onClick={() => addHire(newWeek || weekOpts[0].value, newCount)}>Add</button>
           </div>
         </Panel>
-        <Panel title="Suggested classes" aside={recs.length > 1 && <button className="btn sm" type="button" onClick={() => recs.forEach((r) => addHire(r.week, r.count))}>Accept all</button>}>
-          {recs.length === 0 ? (
-            <p className="status good"><span className="glyph">▲</span> The plan covers every week a new class could reach.</p>
-          ) : (
-            <table>
-              <thead><tr><th>Starts</th><th>Hires</th><th>Productive from</th><th><span className="sr-only">Actions</span></th></tr></thead>
-              <tbody>
-                {recs.map((r) => (
-                  <tr key={r.week}>
-                    <td>{formatDate(r.week, { day: 'numeric', month: 'short', year: 'numeric' })}</td>
-                    <td>{r.count}</td>
-                    <td>{formatDate(new Date(Date.parse(r.week) + lead * 7 * 864e5).toISOString().slice(0, 10))}</td>
-                    <td><button className="btn sm" type="button" onClick={() => addHire(r.week, r.count)}>Add to plan</button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+      </div>
+
+      <div className="cols">
+        <Panel title="Supply assumptions" aside={<button className="btn link" type="button" onClick={() => setC({ startHeadcount: Math.round(sim[0].requiredFte * 2) / 2 })}>Match next week's need</button>}>
+          <div className="fields">
+            <NumberField label="Productive FTE today" value={c.startHeadcount} min={0} step={0.5} onChange={(startHeadcount) => setC({ startHeadcount })} />
+            <NumberField label={`Monthly attrition, ${site?.code}`} pct step={0.1} min={0} max={50} value={attrition} onChange={(monthlyAttrition) => updateSite(site.id, { monthlyAttrition })} hint="Set per site" />
+            <NumberField label="Training" suffix="weeks" min={0} max={52} value={c.trainingWeeks} onChange={(v) => setC({ trainingWeeks: Math.round(v) })} />
+            <NumberField label="Nesting" suffix="weeks" min={0} max={52} value={c.nestingWeeks} onChange={(v) => setC({ nestingWeeks: Math.round(v) })} />
+            <NumberField label="Nesting productivity" pct min={0} max={100} value={c.nestingProductivity} onChange={(nestingProductivity) => setC({ nestingProductivity })} />
+            <NumberField label="Weeks between classes" min={1} max={52} value={c.classCadenceWeeks} onChange={(v) => setC({ classCadenceWeeks: Math.round(v) })} />
+          </div>
+        </Panel>
+        <Panel title="What if" aside="Applies across this service's plan">
+          <div className="fields">
+            <NumberField label="Volume change" pct step={1} min={-90} max={500} slider={[-50, 100]} value={plan.volumeAdjustPct} onChange={(volumeAdjustPct) => setPlan({ volumeAdjustPct })} />
+            <NumberField label="AHT change" pct step={1} min={-90} max={500} slider={[-50, 100]} value={plan.ahtAdjustPct} onChange={(ahtAdjustPct) => setPlan({ ahtAdjustPct })} />
+            {active.channel !== 'backoffice' && <NumberField label="Service level goal" pct step={1} min={1} max={99.9} slider={[50, 99]} value={active.settings.slTarget} onChange={(slTarget) => setS({ slTarget })} />}
+            <NumberField label="Shrinkage override" pct step={1} min={0} max={90} slider={[10, 60]} value={active.settings.shrinkageOverride ?? s.shrinkage} onChange={(shrinkageOverride) => setS({ shrinkageOverride })} hint={active.settings.shrinkageOverride != null ? <button className="btn link small" type="button" onClick={() => setS({ shrinkageOverride: null })}>Use site default</button> : 'Site default in use'} />
+          </div>
         </Panel>
       </div>
 

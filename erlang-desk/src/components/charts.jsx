@@ -15,13 +15,12 @@ function useWidth() {
 
 export function niceTicks(max, count = 4) {
   if (!(max > 0)) return [0, 1]
-  const raw = max / count
-  const mag = 10 ** Math.floor(Math.log10(raw))
-  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw)
-  const ticks = []
-  for (let v = 0; v <= max + step * 0.001; v += step) ticks.push(v)
-  if (ticks[ticks.length - 1] < max) ticks.push(ticks[ticks.length - 1] + step)
-  return ticks
+  // The smallest round step that needs no more than count + 2 intervals, so
+  // the top of the axis sits just above the data rather than far beyond it.
+  const mag = 10 ** Math.floor(Math.log10(max / (count + 2)))
+  const step = [1, 2, 2.5, 5, 10, 20].map((m) => m * mag).find((st) => Math.ceil(max / st - 1e-9) <= count + 2)
+  const n = Math.max(1, Math.ceil(max / step - 1e-9))
+  return Array.from({ length: n + 1 }, (_, i) => Number((i * step).toPrecision(12)))
 }
 
 function Tooltip({ x, y, width, children }) {

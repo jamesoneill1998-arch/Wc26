@@ -63,8 +63,8 @@ function WorkedExample() {
 }
 
 const SCREENS = [
-  { key: 'overview', tab: 'Operation overview', src: 'screens/overview.jpg', w: 2328, h: 784, alt: 'Stacked weekly required FTE by channel against available FTE', caption: 'Every service and site in one view: required FTE by channel each week, against the people you will actually have after attrition and new starters.' },
-  { key: 'coverage', tab: 'Roster coverage', src: 'screens/coverage.jpg', w: 2328, h: 604, alt: 'Heatmap of staff short and over by day and half hour', caption: 'Your roster against the requirement, every half hour. Red is short, blue is over. Here the 10:00 peak and weekends are short while early afternoon carries spare staff.' },
+  { key: 'overview', tab: 'Operation overview', src: 'screens/overview.jpg', w: 2328, h: 780, alt: 'Stacked weekly required FTE by channel against available FTE', caption: 'Every service and site in one view: required FTE by channel each week, against the people you will actually have after attrition and new starters.' },
+  { key: 'coverage', tab: 'Roster coverage', src: 'screens/coverage.jpg', w: 2328, h: 606, alt: 'Heatmap of staff short and over by day and half hour', caption: 'Your roster against the requirement, every half hour. Red is short, blue is over. Here the 10:00 peak and weekends are short while early afternoon carries spare staff.' },
   { key: 'impact', tab: 'Change impact', src: 'screens/impact-chart.jpg', w: 2328, h: 800, alt: 'Monthly FTE chart for a mortgage launch against operational FTE', caption: 'A mortgage launch of 25,000 acquisitions, converted to calls and FTE by month and tested against headroom after other approved changes. Verdict: not absorbable without recruiting.' },
 ]
 

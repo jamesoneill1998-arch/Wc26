@@ -1,6 +1,10 @@
 import { useRef, useState } from 'react'
 import { PageHead } from '../components/ui.jsx'
 import { buildSampleWorkspace } from '../state/sample.js'
+import { downloadText } from '../format.js'
+
+/** Save the whole workspace as a file, to back up or hand to a colleague. */
+export const exportWorkspace = (ws) => downloadText(`erlang-desk-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(ws), 'application/json')
 
 /** Open a workspace file a colleague exported (Data → Export workspace). */
 function OpenSharedPlan({ replace }) {
@@ -15,7 +19,7 @@ function OpenSharedPlan({ replace }) {
     <div className="module start">
       <div className="method">From a colleague</div>
       <h2 className="h3">Open a shared plan</h2>
-      <p>A teammate exports their workspace from Data. Open the file here to pick up exactly where they left off.</p>
+      <p>A teammate exports their plan from the Overview. Open the file here to pick up exactly where they left off.</p>
       <button className="btn" type="button" onClick={() => ref.current?.click()}>Open a workspace file</button>
       <input ref={ref} type="file" accept=".json,application/json" hidden onChange={(e) => { open(e.target.files[0]); e.target.value = '' }} />
       {error && <p className="status bad" role="alert">{error}</p>}

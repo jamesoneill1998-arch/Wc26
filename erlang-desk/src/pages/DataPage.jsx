@@ -5,7 +5,6 @@ import { unusualDays } from '../engine/forecast.js'
 import { bankHolidays } from '../engine/holidays.js'
 import { CHANNELS } from '../engine/channels.js'
 import { buildSampleWorkspace, historyFrom, sampleHistory } from '../state/sample.js'
-import { clearStoredWorkspace, emptyWorkspace } from '../state/store.js'
 import { PageHead, Figures, Figure, Panel, Locked, ConfirmButton, SelectField } from '../components/ui.jsx'
 import { LineChart } from '../components/charts.jsx'
 import { downloadText, fmtInt, fmtPct } from '../format.js'
@@ -188,7 +187,6 @@ export default function DataPage({ ws, active, site, updateActive, replace, acco
   const [over, setOver] = useState(false)
   const [pending, setPending] = useState(null) // a chosen file being checked before import: { text, name, columns, queue }
   const fileRef = useRef(null)
-  const wsRef = useRef(null)
   if (!active) return <NoServices title="Data" replace={replace} account={account} />
   const h = active.history
   const unit = CHANNELS[active.channel].unit
@@ -213,17 +211,6 @@ export default function DataPage({ ws, active, site, updateActive, replace, acco
     setPending(null)
   }
 
-  const exportWorkspace = () => downloadText(`erlang-desk-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(ws), 'application/json')
-  const importWorkspace = async (file) => {
-    if (!file) return
-    if (file.size > 50 * 1024 * 1024) return setMsg({ ok: false, text: 'That file is too large to be a workspace.' })
-    try {
-      replace(JSON.parse(await file.text()))
-      setMsg({ ok: true, text: 'Workspace restored.' })
-    } catch {
-      setMsg({ ok: false, text: 'That file is not an Erlang Desk workspace export.' })
-    }
-  }
   const template = () => downloadText('erlang-desk-template.csv', toCSV(
     [{ label: 'date', get: (r) => r[0] }, { label: 'time', get: (r) => r[1] }, { label: 'volume', get: (r) => r[2] }, { label: 'aht', get: (r) => r[3] }],
     [['2026-01-05', '08:00', 42, 315], ['2026-01-05', '08:30', 61, 298], ['2026-01-05', '09:00', 88, 305]],
@@ -235,6 +222,51 @@ export default function DataPage({ ws, active, site, updateActive, replace, acco
   const ahtVol = withAht.reduce((s, r) => s + r.volume, 0)
   const avgAht = ahtVol ? withAht.reduce((s, r) => s + r.aht * r.volume, 0) / ahtVol : null
 
+  const importPanels = (
+    <div className="cols">
+      <Panel title={h ? 'Import a newer export' : 'Import a CSV'} aside={<button className="btn link" type="button" onClick={template}>Download template</button>}>
+        {account.entitled ? (
+          <>
+            <div
+              className={`drop${over ? ' over' : ''}`}
+              role="button"
+              tabIndex={0}
+              onClick={() => fileRef.current?.click()}
+              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && fileRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); setOver(true) }}
+              onDragLeave={() => setOver(false)}
+              onDrop={(e) => { e.preventDefault(); setOver(false); readFile(e.dataTransfer.files[0]) }}
+            >
+              <b>Drop a CSV here, or choose a file</b>
+              <p className="small muted" style={{ marginTop: 8 }}>
+                Interval or daily exports from Genesys, NICE, Avaya, Amazon Connect, Five9 or Excel. Needs a date (or interval start) and a volume such as
+                calls offered; handle time is used if present. Read on this device; nothing is uploaded.
+              </p>
+            </div>
+            <input ref={fileRef} type="file" accept=".csv,text/csv" hidden onChange={(e) => { readFile(e.target.files[0]); e.target.value = '' }} />
+          </>
+        ) : (
+          <Locked account={account} what="Importing your own data" />
+        )}
+      </Panel>
+
+      <Panel title="Sample data">
+        <div className="stack-s">
+          <p className="muted small">Two years of realistic {CHANNELS[active.channel].label.toLowerCase()} history with trend, weekly and annual seasonality and bank-holiday dips.</p>
+          <div className="row">
+            <button className="btn" type="button" onClick={() => { updateActive({ history: sampleHistory(active.channel), hires: [], capacity: { ...active.capacity, calibrate: true } }); setMsg({ ok: true, text: `Loaded sample ${CHANNELS[active.channel].label.toLowerCase()} history into ${active.name}.` }) }}>Sample for this service</button>
+            <ConfirmButton confirmLabel="Click again to replace your workspace" onConfirm={() => replace(buildSampleWorkspace())}>Load the sample operation</ConfirmButton>
+          </div>
+          {h && (
+            <div style={{ marginTop: 6 }}>
+              <ConfirmButton className="btn sm" confirmLabel="Click again to clear" onConfirm={() => updateActive({ history: null, hires: [], excludedDays: [] })}>Clear this service's history</ConfirmButton>
+            </div>
+          )}
+        </div>
+      </Panel>
+    </div>
+  )
+
   return (
     <div className="stack">
       <PageHead eyebrow={serviceEyebrow(active, site)} title="Data" lede={`History of ${unit} for this service. Daily totals are enough; interval data gives truer intraday staffing.`} />
@@ -243,43 +275,7 @@ export default function DataPage({ ws, active, site, updateActive, replace, acco
 
       {pending && <ImportPreview pending={pending} setPending={setPending} onImport={importChecked} unit={unit} />}
 
-      <div className="cols">
-        <Panel title="Import a CSV" aside={<button className="btn link" type="button" onClick={template}>Download template</button>}>
-          {account.entitled ? (
-            <>
-              <div
-                className={`drop${over ? ' over' : ''}`}
-                role="button"
-                tabIndex={0}
-                onClick={() => fileRef.current?.click()}
-                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && fileRef.current?.click()}
-                onDragOver={(e) => { e.preventDefault(); setOver(true) }}
-                onDragLeave={() => setOver(false)}
-                onDrop={(e) => { e.preventDefault(); setOver(false); readFile(e.dataTransfer.files[0]) }}
-              >
-                <b>Drop a CSV here, or choose a file</b>
-                <p className="small muted" style={{ marginTop: 8 }}>
-                  Interval or daily exports from Genesys, NICE, Avaya, Amazon Connect, Five9 or Excel. Needs a date (or interval start) and a volume such as
-                  calls offered; handle time is used if present. Read on this device; nothing is uploaded.
-                </p>
-              </div>
-              <input ref={fileRef} type="file" accept=".csv,text/csv" hidden onChange={(e) => { readFile(e.target.files[0]); e.target.value = '' }} />
-            </>
-          ) : (
-            <Locked account={account} what="Importing your own data" />
-          )}
-        </Panel>
-
-        <Panel title="Sample data">
-          <div className="stack-s">
-            <p className="muted small">Two years of realistic {CHANNELS[active.channel].label.toLowerCase()} history with trend, weekly and annual seasonality and bank-holiday dips.</p>
-            <div className="row">
-              <button className="btn" type="button" onClick={() => { updateActive({ history: sampleHistory(active.channel), hires: [], capacity: { ...active.capacity, calibrate: true } }); setMsg({ ok: true, text: `Loaded sample ${CHANNELS[active.channel].label.toLowerCase()} history into ${active.name}.` }) }}>Sample for this service</button>
-              <ConfirmButton confirmLabel="Click again to replace your workspace" onConfirm={() => replace(buildSampleWorkspace())}>Load the sample operation</ConfirmButton>
-            </div>
-          </div>
-        </Panel>
-      </div>
+      {!h && importPanels}
 
       {h && days.length > 0 && (
         <>
@@ -301,22 +297,7 @@ export default function DataPage({ ws, active, site, updateActive, replace, acco
         </>
       )}
 
-      <Panel title="Workspace">
-        <div className="stack-s">
-          <p className="muted small">Everything lives in this browser. Export a copy to move it to another device or hand it to a colleague. Imported workspaces are checked field by field before they load.</p>
-          {account.entitled ? (
-            <div className="row">
-              <button className="btn" type="button" onClick={exportWorkspace}>Export workspace</button>
-              <button className="btn" type="button" onClick={() => wsRef.current?.click()}>Import workspace</button>
-              <input ref={wsRef} type="file" accept=".json,application/json" hidden onChange={(e) => { importWorkspace(e.target.files[0]); e.target.value = '' }} />
-            </div>
-          ) : <Locked account={account} what="Exporting and importing workspaces" />}
-          <div className="row">
-            {h && <ConfirmButton className="btn sm" confirmLabel="Click again to clear" onConfirm={() => updateActive({ history: null, hires: [] })}>Clear this service's history</ConfirmButton>}
-            <ConfirmButton className="btn sm" confirmLabel="Click again to erase everything" onConfirm={() => { clearStoredWorkspace(); replace(emptyWorkspace()) }}>Erase all data on this device</ConfirmButton>
-          </div>
-        </div>
-      </Panel>
+      {h && importPanels}
     </div>
   )
 }

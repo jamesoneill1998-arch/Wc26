@@ -1,8 +1,8 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-// Self-hosted variable font (weight and width axes): no third-party
+// Self-hosted variable font (weight axis): no third-party
 // requests, so the Content Security Policy can stay 'self'.
-import '@fontsource-variable/archivo/wdth.css'
+import '@fontsource-variable/ibm-plex-sans/wght.css'
 import App from './App.jsx'
 import './styles.css'
 
