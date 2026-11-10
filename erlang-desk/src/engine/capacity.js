@@ -208,6 +208,27 @@ export function unfixableWeeks(sim, c) {
   return sim.slice(0, lead).filter((r) => r.gap < -tolerance)
 }
 
+/**
+ * One line of a scenario table: how a set of weekly requirements sits against
+ * supply with the classes already planned, and the extra hiring that would close it.
+ */
+export function scenarioSummary(weeks, c, hires = []) {
+  const sim = simulateSupply(weeks, c, hires)
+  if (!sim.length) return { avgGap: 0, worstGap: 0, worstWeek: null, weeksShort: 0, extraHires: 0, classes: 0, firstClass: null }
+  const tolerance = c.gapToleranceFte ?? 0.5
+  const worst = sim.reduce((m, w) => (w.gap < m.gap ? w : m), sim[0])
+  const recs = recommendHires(weeks, c, hires)
+  return {
+    avgGap: sim.reduce((t, w) => t + w.gap, 0) / sim.length,
+    worstGap: worst.gap,
+    worstWeek: worst.week,
+    weeksShort: sim.filter((w) => w.gap < -tolerance).length,
+    extraHires: recs.reduce((t, r) => t + r.count, 0),
+    classes: recs.length,
+    firstClass: recs.length ? recs.map((r) => r.week).sort()[0] : null,
+  }
+}
+
 /** Monday-aligned list of weeks starting at or after `fromISO`. */
 export function planWeeks(fromISO, count) {
   const first = weekStart(fromISO) < fromISO ? addDays(weekStart(fromISO), 7) : weekStart(fromISO)

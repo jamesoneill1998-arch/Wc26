@@ -8,7 +8,7 @@
 import { forecastDaily } from './forecast.js'
 import { bankHolidays } from './holidays.js'
 import { defaultProfiles, learnProfiles, weekdayAht } from './profiles.js'
-import { intervalRequirements, weeklyRequirements, simulateSupply, recommendHires, unfixableWeeks } from './capacity.js'
+import { intervalRequirements, weeklyRequirements, simulateSupply, recommendHires, unfixableWeeks, scenarioSummary } from './capacity.js'
 import { resolveSettings, resolveCapacity } from './channels.js'
 import { weekStart, addDays } from './dates.js'
 
@@ -39,7 +39,7 @@ export function computeService(service, site, cache = createCache()) {
   const excluded = new Set(excludedList)
   const region = site?.holidayRegion ?? 'england-wales'
   const hk = `${service.id}|${historyKey(service.history)}|x${excludedList.join(',')}|h${region}`
-  const empty = { serviceId: service.id, forecast: null, dayReqs: [], weeks: [], sim: [], recs: [], simWithRecs: [], unfixable: [], settings: s }
+  const empty = { serviceId: service.id, forecast: null, dayReqs: [], weeks: [], sim: [], recs: [], simWithRecs: [], scenarios: [], unfixable: [], settings: s }
   if (daily.length < 7) return empty
 
   const fKey = `${hk}|f|${plan.method}|${plan.horizonWeeks}|${plan.volumeAdjustPct}`
@@ -65,6 +65,20 @@ export function computeService(service, site, cache = createCache()) {
   const sim = simulateSupply(weeks, capacity, service.hires)
   const recs = recommendHires(weeks, capacity, service.hires)
   const simWithRecs = recs.length ? simulateSupply(weeks, capacity, [...service.hires, ...recs]) : sim
+  // Scenarios: the same plan with demand a set swing higher or lower, and with
+  // attrition half as high again. Demand cases are re-staffed from the scaled
+  // forecast, interval by interval.
+  const swing = plan.scenarioPct ?? 0.1
+  const weeksAt = (factor) => (factor === 1 ? weeks : memo(cache, `${fKey}|r|${JSON.stringify(s)}|${plan.ahtAdjustPct}|x${factor}`, () =>
+    weeklyRequirements(intervalRequirements(forecast.points.map((p) => ({ ...p, volume: p.volume * factor })), profiles, ahtByWeekday, s, { ahtAdjustPct: plan.ahtAdjustPct }), s).filter((w) => !w.partial)))
+  const highAttrition = { ...capacity, monthlyAttrition: Math.min(0.5, capacity.monthlyAttrition * 1.5) }
+  const scenarios = [
+    { key: 'plan', demand: 0, attrition: capacity.monthlyAttrition, ...scenarioSummary(weeks, capacity, service.hires) },
+    { key: 'high', demand: swing, attrition: capacity.monthlyAttrition, ...scenarioSummary(weeksAt(1 + swing), capacity, service.hires) },
+    { key: 'low', demand: -swing, attrition: capacity.monthlyAttrition, ...scenarioSummary(weeksAt(1 - swing), capacity, service.hires) },
+    { key: 'attrition', demand: 0, attrition: highAttrition.monthlyAttrition, ...scenarioSummary(weeks, highAttrition, service.hires) },
+    { key: 'both', demand: swing, attrition: highAttrition.monthlyAttrition, ...scenarioSummary(weeksAt(1 + swing), highAttrition, service.hires) },
+  ]
   return {
     serviceId: service.id,
     settings: s,
@@ -75,6 +89,7 @@ export function computeService(service, site, cache = createCache()) {
     sim,
     recs,
     simWithRecs,
+    scenarios,
     unfixable: unfixableWeeks(sim, capacity),
   }
 }

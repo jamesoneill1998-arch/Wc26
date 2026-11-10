@@ -41,7 +41,7 @@ function BackOffice({ s, days, wk, weeks, setWeekKey, eyebrow, account }) {
   ], days))
   return (
     <div className="stack">
-      <PageHead eyebrow={eyebrow} title="Daily workload" lede={`Back-office work doesn't queue by the minute. Hours needed are workload divided by ${fmtPct(s.utilisation, 0)} utilisation, with weekend arrivals rolled to the next open day and smoothed over a ${s.slaDays}-day turnaround.`}>
+      <PageHead eyebrow={eyebrow} title="Daily workload" lede={`Hours needed are workload divided by ${fmtPct(s.utilisation, 0)} utilisation, with weekend arrivals rolled to the next open day and smoothed over a ${s.slaDays}-day turnaround.`}>
         <WeekPicker weeks={weeks} value={wk} onChange={setWeekKey} />
         {account.entitled && <button className="btn" type="button" onClick={exportCsv} style={{ alignSelf: 'flex-end' }}>Export CSV</button>}
       </PageHead>

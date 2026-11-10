@@ -65,7 +65,7 @@ export default function SitesPage({ ws, update, updateSite }) {
                 value={site.holidayRegion ?? 'england-wales'}
                 onChange={(holidayRegion) => updateSite(site.id, { holidayRegion })}
                 options={Object.entries(HOLIDAY_REGIONS).map(([value, label]) => ({ value, label }))}
-                hint="Use your customers' region, not where agents sit: offshore teams serving UK customers follow UK holidays."
+                hint="Use your customers' region: offshore teams serving UK customers follow UK holidays."
               />
             </div>
             {ws.sites.length > 1 && used(site.id) === 0 && (

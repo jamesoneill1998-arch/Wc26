@@ -93,10 +93,10 @@ function InsideThePlanner() {
 }
 
 const CHANNEL_COPY = [
-  ['Voice', 'Erlang A', 'Callers hang up. Erlang A models that, so you staff to the service your customers actually get rather than a queue where nobody ever leaves.'],
+  ['Voice', 'Erlang A', 'Callers hang up. Erlang A models that, so you staff to the service your customers actually get.'],
   ['Chat', 'Erlang A × concurrency', 'Agents run two or three sessions at once, and chat customers are more patient. Both are built into the requirement.'],
-  ['Back office', 'Workload & turnaround', 'Items don\'t queue by the minute. Hours needed are workload over utilisation, smoothed across your turnaround SLA, with weekend work rolled forward.'],
-  ['Branch', 'Erlang C per branch', 'Twenty-five branches aren\'t one big queue. Each branch is sized on its own share of footfall, with minimum cover, then added up.'],
+  ['Back office', 'Workload & turnaround', 'Hours needed are workload over utilisation, smoothed across your turnaround SLA, with weekend work rolled forward.'],
+  ['Branch', 'Erlang C per branch', 'Each branch is sized on its own share of footfall, with minimum cover, then added up.'],
 ]
 
 
@@ -107,7 +107,7 @@ const COMPARE = [
   ['UK and offshore shrinkage', 'Hard-coded', 'Itemised per site', 'Yes'],
   ['Hiring plan with training ramp', 'Manual', 'Suggested automatically', 'Often an add-on'],
   ['Where customer data lives', 'Your files', 'Your browser only', 'Vendor cloud'],
-  ['Cost', 'Your evenings', `From ${CURRENCY}59 a month`, 'Per agent, annual contract'],
+  ['Cost', 'Your time', `From ${CURRENCY}59 a month`, 'Per agent, annual contract'],
 ]
 
 const SECURITY = [
@@ -177,7 +177,7 @@ export default function Landing({ onToggleTheme, account }) {
             <h1>The right number of people, <span>every half hour</span> of the year.</h1>
             <p className="lede">
               {BRAND.name} turns your contact history into a forecast, an interval staffing plan and a hiring plan, across voice, chat,
-              back office and branches, onshore and offshore. It replaces the spreadsheet model, and does the maths properly.
+              back office and branches, onshore and offshore.
             </p>
             <div className="ctas">
               <a className="btn primary" href="#/app">Open the planner</a>
@@ -195,7 +195,7 @@ export default function Landing({ onToggleTheme, account }) {
         <div className="wrap">
           <div className="section-head">
             <h2>Each channel, planned the way its work behaves</h2>
-            <p>Running one Erlang formula across every queue is the commonest error in capacity models. {BRAND.name} picks the model that fits how each channel's work arrives and waits.</p>
+            <p>{BRAND.name} picks the model that fits how each channel's work arrives and waits.</p>
           </div>
           <div className="grid-4">
             {CHANNEL_COPY.map(([name, method, body]) => (
@@ -294,7 +294,7 @@ export default function Landing({ onToggleTheme, account }) {
         <div className="wrap">
           <div className="section-head">
             <h2>Security you can show procurement</h2>
-            <p>Most of the risk in a planning tool sits in the customer data it holds. {BRAND.name} is built so it holds none.</p>
+            <p>{BRAND.name} holds none of your customer data. Contact history stays in your browser.</p>
           </div>
           <div className="grid-3">
             {SECURITY.map(([t, body]) => (
@@ -312,7 +312,7 @@ export default function Landing({ onToggleTheme, account }) {
       <section className="section alt" id="pricing">
         <div className="wrap">
           <div className="section-head">
-            <h2>Priced per planner, not per agent</h2>
+            <h2>Priced per planner</h2>
             <p>{pilotMode
               ? 'Pricing from launch. Pilot teams get three months free first, with no card needed.'
               : 'Fourteen-day trial on Pro and Team. Billed monthly, cancel any time.'}</p>

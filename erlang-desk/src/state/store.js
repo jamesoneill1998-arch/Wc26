@@ -13,7 +13,7 @@ import { CHANNELS, defaultServiceSettings, defaultSites, SHRINKAGE_COMPONENTS } 
 const KEY = 'erlang-desk:workspace:v2'
 const LEGACY_KEY = 'erlang-desk:workspace:v1'
 
-export const DEFAULT_PLAN = { method: 'auto', horizonWeeks: 26, volumeAdjustPct: 0, ahtAdjustPct: 0 }
+export const DEFAULT_PLAN = { method: 'auto', horizonWeeks: 26, volumeAdjustPct: 0, ahtAdjustPct: 0, scenarioPct: 0.1 }
 
 const TRAINING_WEEKS = { voice: 4, chat: 3, backoffice: 3, branch: 6 }
 
@@ -303,6 +303,7 @@ function sanitizeService(svc, siteIds) {
       horizonWeeks: [13, 26, 39, 52].includes(p.horizonWeeks) ? p.horizonWeeks : 26,
       volumeAdjustPct: num(p.volumeAdjustPct, -0.9, 5, 0),
       ahtAdjustPct: num(p.ahtAdjustPct, -0.9, 5, 0),
+      scenarioPct: num(p.scenarioPct, 0.01, 0.5, 0.1),
     },
     capacity: {
       startHeadcount: num(c.startHeadcount, 0, 100000, cap.startHeadcount),
