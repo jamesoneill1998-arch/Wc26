@@ -99,7 +99,7 @@ export function LineChart({ rows, series, height = 260, xFormat = (x) => x, yFor
 
   return (
     <div className="chart" ref={ref}>
-      <svg width={width} height={height} role="img" aria-label={series.map((s) => s.label).join(' and ')}>
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={series.map((s) => s.label).join(' and ')}>
         {ticks.map((t) => (
           <g key={t}>
             <line className={t === 0 ? 'axis-line' : 'grid-line'} x1={m.l} x2={width - m.r} y1={ys(t)} y2={ys(t)} />
@@ -175,7 +175,7 @@ export function ColumnChart({ rows, color = 'var(--series-1)', height = 220, xFo
   }
   return (
     <div className="chart" ref={ref}>
-      <svg width={width} height={height} role="img" aria-label={label}>
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label}>
         {ticks.map((t) => (
           <g key={t}>
             <line className={t === 0 ? 'axis-line' : 'grid-line'} x1={m.l} x2={width - m.r} y1={ys(t)} y2={ys(t)} />
@@ -311,7 +311,7 @@ export function StackedColumns({ rows, series, height = 260, xFormat = (x) => x,
   if (line) rows.forEach((r, i) => { if (r[line.key] != null) linePath += `${linePath ? 'L' : 'M'}${cx(i).toFixed(1)},${ys(r[line.key]).toFixed(1)}` })
   return (
     <div className="chart" ref={ref}>
-      <svg width={width} height={height} role="img" aria-label={series.map((s) => s.label).join(', ')}>
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={series.map((s) => s.label).join(', ')}>
         {ticks.map((t) => (
           <g key={t}>
             <line className={t === 0 ? 'axis-line' : 'grid-line'} x1={m.l} x2={width - m.r} y1={ys(t)} y2={ys(t)} />
@@ -379,7 +379,7 @@ export function GapChart({ rows, height = 240, xFormat = (x) => x, valueFormat =
   const fill = (v) => (v < -0.5 ? (v < -5 ? 'var(--div-n3)' : 'var(--div-n2)') : v > 0.5 ? (v > 5 ? 'var(--div-p3)' : 'var(--div-p2)') : 'var(--div-0)')
   return (
     <div className="chart" ref={ref}>
-      <svg width={width} height={height} role="img" aria-label={label}>
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label}>
         {ticks.map((t) => (
           <g key={t}>
             <line className={t === 0 ? 'axis-line' : 'grid-line'} x1={m.l} x2={width - m.r} y1={ys(t)} y2={ys(t)} />

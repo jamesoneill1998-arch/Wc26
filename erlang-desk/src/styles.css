@@ -492,12 +492,27 @@ input.slider { padding: 0; border: 0; background: none; height: 22px; accent-col
   .shell { display: block; }
   .main { padding: 0; max-width: none; }
   .print-only { display: block; }
+  .page-head, .page-head + .row { display: none; } /* overridden below when the page isn't the pack */
+  .main:not(:has(.pack)) .page-head { display: flex; }
+  .main:not(:has(.pack)) .page-head + .row { display: flex; }
   .print-head { font-size: 9pt; color: #555; border-bottom: 1px solid #999; padding-bottom: 6px; margin-bottom: 14px; }
   .panel, .board, .notice, table, tr { break-inside: avoid; }
   .panel { border-color: #bbb; }
   .board { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .chart, .heat .cell, .key-block, .key-line, .dot, .spark, .timeline b { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .scroll-y { max-height: none; overflow: visible; }
+  .chart svg { width: 100%; height: auto; } /* drawn at screen width; scale to the paper */
+  .board { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+  .figure { padding: 10px 12px 12px; }
+  .figure .value, .figure.hero .value { font-size: 18pt; }
+  .figure .value.text, .figure.hero .value.text { font-size: 12pt; }
+  .pack { font-size: 10pt; }
+  .pack .panel { break-inside: auto; padding: 14px 16px; } /* long sections may run over a page; rows and charts stay whole */
+  .pack .chart, .pack .panel-head, .pack h2 { break-inside: avoid; break-after: avoid; }
+  .pack-points { font-size: 10pt; }
+  .pack .legend { break-after: avoid; }
+  .pack table { font-size: 8.5pt; }
+  .pack .verdict { white-space: nowrap; }
   input, select, textarea { border: 0; background: none; padding: 0; appearance: none; }
   .stack { gap: 14px; }
   a { color: inherit; text-decoration: none; }
@@ -594,3 +609,4 @@ td.bad { color: var(--critical-ink); }
 .chart-controls { margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--rule); grid-template-columns: repeat(auto-fill, minmax(190px, 240px)); }
 .chart-notes { margin: 14px 0 0; padding: 12px 0 0 18px; border-top: 1px solid var(--rule); display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
 .chart-notes:empty { display: none; }
+.pack-points { margin: 12px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; color: var(--ink-2); font-size: 14.5px; max-width: 86ch; }

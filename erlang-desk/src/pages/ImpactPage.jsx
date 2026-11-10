@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { CHANNELS, siteShrinkage } from '../engine/channels.js'
-import { areaPlan, assessChange, summaryText, monthLabel, addMonths, hoursPerFteMonth } from '../engine/impact.js'
+import { areaPlan, assessChange, combinedPlan, isProposed, summaryText, monthLabel, addMonths, hoursPerFteMonth } from '../engine/impact.js'
 import { toCSV } from '../engine/csv.js'
 import { newArea, newChange, defaultDriver, thisMonth, CHANGE_STATUSES } from '../state/store.js'
 import { buildSampleWorkspace } from '../state/sample.js'
@@ -420,8 +420,194 @@ function ChangeRegister({ ws, area, ctx, update, account }) {
   )
 }
 
+/** Everything a change board needs for one area, on paper: the register, the combined picture and one section per change. */
+function ChangePack({ ws, area, site, ctx }) {
+  const [copied, setCopied] = useState(null)
+  const changes = ws.changes.filter((c) => c.areaId === area.id && c.status !== 'rejected')
+  const results = useMemo(() => Object.fromEntries(changes.map((c) => [c.id, assessChange(c, area, ws.changes, ctx)])), [changes, area, ws.changes, ctx])
+  const all = useMemo(() => combinedPlan(area, ws.changes, ctx), [area, ws.changes, ctx])
+  if (!changes.length) {
+    return (
+      <div className="panel empty">
+        <h2>Nothing to put to the board yet</h2>
+        <p>Log a change for {area.name} under Impact assessments. The pack builds itself from the register.</p>
+      </div>
+    )
+  }
+  const s = area.settings
+  const now = thisMonth()
+  const open = changes.filter(isProposed)
+  const v = VERDICTS[all.verdict]
+  const late = all.hireBy && all.hireBy < now
+  const period = `${monthLabel(area.startMonth, true)} to ${monthLabel(addMonths(area.startMonth, area.rows.length - 1), true)}`
+  const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+  const occ = area.channel === 'backoffice' ? `${fmtPct(s.occupancy, 0)} utilisation` : s.occupancyMode === 'erlang' ? 'occupancy from Erlang at the service target' : `${fmtPct(s.occupancy, 0)} occupancy`
+  const recruit = (r) => (r.hireBy ? `${r.hireCount} FTE by ${monthLabel(r.hireBy, true)}${r.hireBy < now ? ' (already late)' : ''}` : '–')
+  const combinedLine = !open.length
+    ? 'No proposals are waiting for a decision.'
+    : all.verdict === 'short'
+      ? `Approving ${open.length === 1 ? 'the open proposal' : `all ${open.length} open proposals`} leaves ${area.name} up to ${fmt1(all.peakShortfall)} FTE short, in ${all.monthsShort} month${all.monthsShort === 1 ? '' : 's'} beyond overtime cover.`
+      : all.verdict === 'overtime'
+        ? `Approving ${open.length === 1 ? 'the open proposal' : `all ${open.length} open proposals`} fits only with overtime, in ${all.monthsOvertime} month${all.monthsOvertime === 1 ? '' : 's'}.`
+        : all.verdict === 'absorbable'
+          ? `${open.length === 1 ? 'The open proposal fits' : `All ${open.length} open proposals fit together`} within operational FTE after committed changes and the buffer.`
+          : v.line
+  const text = [
+    `Change-board pack: ${area.name}`,
+    `${ws.name} · ${CHANNELS[area.channel].label} · ${site?.name ?? ''} · ${period} · prepared ${today}`,
+    '',
+    `Combined position: ${combinedLine}`,
+    ...(all.hireBy ? [`Recruitment if all are approved: ${recruit(all)}`] : []),
+    '',
+    ...changes.flatMap((c) => [summaryText(c, area, results[c.id], { currency: CURRENCY, nowMonth: now }), '', '----', '']),
+  ].join('\n')
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied('Copied. Paste it into your paper or email.')
+    } catch {
+      setCopied('select')
+    }
+  }
+
+  return (
+    <div className="stack pack">
+      <Panel title={`Change-board pack: ${area.name}`} aside={
+        <div className="row no-print">
+          <button className="btn sm" type="button" onClick={copy}>Copy as text</button>
+          <button className="btn sm primary" type="button" onClick={() => window.print()}>Print or save as PDF</button>
+        </div>
+      }>
+        <p className="muted">{ws.name} · {CHANNELS[area.channel].label} · {site?.name} · {period} · prepared {today}</p>
+        {copied && copied !== 'select' && <p className="small muted" role="status" style={{ marginTop: 10 }}>{copied}</p>}
+        {copied === 'select' && (
+          <div className="field no-print" style={{ marginTop: 14 }}>
+            <label htmlFor="pack-text">Copy this pack</label>
+            <textarea id="pack-text" readOnly rows={10} value={text} onFocus={(e) => e.target.select()} autoFocus />
+          </div>
+        )}
+      </Panel>
+
+      <Figures>
+        <Figure label="For decision" value={open.length} sub={`${all.committedCount} already approved or live`} />
+        <Figure hero text label="If all are approved" value={open.length ? <span><span aria-hidden="true">{v.glyph}</span> {v.label}</span> : 'Nothing open'} sub={open.length ? `Peak ${fmt1(all.peakFte)} FTE on top of committed work` : 'No proposals waiting'} />
+        <Figure label="Combined shortfall" value={all.peakShortfall > 0.05 ? fmt1(all.peakShortfall) : '0.0'} sub={all.hireBy ? `Recruit ${recruit(all)}` : 'Within headroom'} />
+        <Figure label="Incremental cost" value={`${CURRENCY}${fmtInt(all.cost)}`} sub={`${fmt1(all.fteMonths)} FTE-months of open proposals`} />
+      </Figures>
+
+      <Panel title="Changes at a glance">
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Change</th><th className="text">Owner</th><th className="text">Status</th><th>Peak FTE</th><th>Shortfall</th><th>Cost</th><th className="text">Recruit</th><th className="text">Assessment</th></tr></thead>
+            <tbody>
+              {changes.map((c) => {
+                const r = results[c.id]
+                return (
+                  <tr key={c.id}>
+                    <td style={{ whiteSpace: 'normal' }}><b>{c.name}</b><div className="small faint">{driverSummary(c.driver)}</div></td>
+                    <td className="text">{c.owner || '–'}</td>
+                    <td className="text">{STATUS_LABEL[c.status]}{c.inMtp ? ', in MTP' : ''}</td>
+                    <td>{r.verdict === 'saving' ? `−${fmt1(r.savingFte)}` : fmt1(r.peakFte)}</td>
+                    <td>{r.peakShortfall > 0.05 ? fmt1(r.peakShortfall) : '–'}</td>
+                    <td>{CURRENCY}{fmtInt(r.cost)}</td>
+                    <td className="text">{recruit(r)}</td>
+                    <td className="text"><Verdict v={r.verdict} /></td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="small faint" style={{ marginTop: 10 }}>Each change is assessed on its own, after the changes already approved or live. Rejected changes are left out.</p>
+      </Panel>
+
+      {open.length > 0 && (
+        <Panel title="If every open proposal is approved" aside={`${open.length} proposal${open.length === 1 ? '' : 's'}`}>
+          <p style={{ marginBottom: 14 }}><b>{combinedLine}</b>{open.length > 1 && ' Changes that each fit on their own can still fall short together, so this is worked from the combined workload.'}</p>
+          <Legend items={[{ label: 'Required with committed changes', color: 'var(--series-1)', block: true }, { label: 'Open proposals', color: 'var(--series-2)', block: true }, { label: 'Operational FTE', color: 'var(--ink)' }]} />
+          <StackedColumns
+            rows={all.rows.map((m) => ({ x: m.month, before: m.committedFte, change: Math.max(0, m.proposedFte), operational: m.operationalFte }))}
+            series={[{ key: 'before', label: 'Required with committed', color: 'var(--series-1)' }, { key: 'change', label: 'Open proposals', color: 'var(--series-2)' }]}
+            line={{ key: 'operational', label: 'Operational FTE', color: 'var(--ink)' }}
+            xFormat={(m, long) => monthLabel(m, long)}
+            valueFormat={fmt1}
+            height={240}
+          />
+          <div className="table-wrap" style={{ marginTop: 16 }}>
+            <table>
+              <thead><tr><th>Month</th><th>Required, committed</th><th>Open proposals</th><th>Operational FTE</th><th>Headroom before</th><th>After</th><th className="text">Status</th></tr></thead>
+              <tbody>
+                {all.rows.map((m) => (
+                  <tr key={m.month} className={Math.abs(m.proposedFte) > 0.05 ? '' : 'quiet'}>
+                    <td>{monthLabel(m.month)}</td>
+                    <td>{fmt1(m.committedFte)}</td>
+                    <td>{fmt1(m.proposedFte)}</td>
+                    <td>{m.operationalFte == null ? '–' : fmt1(m.operationalFte)}</td>
+                    <td>{m.headroom == null ? '–' : <Gap value={m.headroom} unit="" />}</td>
+                    <td>{m.after == null ? '–' : <Gap value={m.after} unit="" />}</td>
+                    <td className="text">{m.status === 'none' ? '' : <Verdict v={m.status} />}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      )}
+
+      {changes.map((c) => {
+        const r = results[c.id]
+        const cv = VERDICTS[r.verdict]
+        const months = r.rows.filter((m) => Math.abs(m.incrementalFte) > 0.05)
+        const offPhones = r.rows.reduce((t, m) => t + m.abstractionHours, 0)
+        return (
+          <Panel key={c.id} title={c.name} aside={<Verdict v={r.verdict} />}>
+            <p className="muted">{[c.owner && `Owner: ${c.owner}`, STATUS_LABEL[c.status], driverSummary(c.driver)].filter(Boolean).join(' · ')}</p>
+            <ul className="pack-points">
+              <li>{cv.line}</li>
+              {r.verdict === 'saving' && <li>Removes {fmtInt(Math.abs(r.totalWorkloadHours))} hours of work, saving up to {fmt1(r.savingFte)} FTE.</li>}
+              {r.peakFte > 0.05 && <li>{[r.totalContacts > 0.5 && `${fmtInt(r.totalContacts)} extra contacts`, r.totalWorkloadHours > 0.5 && `${fmtInt(r.totalWorkloadHours)} hours of work`, offPhones > 0.5 && `${fmtInt(offPhones)} hours away from the work`].filter(Boolean).join(', ')}; peak {fmt1(r.peakFte)} FTE{r.peakMonth ? ` in ${monthLabel(r.peakMonth, true)}` : ''}.</li>}
+              {r.fteMonths > 0.05 && <li>{fmt1(r.fteMonths)} FTE-months, about {CURRENCY}{fmtInt(r.cost)}.</li>}
+              {r.peakShortfall > 0.05 && <li>Short by up to {fmt1(r.peakShortfall)} FTE: {[r.monthsShort > 0 && `${r.monthsShort} month${r.monthsShort === 1 ? '' : 's'} beyond overtime cover`, r.monthsOvertime > 0 && `${r.monthsOvertime} month${r.monthsOvertime === 1 ? '' : 's'} coverable by overtime`].filter(Boolean).join(', ')}.{r.hireBy && ` Recruit ${recruit(r)}.`}</li>}
+              {Number.isFinite(r.worstSl) && (r.verdict === 'short' || r.verdict === 'overtime') && <li>Unmitigated, service level falls to about {fmtPct(r.worstSl, 0)} against the {fmtPct(s.slTarget, 0)} target.</li>}
+            </ul>
+            {months.length > 0 && (
+              <div className="table-wrap" style={{ marginTop: 12 }}>
+                <table>
+                  <thead><tr><th>Month</th><th>Contacts</th><th>Incremental FTE</th><th>Headroom before</th><th>After</th><th className="text">Status</th></tr></thead>
+                  <tbody>
+                    {months.map((m) => (
+                      <tr key={m.month}>
+                        <td>{monthLabel(m.month)}</td>
+                        <td>{fmtInt(m.contacts)}</td>
+                        <td>{fmt1(m.incrementalFte)}</td>
+                        <td>{m.headroom == null ? '–' : <Gap value={m.headroom} unit="" />}</td>
+                        <td>{m.headroom == null ? '–' : <Gap value={m.headroom - m.incrementalFte} unit="" />}</td>
+                        <td className="text">{m.status === 'none' ? '' : <Verdict v={m.status} />}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {c.notes && <p className="small muted" style={{ marginTop: 12 }}><b>Notes and assumptions:</b> {c.notes}</p>}
+          </Panel>
+        )
+      })}
+
+      <Panel title="Planning assumptions">
+        <ul className="pack-points">
+          <li>{CHANNELS[area.channel].label} at {site?.name}: {fmtPct(ctx.shrinkage, 0)} shrinkage, {ctx.weeklyHours} paid hours a week per FTE.</li>
+          <li>{occ.charAt(0).toUpperCase() + occ.slice(1)}; {fmtPct(s.bufferPct || 0, 0)} of operational FTE kept as a buffer; overtime up to {fmtPct(s.overtimePct || 0, 0)}.</li>
+          <li>{s.leadTimeWeeks} weeks from recruitment to productive; {CURRENCY}{fmtInt(s.costPerFte)} a year per FTE.</li>
+          <li>Baseline volumes, handle times and operational FTE come from the area's aggregate plan for {period}.</li>
+        </ul>
+      </Panel>
+    </div>
+  )
+}
+
 export default function ImpactPage({ ws, update, replace, model, account, query }) {
-  const [tab, setTab] = useState(query?.get('tab') === 'plan' ? 'plan' : 'changes')
+  const [tab, setTab] = useState(['plan', 'pack'].includes(query?.get('tab')) ? query.get('tab') : 'changes')
   const area = ws.areas.find((a) => a.id === ws.activeAreaId) ?? ws.areas[0]
   const site = ws.sites.find((s) => s.id === area?.siteId) ?? ws.sites[0]
   const ctx = useMemo(() => ({ shrinkage: area?.settings.shrinkageOverride ?? siteShrinkage(site), weeklyHours: site?.fteHoursPerWeek ?? 37.5 }), [area, site])
@@ -467,12 +653,12 @@ export default function ImpactPage({ ws, update, replace, model, account, query 
     <div className="stack">
       {head}
       <div className="row" style={{ justifyContent: 'space-between' }}>
-        <Segmented label="View" value={tab} onChange={setTab} options={[{ value: 'changes', label: 'Impact assessments' }, { value: 'plan', label: 'Aggregate plan' }]} />
+        <Segmented label="View" value={tab} onChange={setTab} options={[{ value: 'changes', label: 'Impact assessments' }, { value: 'plan', label: 'Aggregate plan' }, { value: 'pack', label: 'Change-board pack' }]} />
         <span className="small muted">{area.name} · {CHANNELS[area.channel].label} · {site?.name} · {monthLabel(area.startMonth)} to {monthLabel(addMonths(area.startMonth, area.rows.length - 1))}</span>
       </div>
-      {tab === 'plan'
-        ? <AggregatePlan ws={ws} area={area} site={site} ctx={ctx} plan={plan} setArea={setArea} update={update} model={model} />
-        : <ChangeRegister key={area.id} ws={ws} area={area} ctx={ctx} update={update} account={account} />}
+      {tab === 'plan' && <AggregatePlan ws={ws} area={area} site={site} ctx={ctx} plan={plan} setArea={setArea} update={update} model={model} />}
+      {tab === 'changes' && <ChangeRegister key={area.id} ws={ws} area={area} ctx={ctx} update={update} account={account} />}
+      {tab === 'pack' && <ChangePack ws={ws} area={area} site={site} ctx={ctx} />}
     </div>
   )
 }
