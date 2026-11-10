@@ -117,10 +117,6 @@ function ThemeIcon() {
   )
 }
 
-function initials(name) {
-  return name.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
-}
-
 export default function Landing({ onToggleTheme, account }) {
   const jump = (id) => (e) => { e.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }) }
   // Before billing is switched on, paid plans point at the pilot instead of a trial.
@@ -198,24 +194,12 @@ export default function Landing({ onToggleTheme, account }) {
           <div>
             <h2>Founding pilot</h2>
             <p>Three months free, with a working session on your own data.</p>
-            <div className="ctas">
-              {BRAND.contactEmail
-                ? <a className="btn primary" href={`mailto:${BRAND.contactEmail}?subject=Erlang%20Desk%20pilot`}>Apply for the pilot</a>
-                : <a className="btn primary" href="#/app">Explore the sample</a>}
-            </div>
           </div>
-          {BRAND.founderName && (
-            <div className="founder">
-              {BRAND.founderPhoto
-                ? <img className="founder-photo" src={BRAND.founderPhoto} alt={BRAND.founderName} width="72" height="72" loading="lazy" />
-                : <div className="founder-photo initials" aria-hidden="true">{initials(BRAND.founderName)}</div>}
-              <div>
-                <h3>{BRAND.founderName}</h3>
-                {BRAND.founderRole && <p className="muted small">{BRAND.founderRole}</p>}
-                {BRAND.founderBio && <p className="founder-bio">{BRAND.founderBio}</p>}
-              </div>
-            </div>
-          )}
+          <div className="ctas">
+            {BRAND.contactEmail
+              ? <a className="btn primary" href={`mailto:${BRAND.contactEmail}?subject=Erlang%20Desk%20pilot`}>Apply for the pilot</a>
+              : <a className="btn primary" href="#/app">Explore the sample</a>}
+          </div>
         </div>
       </section>
 
