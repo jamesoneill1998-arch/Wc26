@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { intervalRequirements, weeklyRequirements, simulateSupply, recommendHires, planWeeks } from '../src/engine/capacity.js'
+import { intervalRequirements, weeklyRequirements, simulateSupply, recommendHires, planWeeks, scenarioSummary } from '../src/engine/capacity.js'
 import { defaultProfiles, learnProfiles } from '../src/engine/profiles.js'
 import { parseHistoryCSV, aggregateDaily, toCSV } from '../src/engine/csv.js'
 import { generateSampleHistory } from '../src/engine/sample.js'
@@ -105,4 +105,23 @@ test('CSV import rejects absurd values', () => {
   const r = parseHistoryCSV('date,volume,aht\n2026-01-01,99999999999,300\n2026-01-02,10,100000\n2026-01-03,10,300\n')
   assert.equal(r.rows.length, 1)
   assert.equal(r.errors.length, 2)
+})
+
+test('scenario summary counts short weeks and the hiring that closes them', () => {
+  const weeks = planWeeks('2026-10-19', 26).map((week, i) => ({ week, requiredFte: 50 + i }))
+  const c = { startHeadcount: 52, monthlyAttrition: 0.03, trainingWeeks: 4, nestingWeeks: 2, nestingProductivity: 0.6, classCadenceWeeks: 4, gapToleranceFte: 0.5 }
+  const open = scenarioSummary(weeks, c)
+  const sim = simulateSupply(weeks, c)
+  assert.equal(open.weeksShort, sim.filter((w) => w.gap < -0.5).length)
+  assert.equal(open.worstWeek, weeks[25].week)
+  assert.ok(Math.abs(open.worstGap - sim[25].gap) < 1e-9)
+  const recs = recommendHires(weeks, c)
+  assert.equal(open.extraHires, recs.reduce((t, r) => t + r.count, 0))
+  assert.equal(open.classes, recs.length)
+  // With those classes planned, nothing more is needed beyond the lead time.
+  const closed = scenarioSummary(weeks, c, recs)
+  assert.equal(closed.extraHires, 0)
+  assert.equal(closed.firstClass, null)
+  assert.ok(closed.weeksShort < open.weeksShort)
+  assert.deepEqual(scenarioSummary([], c).weeksShort, 0)
 })

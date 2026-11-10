@@ -74,3 +74,21 @@ test('back office rolls weekend work to Monday and smooths over the SLA', () => 
   const smooth = backofficeRequirements([...days, { date: '2026-10-26', volume: 36 }], new Array(7).fill(100), { ...s, slaDays: 3 })
   assert.ok(smooth[7].agentHours < 3 && smooth[7].agentHours > 1)
 })
+
+test('capacity scenarios: demand and attrition move the plan the right way', () => {
+  const svc = { ...service('voice-uk', 'voice', 'uk'), plan: { method: 'auto', horizonWeeks: 26, volumeAdjustPct: 0, ahtAdjustPct: 0, scenarioPct: 0.1 } }
+  const out = computeWorkspace({ sites: defaultSites(), services: [svc] })
+  const r = out.services['voice-uk']
+  const by = Object.fromEntries(r.scenarios.map((x) => [x.key, x]))
+  assert.deepEqual(r.scenarios.map((x) => x.key), ['plan', 'high', 'low', 'attrition', 'both'])
+  // The plan line matches the main simulation.
+  assert.ok(Math.abs(by.plan.worstGap - Math.min(...r.sim.map((w) => w.gap))) < 1e-9)
+  assert.ok(by.high.avgGap < by.plan.avgGap && by.plan.avgGap < by.low.avgGap)
+  assert.ok(by.attrition.avgGap < by.plan.avgGap)
+  assert.ok(by.both.avgGap < by.high.avgGap && by.both.avgGap < by.attrition.avgGap)
+  assert.ok(by.high.extraHires >= by.plan.extraHires && by.plan.extraHires >= by.low.extraHires)
+  // Re-staffed from the scaled forecast: 10% more demand lands near 10% more FTE (whole agents per interval, occupancy cap).
+  const reqPlan = by.plan.avgGap - by.high.avgGap
+  const avgReq = r.weeks.reduce((t, w) => t + w.requiredFte, 0) / r.weeks.length
+  assert.ok(reqPlan > 0.05 * avgReq && reqPlan < 0.13 * avgReq, `${reqPlan} vs ${avgReq}`)
+})

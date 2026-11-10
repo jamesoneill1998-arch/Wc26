@@ -7,6 +7,7 @@ import { downloadText, fmtInt, fmt1, fmtPct } from '../format.js'
 import { NoServices, NeedsHistory, serviceEyebrow } from './common.jsx'
 import { ShortTermNotice } from './Overview.jsx'
 
+const SCENARIO_LABEL = { plan: 'Plan', high: 'Higher demand', low: 'Lower demand', attrition: 'Higher attrition', both: 'Higher demand and attrition' }
 const weekLabel = (d, long) => (long ? `Week of ${formatDate(d, { day: 'numeric', month: 'short', year: 'numeric' })}` : formatDate(d))
 
 export default function CapacityPage({ active, site, result, updateActive, updateService, updateSite, replace, account }) {
@@ -93,6 +94,7 @@ export default function CapacityPage({ active, site, result, updateActive, updat
           {recs.length === 0 ? (
             <p className="status good"><span className="glyph">▲</span> The plan covers every week a new class could reach.</p>
           ) : (
+            <div className="table-wrap">
             <table>
               <thead><tr><th>Starts</th><th>Hires</th><th>Productive from</th><th><span className="sr-only">Actions</span></th></tr></thead>
               <tbody>
@@ -106,13 +108,15 @@ export default function CapacityPage({ active, site, result, updateActive, updat
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </Panel>
         <Panel title="Planned classes">
           {active.hires.length === 0 ? (
             <p className="small muted" style={{ marginBottom: 14 }}>None planned yet. Add one, or accept a suggestion.</p>
           ) : (
-            <table style={{ marginBottom: 16 }}>
+            <div className="table-wrap" style={{ marginBottom: 16 }}>
+            <table>
               <thead><tr><th>Starts</th><th>Hires</th><th><span className="sr-only">Actions</span></th></tr></thead>
               <tbody>
                 {active.hires.map((h) => (
@@ -124,6 +128,7 @@ export default function CapacityPage({ active, site, result, updateActive, updat
                 ))}
               </tbody>
             </table>
+            </div>
           )}
           <div className="row" style={{ alignItems: 'flex-end' }}>
             <div style={{ flex: 1, minWidth: 150 }}><SelectField label="Class starts" value={newWeek || weekOpts[0].value} onChange={setNewWeek} options={weekOpts} /></div>
@@ -132,6 +137,29 @@ export default function CapacityPage({ active, site, result, updateActive, updat
           </div>
         </Panel>
       </div>
+
+      {result.scenarios?.length > 0 && (
+        <Panel title="Scenarios" aside={<div style={{ width: 150 }}><NumberField label="Demand swing" pct step={1} min={1} max={50} value={plan.scenarioPct ?? 0.1} onChange={(scenarioPct) => setPlan({ scenarioPct })} /></div>}>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Scenario</th><th>Average position</th><th>Worst week</th><th>Weeks short</th><th>Extra hires to close</th><th className="text">First class starts</th></tr></thead>
+              <tbody>
+                {result.scenarios.map((sc) => (
+                  <tr key={sc.key} className={sc.key === 'plan' ? 'hl' : ''}>
+                    <td style={{ whiteSpace: 'normal' }}><b>{SCENARIO_LABEL[sc.key]}</b><div className="small faint">{sc.key === 'plan' ? 'Your forecast and assumptions' : [sc.demand !== 0 && `Demand ${sc.demand > 0 ? '+' : '−'}${fmtPct(Math.abs(sc.demand), 0)}`, sc.attrition !== attrition && `attrition ${fmtPct(sc.attrition, 1)} a month`].filter(Boolean).join(', ').replace(/^a/, 'A')}</div></td>
+                    <td><Gap value={sc.avgGap} unit="" /></td>
+                    <td><Gap value={sc.worstGap} unit="" />{sc.worstWeek && <div className="small faint">w/c {formatDate(sc.worstWeek)}</div>}</td>
+                    <td>{sc.weeksShort} of {sim.length}</td>
+                    <td>{sc.extraHires > 0 ? `${sc.extraHires} in ${sc.classes} class${sc.classes === 1 ? '' : 'es'}` : 'None'}</td>
+                    <td className="text">{sc.firstClass ? formatDate(sc.firstClass, { day: 'numeric', month: 'short', year: 'numeric' }) : '–'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="small faint" style={{ marginTop: 10 }}>Each line keeps your planned classes and shows the extra hiring that would close the remaining gaps. Demand cases are re-staffed interval by interval from the scaled forecast. Higher attrition is your site rate plus half.</p>
+        </Panel>
+      )}
 
       <div className="cols">
         <Panel title="Supply assumptions" aside={<button className="btn link" type="button" onClick={() => setC({ startHeadcount: Math.round(sim[0].requiredFte * 2) / 2 })}>Match next week's need</button>}>
