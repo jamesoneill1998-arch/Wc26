@@ -14,3 +14,6 @@ strong { color: var(--ink); }
 table { width: 100%; border-collapse: collapse; margin: 12px 0 16px; font-size: 14px; display: block; overflow-x: auto; }
 th, td { text-align: left; vertical-align: top; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--rule); color: var(--ink-2); }
 th { font-size: 11.5px; font-weight: 650; color: var(--muted); }
+dl.glossary { margin: 20px 0; }
+dl.glossary dt { font-weight: 700; color: var(--ink); margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--rule); scroll-margin-top: 16px; }
+dl.glossary dd { margin: 4px 0 0; color: var(--ink-2); }

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Workforce planning glossary · Erlang Desk</title>
+<meta name="description" content="Plain-English definitions of workforce planning terms: Erlang A and C, shrinkage, occupancy, service level, AHT, attrition, nesting, FTE and more." />
+<link rel="canonical" href="https://erlangdesk.com/glossary.html" />
+<link rel="stylesheet" href="legal.css" />
+</head>
+<body>
+<main>
+<p class="small"><a href="./">← Erlang Desk</a></p>
+<h1>Workforce planning glossary</h1>
+<p>The terms used in Erlang Desk and in contact-centre planning, in plain English.</p>
+<dl class="glossary">
+<dt id="abandonment">Abandonment</dt>
+<dd>The share of callers who hang up before they are answered. Erlang A forecasts it from how long callers are prepared to wait.</dd>
+<dt id="aht">AHT (average handle time)</dt>
+<dd>The average time one contact takes, from answer to the end of any after-call work. Talk time, hold time and wrap-up are all included.</dd>
+<dt id="asa">ASA (average speed of answer)</dt>
+<dd>The average wait before a contact is answered, measured across answered contacts.</dd>
+<dt id="attrition">Attrition</dt>
+<dd>The rate at which people leave. Erlang Desk takes a monthly rate for each site and applies it week by week to tenured staff and to each new class.</dd>
+<dt id="buffer">Buffer</dt>
+<dd>A share of operational FTE held back when testing whether a change can be absorbed, so the plan keeps a margin for error.</dd>
+<dt id="change-board-pack">Change-board pack</dt>
+<dd>A printable paper for one business area: every change at a glance, the combined position if all open proposals are approved, and a section for each change.</dd>
+<dt id="concurrency">Concurrency</dt>
+<dd>The number of chats one agent handles at the same time. Two or three is common. Higher concurrency lowers the staff needed and lengthens each chat.</dd>
+<dt id="erlang">Erlang (unit)</dt>
+<dd>A measure of workload: one erlang is one hour of work arriving per hour. A queue offering 100 calls an hour at six minutes each carries 10 erlangs.</dd>
+<dt id="erlang-a">Erlang A</dt>
+<dd>A queueing formula that allows for callers who hang up. It gives the staff needed for a service level and the abandonment rate to expect. Erlang Desk uses it for voice and chat.</dd>
+<dt id="erlang-c">Erlang C</dt>
+<dd>The classic queueing formula. It assumes every caller waits until answered, so it asks for slightly more staff than Erlang A. Erlang Desk uses it for branches and offers it in the calculator.</dd>
+<dt id="forecast-accuracy">Forecast accuracy (WAPE)</dt>
+<dd>Weighted absolute percentage error: the total size of the forecast misses divided by the total volume. Erlang Desk tests each method on recent weeks and uses the one with the lowest error.</dd>
+<dt id="fte">FTE (full-time equivalent)</dt>
+<dd>Staff counted in full-time units. Two people on half the contracted hours are one FTE. Contracted hours are set for each site.</dd>
+<dt id="headroom">Headroom</dt>
+<dd>Operational FTE left over after the work already committed, and after the buffer. A change is absorbable when it fits inside the headroom.</dd>
+<dt id="interval">Interval</dt>
+<dd>The slice of the day used for staffing, usually 15 or 30 minutes. Requirements are worked out for every interval and then rolled up.</dd>
+<dt id="mtp">MTP (medium-term plan)</dt>
+<dd>The agreed budget forecast for the year ahead. A change already counted in the MTP adds no extra requirement.</dd>
+<dt id="nesting">Nesting</dt>
+<dd>The supervised period after training, when new starters take live contacts at reduced productivity.</dd>
+<dt id="occupancy">Occupancy</dt>
+<dd>The share of logged-in time an agent spends handling contacts. Sustained occupancy above about 85 to 90 per cent tends to raise sickness and attrition.</dd>
+<dt id="operational-fte">Operational FTE</dt>
+<dd>The productive FTE an area has available in a month, used as the supply side of an impact assessment.</dd>
+<dt id="overtime-allowance">Overtime allowance</dt>
+<dd>The extra capacity an area can cover with overtime, as a share of operational FTE. A change that fits only with overtime is flagged as such.</dd>
+<dt id="patience">Patience</dt>
+<dd>How long callers are prepared to wait before hanging up, on average. It is the input that separates Erlang A from Erlang C.</dd>
+<dt id="ramp-up">Ramp-up</dt>
+<dd>The weeks between a class starting and its people being fully productive: training time plus nesting time.</dd>
+<dt id="seasonality">Seasonality</dt>
+<dd>Repeating patterns in demand: by day of the week, by month, and around bank holidays. The forecast learns each of them from your history.</dd>
+<dt id="service-level">Service level</dt>
+<dd>The share of contacts answered within a target time, such as 80 per cent in 20 seconds.</dd>
+<dt id="shrinkage">Shrinkage</dt>
+<dd>Paid time that is unavailable for handling contacts: annual leave, sickness, breaks, training, meetings and system downtime. Erlang Desk itemises it for each site.</dd>
+<dt id="turnaround-sla">Turnaround SLA</dt>
+<dd>For back-office work, the number of days allowed to complete an item. Work is smoothed across the turnaround window.</dd>
+<dt id="utilisation">Utilisation</dt>
+<dd>For back-office work, the share of paid, available time spent on productive work. It plays the role that occupancy plays for calls.</dd>
+<dt id="workload">Workload</dt>
+<dd>The hours of work to be done: contacts multiplied by average handle time.</dd>
+</dl>
+<p class="small">Missing a term? Email <a href="mailto:hello@erlangdesk.com">hello@erlangdesk.com</a>. Try the maths in the <a href="./#/app/calculator">free Erlang calculator</a>.</p>
+</main>
+</body>
+</html>

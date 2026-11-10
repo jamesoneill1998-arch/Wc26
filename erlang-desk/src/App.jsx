@@ -5,7 +5,7 @@ import { useAccount } from './state/account.js'
 import { CHANNELS } from './engine/channels.js'
 import { Mark, skipToMain } from './components/ui.jsx'
 import Tour, { tourSeen } from './components/Tour.jsx'
-import { markPageSeen } from './state/checklist.js'
+import { markPageSeen, readChecklist, setChecklistHidden } from './state/checklist.js'
 import Landing from './pages/Landing.jsx'
 import Overview from './pages/Overview.jsx'
 import DataPage from './pages/DataPage.jsx'
@@ -150,6 +150,13 @@ export default function App() {
 
   // First-plan checklist: opening a page ticks its step.
   useEffect(() => { markPageSeen(pageKey) }, [pageKey])
+  const [checklistShown, setChecklistShown] = useState(0)
+  const [, bumpFoot] = useState(0)
+  const showChecklist = () => {
+    setChecklistHidden(false)
+    setChecklistShown((n) => n + 1)
+    window.location.hash = '#/app/overview'
+  }
 
   // On a phone the pages are a scrolling strip of tabs: keep the current one in view.
   useEffect(() => {
@@ -194,6 +201,7 @@ export default function App() {
           <div className="group label">More</div>
           <NavLink to="calculator" label="Erlang calculator" current={key} />
           <NavLink to="account" label="Account & workspace" current={key} />
+          <a href="glossary.html" target="_blank" rel="noopener">Glossary<span className="sr-only"> (opens in a new tab)</span></a>
         </nav>
         <div className="side-foot">
           <span>Data is held in this browser only.</span>
@@ -201,6 +209,7 @@ export default function App() {
             <span>{account.billing ? (account.signedIn ? account.email : 'Not signed in') : ws.name}</span>
             <button className="btn link small" type="button" onClick={toggleTheme}>Theme</button>
             {isSample && <button className="btn link small" type="button" onClick={() => setTourStep(0)}>Tour</button>}
+            {!isSample && ws.services.length > 0 && readChecklist().hidden && <button className="btn link small" type="button" onClick={showChecklist}>Checklist</button>}
           </div>
         </div>
       </aside>
@@ -209,7 +218,7 @@ export default function App() {
         {store.saveError && <div className="notice" style={{ marginBottom: 20 }}>{store.saveError}</div>}
         {error && <div className="notice" style={{ marginBottom: 20 }}>The planning model hit a problem: {error}</div>}
         {tourStep != null && <Tour step={tourStep} setStep={setTourStep} />}
-        <Page {...store} isSample={isSample} model={model} account={account} query={route.query} result={active ? model.services[active.id] : null} updateActive={(patch) => active && updateService(active.id, patch)} site={site} />
+        <Page key={key === 'overview' ? `overview-${checklistShown}` : key} {...store} isSample={isSample} onChecklistHide={() => bumpFoot((n) => n + 1)} model={model} account={account} query={route.query} result={active ? model.services[active.id] : null} updateActive={(patch) => active && updateService(active.id, patch)} site={site} />
         {active?.history && <StepNav current={key} label={stepLabel} />}
       </main>
     </div>
