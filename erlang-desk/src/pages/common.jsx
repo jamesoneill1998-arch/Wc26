@@ -1,9 +1,14 @@
 import { useRef, useState } from 'react'
 import { PageHead } from '../components/ui.jsx'
 import { buildSampleWorkspace } from '../state/sample.js'
-import { downloadText } from '../format.js'
+import { downloadText, downloadBlob } from '../format.js'
+import { buildWorkbook } from '../engine/xlsx.js'
+import { buildReport } from '../state/report.js'
 
 /** Save the whole workspace as a file, to back up or hand to a colleague. */
+const safeName = (s) => String(s).replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'plan'
+/** The whole plan as an Excel workbook. */
+export const exportReport = (ws, model) => downloadBlob(`erlang-desk-${safeName(ws.name)}-${new Date().toISOString().slice(0, 10)}.xlsx`, new Blob([buildWorkbook(buildReport(ws, model))], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
 export const exportWorkspace = (ws) => downloadText(`erlang-desk-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(ws), 'application/json')
 
 /** Open a workspace file a colleague exported (Data → Export workspace). */

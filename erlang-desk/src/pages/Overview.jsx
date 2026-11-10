@@ -7,7 +7,7 @@ import { assessChange, monthLabel } from '../engine/impact.js'
 import { weekStart } from '../engine/dates.js'
 import { StackedColumns, Legend } from '../components/charts.jsx'
 import { fmtInt, fmt1, fmtPct } from '../format.js'
-import { NoServices, exportWorkspace } from './common.jsx'
+import { NoServices, exportWorkspace, exportReport } from './common.jsx'
 
 const CHANNEL_COLORS = { voice: 'var(--series-1)', chat: 'var(--series-2)', backoffice: 'var(--series-3)', branch: 'var(--series-4)' }
 const ORDER = ['voice', 'chat', 'backoffice', 'branch']
@@ -140,6 +140,7 @@ export default function Overview({ ws, model, replace, update, account, active, 
         title={ws.name}
         lede="Required against available FTE for every service and site, after shrinkage, attrition and new-starter ramp-up."
       >
+        {account?.entitled && next && <button className="btn no-print" type="button" onClick={() => exportReport(ws, model)} title="The whole plan as an Excel workbook: summary, services, weekly capacity, scenarios, hiring, forecast and changes">Excel report</button>}
         {account?.entitled && <button className="btn no-print" type="button" onClick={() => exportWorkspace(ws)} title="Save the whole plan as a file to back up or share">Export plan</button>}
       </PageHead>
       {!isSample && <FirstPlan ws={ws} active={active} onHide={onChecklistHide} />}

@@ -22,6 +22,10 @@ Forecasting, staffing and capacity planning for contact centres, back offices an
 
 `public/glossary.html` is a static, indexable glossary of planning terms, linked from the landing footer and the planner's menu. `public/robots.txt` and `public/sitemap.xml` list the public pages (`/api/` is disallowed), each page has a canonical link, and `index.html` carries a small `SoftwareApplication` JSON-LD block. Add new public pages to the sitemap.
 
+## Excel report
+
+The Overview has an **Excel report** button (entitled accounts) that downloads the whole plan as one `.xlsx`: summary, services, capacity by week, scenarios, hiring, forecast by day, changes, areas by month and sites. `src/engine/xlsx.js` is a small dependency-free writer (stored zip, inline strings so text can never run as a formula, typed numbers and dates, frozen header, filter). `src/state/report.js` builds the sheets from the workspace and the computed model.
+
 ## Printing
 
 Capacity plans and impact assessments have a Print button and a print layout (organisation name and date at the top, no navigation, panels kept whole), so they can go straight into a change-board or finance pack, or be saved as PDF. The impact page also has a **Change-board pack** view (`#/app/impact?tab=pack`): one printable paper per area with every change at a glance, the combined position if every open proposal is approved (worked from the combined workload, since Erlang staffing isn't additive), a section per change and the planning assumptions. Charts scale to the paper when printed.
