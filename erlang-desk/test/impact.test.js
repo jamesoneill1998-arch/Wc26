@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { addMonths, monthIndex, unitsByMonth, changeEffect, areaPlan, assessChange, occupancyFor, erlangAgents, hoursPerFteMonth, summaryText, fteFor } from '../src/engine/impact.js'
+import { addMonths, monthIndex, unitsByMonth, changeEffect, areaPlan, assessChange, occupancyFor, erlangAgents, hoursPerFteMonth, summaryText, fteFor, combinedPlan } from '../src/engine/impact.js'
 
 const close = (a, b, tol = 1e-6) => assert.ok(Math.abs(a - b) < tol, `${a} !≈ ${b}`)
 const ctx = { shrinkage: 0.35, weeklyHours: 37.5 }
@@ -120,4 +120,40 @@ test('changes that cut workload release capacity for others', () => {
   const extra = { id: 'e', areaId: 'mtg', status: 'proposed', inMtp: false, driver: { type: 'volume', startMonth: '2027-01', months: 12, mode: 'pct', value: 0.1, aht: 420 } }
   assert.equal(assessChange(extra, a, [extra], ctx).verdict, 'short')
   assert.equal(assessChange(extra, a, [extra, digital], ctx).verdict, 'absorbable')
+})
+
+test('combined plan: proposals that each fit can fall short together', () => {
+  const base = areaPlan(area(), ctx)[0].requiredFte
+  const a = area({ settings: { overtimePct: 0 }, rows: Array.from({ length: 12 }, () => ({ volume: 50000, aht: 420, operationalFte: Math.ceil((base + 8) / 0.98) })) })
+  const mk = (id, over = {}) => ({ id, areaId: 'mtg', status: 'proposed', inMtp: false, driver: { type: 'volume', startMonth: '2027-01', months: 12, mode: 'pct', value: 0.07, aht: 420 }, ...over })
+  const one = mk('one'), two = mk('two')
+  assert.equal(assessChange(one, a, [one, two], ctx).verdict, 'absorbable')
+  assert.equal(assessChange(two, a, [one, two], ctx).verdict, 'absorbable')
+  const both = combinedPlan(a, [one, two], ctx)
+  assert.equal(both.verdict, 'short')
+  assert.equal(both.proposedCount, 2)
+  assert.equal(both.monthsShort, 12)
+  assert.ok(both.peakShortfall > 0.5 && both.hireCount >= 1)
+  assert.equal(both.hireBy, '2026-10') // 10 weeks' lead time before January
+
+  // One proposal alone matches its own assessment.
+  const solo = combinedPlan(a, [one], ctx), single = assessChange(one, a, [one], ctx)
+  assert.equal(solo.verdict, single.verdict)
+  solo.rows.forEach((r, i) => close(r.proposedFte, single.rows[i].incrementalFte))
+  close(solo.cost, single.cost)
+})
+
+test('combined plan: only open proposals for this area count', () => {
+  const a = area()
+  const mk = (id, over = {}) => ({ id, areaId: 'mtg', status: 'proposed', inMtp: false, driver: { type: 'volume', startMonth: '2027-01', months: 12, mode: 'pct', value: 0.3, aht: 420 }, ...over })
+  const ignored = [mk('r', { status: 'rejected' }), mk('m', { inMtp: true }), mk('o', { areaId: 'other' })]
+  const none = combinedPlan(a, ignored, ctx)
+  assert.equal(none.proposedCount, 0)
+  assert.equal(none.verdict, 'none')
+  assert.ok(none.rows.every((r) => Math.abs(r.proposedFte) < 1e-9))
+  // An approved change uses headroom but isn't up for decision.
+  const withApproved = combinedPlan(a, [mk('a', { status: 'approved' })], ctx)
+  assert.equal(withApproved.proposedCount, 0)
+  assert.equal(withApproved.committedCount, 1)
+  assert.ok(withApproved.rows[0].committedFte > withApproved.rows[0].baseFte + 5)
 })

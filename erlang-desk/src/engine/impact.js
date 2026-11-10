@@ -296,6 +296,85 @@ export function assessChange(change, a, changes, ctx) {
   }
 }
 
+/** A proposal the board still has to decide: not rejected, not committed, not already in the MTP. */
+export const isProposed = (c) => c.status === 'proposed' && !c.inMtp
+
+/**
+ * The combined picture for a change board: required FTE with the committed
+ * changes, and again with every open proposal approved together. Erlang
+ * staffing isn't additive, so this is worked from the combined workload and
+ * not by adding up the single assessments.
+ */
+export function combinedPlan(a, changes, ctx) {
+  const base = areaPlan(a, ctx)
+  const mine = changes.filter((c) => c.areaId === a.id)
+  const committed = mine.filter(isCommitted)
+  const proposed = mine.filter(isProposed)
+  const sum = (list) => {
+    const out = { contacts: base.map(() => 0), workloadHours: base.map(() => 0), abstractionHours: base.map(() => 0) }
+    for (const c of list) {
+      const e = changeEffect(c, a, a.rows)
+      base.forEach((_, i) => {
+        out.contacts[i] += e.contacts[i]
+        out.workloadHours[i] += e.workloadHours[i]
+        out.abstractionHours[i] += e.abstractionHours[i]
+      })
+    }
+    return out
+  }
+  const before = sum(committed)
+  const all = sum([...committed, ...proposed])
+  const s = a.settings
+  const fteAt = (i, e) => {
+    const b = base[i]
+    const work = b.workloadHours + e.workloadHours[i]
+    const vol = b.volume + e.contacts[i]
+    const aht = vol > 0 ? (work * 3600) / vol : b.aht
+    return fteFor(work, aht, a, ctx.shrinkage, ctx.weeklyHours) + e.abstractionHours[i] / b.hpf
+  }
+  const rows = base.map((b, i) => {
+    const committedFte = fteAt(i, before)
+    const proposedFte = fteAt(i, all) - committedFte
+    const op = b.operationalFte
+    const buffer = op != null ? op * (s.bufferPct || 0) : 0
+    const headroom = op != null ? op - committedFte - buffer : null
+    const shortfall = headroom != null ? Math.max(0, proposedFte - Math.max(0, headroom)) : null
+    const overtimeLeft = op != null ? Math.max(0, op * (s.overtimePct || 0) + Math.min(0, headroom)) : 0
+    let status = 'none'
+    if (proposedFte > 0.05 && op != null) status = shortfall <= 0.05 ? 'absorbable' : shortfall <= overtimeLeft + 0.05 ? 'overtime' : 'short'
+    return { month: b.month, baseFte: b.requiredFte, committedFte, proposedFte, operationalFte: op, headroom, after: headroom != null ? headroom - proposedFte : null, shortfall, status }
+  })
+  const affected = rows.filter((r) => r.proposedFte > 0.05)
+  const short = rows.filter((r) => r.status === 'short')
+  const overtime = rows.filter((r) => r.status === 'overtime')
+  let verdict = 'none'
+  if (!proposed.length) verdict = 'none'
+  else if (!affected.length) verdict = rows.some((r) => r.proposedFte < -0.05) ? 'saving' : 'none'
+  else if (affected.some((r) => r.operationalFte == null)) verdict = 'unknown'
+  else if (short.length) verdict = 'short'
+  else if (overtime.length) verdict = 'overtime'
+  else verdict = 'absorbable'
+  const peakShortfall = Math.max(0, ...rows.map((r) => r.shortfall ?? 0))
+  const firstShort = short[0]?.month ?? overtime[0]?.month ?? null
+  const fteMonths = rows.reduce((t, r) => t + Math.max(0, r.proposedFte), 0)
+  const leadMonths = Math.ceil(((s.leadTimeWeeks || 0) * 7) / 30.4)
+  return {
+    rows,
+    verdict,
+    proposedCount: proposed.length,
+    committedCount: committed.length,
+    peakFte: Math.max(0, ...rows.map((r) => r.proposedFte)),
+    peakShortfall,
+    monthsShort: short.length,
+    monthsOvertime: overtime.length,
+    firstShort,
+    hireBy: firstShort && peakShortfall > 0 ? addMonths(firstShort, -leadMonths) : null,
+    hireCount: Math.ceil(peakShortfall - 0.05),
+    fteMonths,
+    cost: fteMonths * ((s.costPerFte || 0) / 12),
+  }
+}
+
 /** Plain-text summary for a change board paper or email. */
 export function summaryText(change, a, r, { currency = '£', nowMonth = null } = {}) {
   const f1 = (v) => v.toLocaleString('en-GB', { maximumFractionDigits: 1, minimumFractionDigits: 1 })

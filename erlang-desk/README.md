@@ -20,7 +20,7 @@ Forecasting, staffing and capacity planning for contact centres, back offices an
 
 ## Printing
 
-Capacity plans and impact assessments have a Print button and a print layout (organisation name and date at the top, no navigation, panels kept whole), so they can go straight into a change-board or finance pack, or be saved as PDF.
+Capacity plans and impact assessments have a Print button and a print layout (organisation name and date at the top, no navigation, panels kept whole), so they can go straight into a change-board or finance pack, or be saved as PDF. The impact page also has a **Change-board pack** view (`#/app/impact?tab=pack`): one printable paper per area with every change at a glance, the combined position if every open proposal is approved (worked from the combined workload, since Erlang staffing isn't additive), a section per change and the planning assumptions. Charts scale to the paper when printed.
 
 ## Run it locally
 
