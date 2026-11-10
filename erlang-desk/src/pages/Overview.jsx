@@ -94,7 +94,7 @@ function Attention({ items, update }) {
 }
 
 /** The steps from a new workspace to a first plan. Hidden once done or dismissed; the sample has the tour. */
-function FirstPlan({ ws, active }) {
+function FirstPlan({ ws, active, onHide }) {
   const [state, setState] = useState(readChecklist)
   if (state.hidden) return null
   const items = checklistItems(ws, active, state.seen)
@@ -102,7 +102,7 @@ function FirstPlan({ ws, active }) {
   if (!left) return null
   const next = items.find((i) => !i.done)
   return (
-    <Panel title="Your first plan" className="no-print" aside={<><span>{items.length - left} of {items.length} done</span><button className="btn link small" type="button" onClick={() => { setChecklistHidden(true); setState({ ...state, hidden: true }) }}>Hide</button></>}>
+    <Panel title="Your first plan" className="no-print" aside={<><span>{items.length - left} of {items.length} done</span><button className="btn link small" type="button" onClick={() => { setChecklistHidden(true); setState({ ...state, hidden: true }); onHide?.() }}>Hide</button></>}>
       <ol className="checklist">
         {items.map((i) => (
           <li key={i.key} className={i.done ? 'done' : i === next ? 'next' : ''}>
@@ -118,7 +118,7 @@ function FirstPlan({ ws, active }) {
   )
 }
 
-export default function Overview({ ws, model, replace, update, account, active, isSample }) {
+export default function Overview({ ws, model, replace, update, account, active, isSample, onChecklistHide }) {
   if (!ws.services.length) return <NoServices title="Overview" replace={replace} account={account} />
   const sites = new Map(ws.sites.map((s) => [s.id, s]))
   const total = model.total
@@ -142,7 +142,7 @@ export default function Overview({ ws, model, replace, update, account, active, 
       >
         {account?.entitled && <button className="btn no-print" type="button" onClick={() => exportWorkspace(ws)} title="Save the whole plan as a file to back up or share">Export plan</button>}
       </PageHead>
-      {!isSample && <FirstPlan ws={ws} active={active} />}
+      {!isSample && <FirstPlan ws={ws} active={active} onHide={onChecklistHide} />}
       {next ? (
         <Figures>
           <Figure hero label="Required FTE, next week" value={fmt1(next.requiredFte)} sub={`${ws.services.length} services, ${ws.sites.length} sites`} />

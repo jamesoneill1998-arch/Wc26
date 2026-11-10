@@ -18,6 +18,10 @@ Forecasting, staffing and capacity planning for contact centres, back offices an
 | **Calculator** | Free Erlang A vs C for a single interval, rostered for each site. |
 | **Accounts** | A dedicated sign-in page (`#/signin`, shown only with billing on) that doubles as trial sign-up, returns planners to the page they came from, and hands trials straight to Stripe. Passwordless sign-in, Stripe subscriptions (Pro and Team), and Team seat management. Emails in `ADMIN_EMAILS` get full owner access without a subscription. See [SECURITY.md](SECURITY.md). |
 
+## Glossary and search
+
+`public/glossary.html` is a static, indexable glossary of planning terms, linked from the landing footer and the planner's menu. `public/robots.txt` and `public/sitemap.xml` list the public pages (`/api/` is disallowed), each page has a canonical link, and `index.html` carries a small `SoftwareApplication` JSON-LD block. Add new public pages to the sitemap.
+
 ## Printing
 
 Capacity plans and impact assessments have a Print button and a print layout (organisation name and date at the top, no navigation, panels kept whole), so they can go straight into a change-board or finance pack, or be saved as PDF. The impact page also has a **Change-board pack** view (`#/app/impact?tab=pack`): one printable paper per area with every change at a glance, the combined position if every open proposal is approved (worked from the combined workload, since Erlang staffing isn't additive), a section per change and the planning assumptions. Charts scale to the paper when printed.
