@@ -2,7 +2,6 @@
 // Falls back to the main thread where workers aren't available.
 
 import { useEffect, useRef, useState } from 'react'
-import { computeWorkspace, createCache } from '../engine/compute.js'
 
 const EMPTY = { services: {}, total: [], bySite: {}, byChannel: {} }
 
@@ -33,13 +32,14 @@ export function useModel(ws) {
       if (worker.current) {
         worker.current.postMessage({ seq: id, ws: input })
       } else {
-        fallbackCache.current ??= createCache()
-        try {
+        // No worker here: load the engine on demand and run it on the main thread.
+        import('../engine/compute.js').then(({ computeWorkspace, createCache }) => {
+          fallbackCache.current ??= createCache()
           const result = computeWorkspace(input, fallbackCache.current)
           if (id === seq.current) setState({ result, busy: false, error: null })
-        } catch (err) {
-          setState((s) => ({ ...s, busy: false, error: String(err.message) }))
-        }
+        }).catch((err) => {
+          setState((st) => ({ ...st, busy: false, error: String(err.message) }))
+        })
       }
     }, 120)
     return () => clearTimeout(t)
