@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useWorkspace } from './state/store.js'
 import { useModel } from './state/model.js'
 import { useAccount } from './state/account.js'
@@ -7,18 +7,19 @@ import { Mark, skipToMain } from './components/ui.jsx'
 import Tour, { tourSeen } from './components/Tour.jsx'
 import { markPageSeen, readChecklist, setChecklistHidden } from './state/checklist.js'
 import Landing from './pages/Landing.jsx'
-import Overview from './pages/Overview.jsx'
-import DataPage from './pages/DataPage.jsx'
-import ForecastPage from './pages/ForecastPage.jsx'
-import StaffingPage from './pages/StaffingPage.jsx'
-import CoveragePage from './pages/CoveragePage.jsx'
-import ImpactPage from './pages/ImpactPage.jsx'
-import CapacityPage from './pages/CapacityPage.jsx'
-import ServicePage from './pages/ServicePage.jsx'
-import SitesPage from './pages/SitesPage.jsx'
-import Calculator from './pages/Calculator.jsx'
-import AccountPage from './pages/AccountPage.jsx'
-import SignInPage from './pages/SignInPage.jsx'
+// The planner's pages load on demand, so the landing page ships without them.
+const Overview = lazy(() => import('./pages/Overview.jsx'))
+const DataPage = lazy(() => import('./pages/DataPage.jsx'))
+const ForecastPage = lazy(() => import('./pages/ForecastPage.jsx'))
+const StaffingPage = lazy(() => import('./pages/StaffingPage.jsx'))
+const CoveragePage = lazy(() => import('./pages/CoveragePage.jsx'))
+const ImpactPage = lazy(() => import('./pages/ImpactPage.jsx'))
+const CapacityPage = lazy(() => import('./pages/CapacityPage.jsx'))
+const ServicePage = lazy(() => import('./pages/ServicePage.jsx'))
+const SitesPage = lazy(() => import('./pages/SitesPage.jsx'))
+const Calculator = lazy(() => import('./pages/Calculator.jsx'))
+const AccountPage = lazy(() => import('./pages/AccountPage.jsx'))
+const SignInPage = lazy(() => import('./pages/SignInPage.jsx'))
 
 const PAGES = {
   overview: Overview,
@@ -163,7 +164,7 @@ export default function App() {
     if (narrow) document.querySelector('.nav a.active')?.scrollIntoView({ block: 'nearest', inline: 'center' })
   }, [narrow, pageKey])
 
-  if (route.parts[0] === 'signin') return <SignInPage account={account} query={route.query} />
+  if (route.parts[0] === 'signin') return <Suspense fallback={null}><SignInPage account={account} query={route.query} /></Suspense>
   if (route.parts[0] !== 'app') return <Landing onToggleTheme={toggleTheme} account={account} />
 
   const key = PAGES[route.parts[1]] ? route.parts[1] : 'overview'
@@ -218,7 +219,9 @@ export default function App() {
         {store.saveError && <div className="notice" style={{ marginBottom: 20 }}>{store.saveError}</div>}
         {error && <div className="notice" style={{ marginBottom: 20 }}>The planning model hit a problem: {error}</div>}
         {tourStep != null && <Tour step={tourStep} setStep={setTourStep} />}
-        <Page key={key === 'overview' ? `overview-${checklistShown}` : key} {...store} isSample={isSample} onChecklistHide={() => bumpFoot((n) => n + 1)} model={model} account={account} query={route.query} result={active ? model.services[active.id] : null} updateActive={(patch) => active && updateService(active.id, patch)} site={site} />
+        <Suspense fallback={<div className="skel skel-board" role="status" aria-label="Loading" />}>
+          <Page key={key === 'overview' ? `overview-${checklistShown}` : key} {...store} isSample={isSample} onChecklistHide={() => bumpFoot((n) => n + 1)} model={model} account={account} query={route.query} result={active ? model.services[active.id] : null} updateActive={(patch) => active && updateService(active.id, patch)} site={site} />
+        </Suspense>
         {active?.history && <StepNav current={key} label={stepLabel} />}
       </main>
     </div>
