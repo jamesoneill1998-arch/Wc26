@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Term from '../components/Term.jsx'
 import { formatDate } from '../engine/dates.js'
 import { toCSV } from '../engine/csv.js'
 import { PageHead, Figures, Figure, NumberField, SelectField, Gap, Panel, LoadingPage, Segmented } from '../components/ui.jsx'
@@ -185,7 +186,7 @@ export default function CapacityPage({ active, site, result, updateActive, updat
       <Panel title="Week by week">
         <div className="table-wrap scroll-y" tabIndex={0} role="region" aria-label="Week by week">
           <table>
-            <thead><tr><th>Week of</th><th>Volume</th><th>AHT</th><th>Required</th><th>Available</th><th>Headcount</th><th>In training</th><th>Gap</th></tr></thead>
+            <thead><tr><th>Week of</th><th>Volume</th><th><Term k="aht">AHT</Term></th><th>Required</th><th>Available</th><th>Headcount</th><th>In training</th><th>Gap</th></tr></thead>
             <tbody>
               {sim.map((w) => (
                 <tr key={w.week}>

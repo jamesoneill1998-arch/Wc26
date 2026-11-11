@@ -28,7 +28,7 @@ The landing page ships only the shell, React and the small Erlang functions its 
 
 ## Glossary and search
 
-`public/glossary.html` is a static, indexable glossary of planning terms, linked from the landing footer and the planner's menu. `public/robots.txt` and `public/sitemap.xml` list the public pages (`/api/` is disallowed), each page has a canonical link, and `index.html` carries a small `SoftwareApplication` JSON-LD block. Add new public pages to the sitemap.
+`public/glossary.html` is a static, indexable glossary of planning terms, linked from the landing footer and the planner's menu. `public/robots.txt` and `public/sitemap.xml` list the public pages (`/api/` is disallowed), each page has a canonical link, and `index.html` carries a small `SoftwareApplication` JSON-LD block. Add new public pages to the sitemap. Inside the planner the same wording appears in place: `src/glossary.js` holds the terms and matches field and figure labels to them, and `src/components/Term.jsx` shows the explanation on hover, focus or tap. `test/glossary.test.js` fails if the page and the in-app wording drift apart, so edit both together.
 
 ## Excel report
 

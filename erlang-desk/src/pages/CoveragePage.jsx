@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import Term from '../components/Term.jsx'
 import { formatDate, formatTime, WEEKDAYS, weekdayIndex, parseTime } from '../engine/dates.js'
 import { CHANNELS } from '../engine/channels.js'
 import { coverageForDays, defaultInDayShrinkage, parseScheduleCSV, suggestPatterns, suggestDailyPatterns } from '../engine/schedule.js'
@@ -259,7 +260,7 @@ export default function CoveragePage({ active, site, result, updateActive, repla
         />
         <div className="table-wrap scroll-y" tabIndex={0} role="region" aria-label="Interval detail" style={{ marginTop: 16 }}>
           <table>
-            <thead><tr><th>Interval</th><th>{unit}</th><th>Required</th><th>On shift</th><th>Rostered (net)</th><th>Gap</th><th>Projected SL</th>{s.queueModel === 'erlangA' && <th>Abandon</th>}</tr></thead>
+            <thead><tr><th>Interval</th><th>{unit}</th><th>Required</th><th>On shift</th><th>Rostered (net)</th><th>Gap</th><th>Projected SL</th>{s.queueModel === 'erlangA' && <th><Term k="abandonment">Abandon</Term></th>}</tr></thead>
             <tbody>
               {dayCols.map((iv) => (
                 <tr key={iv.time}>

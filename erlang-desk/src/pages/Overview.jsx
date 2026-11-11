@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Term from '../components/Term.jsx'
 import { CHANNELS, siteShrinkage } from '../engine/channels.js'
 import { readChecklist, setChecklistHidden, checklistItems } from '../state/checklist.js'
 import { formatDate } from '../engine/dates.js'
@@ -212,7 +213,7 @@ export default function Overview({ ws, model, replace, update, account, active, 
       <Panel title="Sites" aside={<a href="#/app/sites">Edit shrinkage</a>}>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Site</th><th>Shrinkage</th><th>Hours / FTE</th><th>Attrition / month</th><th>Required next wk</th><th>Available</th><th>Gap</th></tr></thead>
+            <thead><tr><th>Site</th><th><Term k="shrinkage">Shrinkage</Term></th><th>Hours / FTE</th><th><Term k="attrition">Attrition / month</Term></th><th>Required next wk</th><th>Available</th><th>Gap</th></tr></thead>
             <tbody>
               {ws.sites.map((site) => {
                 const w = model.bySite[site.id]?.[0]

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import Term from '../components/Term.jsx'
 import { CHANNELS, siteShrinkage } from '../engine/channels.js'
 import { areaPlan, assessChange, combinedPlan, isProposed, summaryText, monthLabel, addMonths, hoursPerFteMonth } from '../engine/impact.js'
 import { toCSV } from '../engine/csv.js'
@@ -129,7 +130,7 @@ function AggregatePlan({ ws, area, site, ctx, plan, setArea, update, model }) {
       <Panel title="Monthly plan" aside="Type, or paste a column from Excel into the first cell">
         <div className="table-wrap">
           <table className="grid-table">
-            <thead><tr><th>Month</th><th>Forecast volume</th><th>AHT (s)</th><th>Workload h</th><th>{live ? 'Occupancy' : 'Utilisation'}</th><th>Required FTE</th><th>Operational FTE</th><th>MTP FTE</th><th>Headroom</th></tr></thead>
+            <thead><tr><th>Month</th><th>Forecast volume</th><th><Term k="aht">AHT (s)</Term></th><th>Workload h</th><th>{live ? 'Occupancy' : 'Utilisation'}</th><th>Required FTE</th><th>Operational FTE</th><th>MTP FTE</th><th><Term k="headroom">Headroom</Term></th></tr></thead>
             <tbody>
               {plan.map((m, i) => (
                 <tr key={m.month}>
@@ -361,7 +362,7 @@ function ChangeRegister({ ws, area, ctx, update, account }) {
         />
         <div className="table-wrap" style={{ marginTop: 16 }}>
           <table>
-            <thead><tr><th>Month</th><th>Contacts</th><th>Workload h</th><th>Incremental FTE</th><th>Headroom before</th><th>After</th><th>Service level</th><th>Status</th></tr></thead>
+            <thead><tr><th>Month</th><th>Contacts</th><th>Workload h</th><th>Incremental FTE</th><th><Term k="headroom">Headroom before</Term></th><th>After</th><th><Term k="service-level">Service level</Term></th><th>Status</th></tr></thead>
             <tbody>
               {r.rows.map((m) => (
                 <tr key={m.month} className={Math.abs(m.incrementalFte) > 0.05 ? '' : 'quiet'}>
@@ -535,7 +536,7 @@ function ChangePack({ ws, area, site, ctx }) {
           />
           <div className="table-wrap" style={{ marginTop: 16 }}>
             <table>
-              <thead><tr><th>Month</th><th>Required, committed</th><th>Open proposals</th><th>Operational FTE</th><th>Headroom before</th><th>After</th><th className="text">Status</th></tr></thead>
+              <thead><tr><th>Month</th><th>Required, committed</th><th>Open proposals</th><th>Operational FTE</th><th><Term k="headroom">Headroom before</Term></th><th>After</th><th className="text">Status</th></tr></thead>
               <tbody>
                 {all.rows.map((m) => (
                   <tr key={m.month} className={Math.abs(m.proposedFte) > 0.05 ? '' : 'quiet'}>
@@ -573,7 +574,7 @@ function ChangePack({ ws, area, site, ctx }) {
             {months.length > 0 && (
               <div className="table-wrap" style={{ marginTop: 12 }}>
                 <table>
-                  <thead><tr><th>Month</th><th>Contacts</th><th>Incremental FTE</th><th>Headroom before</th><th>After</th><th className="text">Status</th></tr></thead>
+                  <thead><tr><th>Month</th><th>Contacts</th><th>Incremental FTE</th><th><Term k="headroom">Headroom before</Term></th><th>After</th><th className="text">Status</th></tr></thead>
                   <tbody>
                     {months.map((m) => (
                       <tr key={m.month}>
