@@ -314,15 +314,15 @@ function ChangeRegister({ ws, area, ctx, update, account }) {
       <Panel title="Change register" aside={<button className="btn sm primary" type="button" onClick={add}>Add a change</button>}>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Change</th><th>Driver</th><th>Status</th><th>Peak FTE</th><th>Assessment</th></tr></thead>
+            <thead><tr><th>Change</th><th className="text">Driver</th><th className="text">Status</th><th>Peak FTE</th><th>Assessment</th></tr></thead>
             <tbody>
               {changes.map((c) => {
                 const cr = results[c.id]
                 return (
                   <tr key={c.id} className={c.id === sel.id ? 'hl' : ''} onClick={() => setSelId(c.id)} style={{ cursor: 'pointer' }}>
                     <td><button className="btn link" type="button" onClick={() => setSelId(c.id)}>{c.name}</button>{c.inMtp && <span className="faint"> · in MTP</span>}</td>
-                    <td className="faint" style={{ whiteSpace: 'normal', minWidth: 220 }}>{driverSummary(c.driver)}</td>
-                    <td>{STATUS_LABEL[c.status]}</td>
+                    <td className="faint text" style={{ minWidth: 220 }}>{driverSummary(c.driver)}</td>
+                    <td className="text">{STATUS_LABEL[c.status]}</td>
                     <td>{cr.verdict === 'saving' ? `−${fmt1(cr.savingFte)}` : fmt1(cr.peakFte)}</td>
                     <td><Verdict v={cr.verdict} /></td>
                   </tr>

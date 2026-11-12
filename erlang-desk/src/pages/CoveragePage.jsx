@@ -260,7 +260,7 @@ export default function CoveragePage({ active, site, result, updateActive, repla
         />
         <div className="table-wrap scroll-y" tabIndex={0} role="region" aria-label="Interval detail" style={{ marginTop: 16 }}>
           <table>
-            <thead><tr><th>Interval</th><th>{unit}</th><th>Required</th><th>On shift</th><th>Rostered (net)</th><th>Gap</th><th>Projected SL</th>{s.queueModel === 'erlangA' && <th><Term k="abandonment">Abandon</Term></th>}</tr></thead>
+            <thead><tr><th>Interval</th><th>{unit[0].toUpperCase() + unit.slice(1)}</th><th>Required</th><th>On shift</th><th>Rostered (net)</th><th>Gap</th><th>Projected SL</th>{s.queueModel === 'erlangA' && <th><Term k="abandonment">Abandon</Term></th>}</tr></thead>
             <tbody>
               {dayCols.map((iv) => (
                 <tr key={iv.time}>

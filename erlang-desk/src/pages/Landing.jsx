@@ -142,7 +142,7 @@ export default function Landing({ onToggleTheme, account }) {
       <main id="main" tabIndex={-1}>
       <section className="lp-hero">
         <div className="wrap">
-          <div className="label">Workforce planning · Voice · Chat · Back office · Branch</div>
+          <div className="label">Workforce planning<span className="hide-xs"> · Voice · Chat · Back office · Branch</span></div>
           <h1>The right number of people, <strong>every half hour.</strong></h1>
           <p className="lede">Forecast, staff and hire for your contact centre, from one plan.</p>
           <div className="ctas">

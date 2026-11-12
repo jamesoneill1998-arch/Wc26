@@ -49,5 +49,5 @@ export function formatTime(mins) {
 }
 
 export function formatDate(iso, opts = { day: 'numeric', month: 'short' }) {
-  return new Date(parseISODate(iso)).toLocaleDateString(undefined, { timeZone: 'UTC', ...opts })
+  return new Date(parseISODate(iso)).toLocaleDateString('en-GB', { timeZone: 'UTC', ...opts })
 }

@@ -1,6 +1,12 @@
-export const fmtInt = (n) => (Number.isFinite(n) ? Math.round(n).toLocaleString() : '–')
-export const fmt1 = (n) => (Number.isFinite(n) ? n.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '–')
+export const fmtInt = (n) => (Number.isFinite(n) ? Math.round(n).toLocaleString('en-GB') : '–')
+export const fmt1 = (n) => (Number.isFinite(n) ? n.toLocaleString('en-GB', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '–')
 export const fmtPct = (n, d = 1) => (Number.isFinite(n) ? `${(n * 100).toFixed(d)}%` : '–')
+/** A signed percentage with no "−0.0%": values that round to zero show as 0.0%. */
+export const fmtSignedPct = (n, d = 1) => {
+  if (!Number.isFinite(n)) return '–'
+  const v = Number((n * 100).toFixed(d))
+  return `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(d)}%`
+}
 export const fmtSec = (n) => (Number.isFinite(n) ? `${n < 10 ? n.toFixed(1) : Math.round(n)}s` : '∞')
 export function fmtCompact(n) {
   if (!Number.isFinite(n)) return '–'

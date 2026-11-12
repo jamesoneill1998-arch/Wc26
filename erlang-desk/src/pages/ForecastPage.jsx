@@ -7,7 +7,7 @@ import { toCSV } from '../engine/csv.js'
 import { CHANNELS } from '../engine/channels.js'
 import { PageHead, Figures, Figure, SelectField, NumberField, Segmented, Panel, Locked, LoadingPage } from '../components/ui.jsx'
 import { LineChart, Legend, Heatmap } from '../components/charts.jsx'
-import { downloadText, fmtInt, fmtPct } from '../format.js'
+import { downloadText, fmtInt, fmtPct, fmtSignedPct } from '../format.js'
 import { NoServices, NeedsHistory, serviceEyebrow } from './common.jsx'
 
 function byWeek(rows, keys) {
@@ -105,7 +105,7 @@ export default function ForecastPage({ active, site, result, updateActive, repla
         <Figure label="Method" value={forecast.methodLabel} text sub={plan.method === 'auto' ? 'Chosen by backtest' : 'Chosen by you'} />
         <Figure label="Backtest accuracy" value={forecast.accuracy ? fmtPct(1 - forecast.accuracy.wape) : '–'} sub={forecast.accuracy ? `WAPE ${fmtPct(forecast.accuracy.wape)} over ${forecast.accuracy.holdoutDays} days held out` : 'Not enough history'} />
         <Figure label="Next four weeks" value={fmtInt(next4)} sub={prior4 ? `${next4 >= prior4 ? '+' : '−'}${fmtPct(Math.abs(next4 / prior4 - 1))} on the last four` : undefined} />
-        <Figure label="Bias" value={forecast.accuracy ? `${forecast.accuracy.bias >= 0 ? '+' : '−'}${fmtPct(Math.abs(forecast.accuracy.bias))}` : '–'} sub="Positive means it over-forecast" />
+        <Figure label="Bias" value={forecast.accuracy ? fmtSignedPct(forecast.accuracy.bias) : '–'} sub="Positive means it over-forecast" />
       </Figures>
 
       <Panel title="Actuals and forecast" aside={<Segmented label="Granularity" value={grain} onChange={setGrain} options={[{ value: 'daily', label: 'Daily' }, { value: 'weekly', label: 'Weekly' }]} />}>
@@ -161,7 +161,7 @@ export default function ForecastPage({ active, site, result, updateActive, repla
                   <tr key={r.method} className={r.method === forecast.method ? 'hl' : ''}>
                     <td>{r.label}</td>
                     <td>{fmtPct(1 - r.wape)}</td>
-                    <td>{r.bias >= 0 ? '+' : '−'}{fmtPct(Math.abs(r.bias))}</td>
+                    <td>{fmtSignedPct(r.bias)}</td>
                   </tr>
                 ))}
               </tbody>
