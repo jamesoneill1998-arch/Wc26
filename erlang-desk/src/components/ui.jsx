@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import Term from './Term.jsx'
+import { termFor } from '../glossary.js'
 import { signInHref } from '../state/signin.js'
 
 const SHORT_UNITS = { sec: 's', weeks: 'wks', 'per week': 'h/wk', 'working days': 'days', months: 'mo', '% per month': '%/mo' }
@@ -8,6 +10,13 @@ const SHORT_UNITS = { sec: 's', weeks: 'wks', 'per week': 'h/wk', 'working days'
  * `pct` shows fractions as %. The unit sits inside the field; `slider`
  * adds a range control for quick what-if adjustment.
  */
+/** A field's label, with a "?" explanation beside it when the label names a glossary term. */
+function FieldLabel({ fid, label }) {
+  const k = termFor(label)
+  if (!k) return <label htmlFor={fid}>{label}</label>
+  return <span className="field-label"><label htmlFor={fid}>{label}</label><Term k={k} /></span>
+}
+
 export function NumberField({ label, value, onChange, pct = false, step = 1, min, max, hint, suffix, id, disabled, slider = false }) {
   const toText = (v) => (v == null || v === '' ? '' : String(pct ? +(v * 100).toFixed(4) : v))
   const [text, setText] = useState(toText(value))
@@ -24,7 +33,7 @@ export function NumberField({ label, value, onChange, pct = false, step = 1, min
   }
   return (
     <div className="field">
-      <label htmlFor={fid}>{label}</label>
+      <FieldLabel fid={fid} label={label} />
       <div className={`input-unit${unit ? '' : ' bare'}`}>
         <input
           id={fid}
@@ -62,7 +71,7 @@ export function SelectField({ label, value, onChange, options, id, hint }) {
   const fid = id ?? `s-${label.replace(/\W+/g, '-').toLowerCase()}`
   return (
     <div className="field">
-      <label htmlFor={fid}>{label}</label>
+      <FieldLabel fid={fid} label={label} />
       <select id={fid} value={value} onChange={(e) => onChange(e.target.value)}>
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
@@ -75,7 +84,7 @@ export function TextField({ label, value, onChange, id, maxLength = 80, type = '
   const fid = id ?? `t-${label.replace(/\W+/g, '-').toLowerCase()}`
   return (
     <div className="field">
-      <label htmlFor={fid}>{label}</label>
+      <FieldLabel fid={fid} label={label} />
       <input id={fid} type={type} value={value} maxLength={maxLength} placeholder={placeholder} autoComplete={autoComplete} onChange={(e) => onChange(e.target.value)} />
     </div>
   )
@@ -100,7 +109,7 @@ export function Figures({ children }) {
 export function Figure({ label, value, sub, hero, text }) {
   return (
     <div className={`figure${hero ? ' hero' : ''}`}>
-      <div className="flabel">{label}</div>
+      <div className="flabel">{termFor(label) ? <Term k={termFor(label)}>{label}</Term> : label}</div>
       <div className={`value${text ? ' text' : ''}`}>{value}</div>
       {sub && <div className="sub">{sub}</div>}
     </div>

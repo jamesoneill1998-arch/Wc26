@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import Term from '../components/Term.jsx'
 import { formatDate, formatTime, weekStart, WEEKDAYS, weekdayIndex } from '../engine/dates.js'
 import { toCSV } from '../engine/csv.js'
 import { withShrinkage } from '../engine/erlang.js'
@@ -155,7 +156,7 @@ export default function StaffingPage({ active, site, result, replace, account })
         />
         <div className="table-wrap scroll-y" tabIndex={0} role="region" aria-label="Interval detail" style={{ marginTop: 18 }}>
           <table>
-            <thead><tr><th>Interval</th><th>{unit}</th><th>AHT</th><th>Staff</th><th>Rostered</th><th>Service level</th>{isA && <th>Abandon</th>}<th>Occupancy</th></tr></thead>
+            <thead><tr><th>Interval</th><th>{unit}</th><th><Term k="aht">AHT</Term></th><th>Staff</th><th>Rostered</th><th><Term k="service-level">Service level</Term></th>{isA && <th><Term k="abandonment">Abandon</Term></th>}<th><Term k="occupancy">Occupancy</Term></th></tr></thead>
             <tbody>
               {dayCols.map((iv) => (
                 <tr key={iv.time}>

@@ -20,7 +20,7 @@ Forecasting, staffing and capacity planning for contact centres, back offices an
 
 ## Design
 
-The "ledger" look: warm paper, dark green ink, Newsreader (serif) for headings and figures over IBM Plex Sans, square corners and thin rules. Both fonts are self-hosted. All colours are tokens on `:root` in `src/styles.css`, with dark-mode overrides. The landing page is deliberately short; its hero is a live Erlang A example (`LivePlanner` in `src/pages/Landing.jsx`) that staffs a day of half hours as the sliders move. The landing screenshots in `public/screens` and the share image `public/og.png` are captures of the product and need regenerating after a visual change.
+Soft and modern: a pale canvas with white rounded cards and soft shadows, pill buttons, small capital labels, Bricolage Grotesque for headings and figures over Inter for reading, and one green accent. Both fonts are self-hosted. All colours, radii and the card shadow are tokens on `:root` in `src/styles.css`, with dark-mode overrides. The landing page has a centred hero on a soft colour wash, a live Erlang A example (`LivePlanner` in `src/pages/Landing.jsx`) that staffs a day of half hours as the sliders move, three feature rows with product captures, pricing, questions, a closing band and a dark footer. The captures in `public/screens` and the share image `public/og.png` need regenerating after a visual change.
 
 ## Bundle
 
@@ -28,7 +28,7 @@ The landing page ships only the shell, React and the small Erlang functions its 
 
 ## Glossary and search
 
-`public/glossary.html` is a static, indexable glossary of planning terms, linked from the landing footer and the planner's menu. `public/robots.txt` and `public/sitemap.xml` list the public pages (`/api/` is disallowed), each page has a canonical link, and `index.html` carries a small `SoftwareApplication` JSON-LD block. Add new public pages to the sitemap.
+`public/glossary.html` is a static, indexable glossary of planning terms, linked from the landing footer and the planner's menu. `public/robots.txt` and `public/sitemap.xml` list the public pages (`/api/` is disallowed), each page has a canonical link, and `index.html` carries a small `SoftwareApplication` JSON-LD block. Add new public pages to the sitemap. Inside the planner the same wording appears in place: `src/glossary.js` holds the terms and matches field and figure labels to them, and `src/components/Term.jsx` shows the explanation on hover, focus or tap. `test/glossary.test.js` fails if the page and the in-app wording drift apart, so edit both together.
 
 ## Excel report
 

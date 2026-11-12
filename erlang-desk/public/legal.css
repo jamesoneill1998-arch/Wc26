@@ -1,11 +1,11 @@
 /* Privacy, terms and security pages: the site's palette with system fonts. */
-:root { color-scheme: light dark; --canvas: #faf8f3; --paper: #fffefb; --ink: #1b2420; --ink-2: #47524c; --muted: #626c65; --rule: #ddd8cb; --accent: #14532d; }
-@media (prefers-color-scheme: dark) { :root { --canvas: #111512; --paper: #171c18; --ink: #ecebe4; --ink-2: #b8bcb4; --muted: #9aa098; --rule: #29302b; --accent: #8fcfa3; } }
+:root { color-scheme: light dark; --canvas: #f6f8f7; --paper: #ffffff; --ink: #0c1c17; --ink-2: #3f5049; --muted: #5a6b64; --rule: #e1e8e4; --accent: #0b6b4b; }
+@media (prefers-color-scheme: dark) { :root { --canvas: #0a1210; --paper: #101a17; --ink: #e8efec; --ink-2: #b3c0ba; --muted: #94a39c; --rule: #1e2b26; --accent: #6fd3a8; } }
 body { margin: 0; background: var(--canvas); color: var(--ink); font: 16px/1.6 system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; }
-main { max-width: 760px; margin: 32px auto 64px; padding: 36px 40px 48px; background: var(--paper); border: 1px solid var(--rule); border-radius: 0; }
+main { max-width: 760px; margin: 32px auto 64px; padding: 36px 40px 48px; background: var(--paper); border: 1px solid var(--rule); border-radius: 16px; }
 @media (max-width: 640px) { main { margin: 0; padding: 24px 16px 48px; border: 0; border-radius: 0; } }
 a { color: var(--accent); }
-h1 { font: 500 40px/1.1 Georgia, "Times New Roman", serif; letter-spacing: -0.015em; margin: 18px 0 6px; }
+h1 { font-size: 36px; line-height: 1.1; font-weight: 650; letter-spacing: -0.03em; margin: 18px 0 6px; }
 h2 { font-size: 17px; font-weight: 700; margin: 30px 0 8px; padding-top: 18px; border-top: 1px solid var(--rule); }
 p, li { color: var(--ink-2); }
 li { margin: 4px 0; }

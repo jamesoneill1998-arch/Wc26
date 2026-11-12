@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Term from '../components/Term.jsx'
 import { requiredAgents, metricsFor, withShrinkage } from '../engine/erlang.js'
 import { requiredAgentsA, erlangA } from '../engine/erlangA.js'
 import { siteShrinkage } from '../engine/channels.js'
@@ -42,7 +43,7 @@ export default function Calculator({ ws }) {
       <Panel title="Rostered, by site" aside="Staff on duty grossed up for each site's shrinkage">
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Site</th><th>Shrinkage</th><th>Erlang A</th><th>Erlang C</th></tr></thead>
+            <thead><tr><th>Site</th><th><Term k="shrinkage">Shrinkage</Term></th><th>Erlang A</th><th>Erlang C</th></tr></thead>
             <tbody>
               {ws.sites.map((s) => (
                 <tr key={s.id}>
@@ -60,7 +61,7 @@ export default function Calculator({ ws }) {
       <Panel title="What each extra person buys">
         <div className="table-wrap">
           <table>
-            <thead><tr><th>{k > 1 ? 'Chat slots' : 'Staff'}</th><th>SL · Erlang A</th><th>Abandon</th><th>SL · Erlang C</th><th>ASA · Erlang C</th><th>Occupancy</th></tr></thead>
+            <thead><tr><th>{k > 1 ? 'Chat slots' : 'Staff'}</th><th>SL · Erlang A</th><th><Term k="abandonment">Abandon</Term></th><th>SL · Erlang C</th><th><Term k="asa">ASA · Erlang C</Term></th><th><Term k="occupancy">Occupancy</Term></th></tr></thead>
             <tbody>
               {rows.map((n) => {
                 const ra = erlangA(n, { volume: p.volume, ahtSec: p.ahtSec, intervalSec: args.intervalSec, patienceSec: p.patienceSec, targetSec: p.targetSec })

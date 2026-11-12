@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import Term from '../components/Term.jsx'
 import { HOLIDAY_REGIONS } from '../engine/holidays.js'
 import { METHODS } from '../engine/forecast.js'
 import { formatDate, formatTime, weekStart, WEEKDAYS, weekdayIndex } from '../engine/dates.js'
@@ -154,7 +155,7 @@ export default function ForecastPage({ active, site, result, updateActive, repla
         <Panel title="How each method did" aside={`Last ${forecast.accuracy?.holdoutDays ?? 0} days held out`}>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Method</th><th>Accuracy</th><th>Bias</th></tr></thead>
+              <thead><tr><th>Method</th><th><Term k="forecast-accuracy">Accuracy</Term></th><th><Term k="bias">Bias</Term></th></tr></thead>
               <tbody>
                 {forecast.backtest.map((r) => (
                   <tr key={r.method} className={r.method === forecast.method ? 'hl' : ''}>

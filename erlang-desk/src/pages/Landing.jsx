@@ -66,29 +66,28 @@ function LivePlanner() {
 }
 
 const SCREENS = [
-  { key: 'overview', tab: 'Operation overview', src: 'screens/overview.jpg', w: 2328, h: 788, alt: 'Stacked weekly required FTE by channel against available FTE', caption: 'Required FTE by channel each week, against the people you will have.' },
-  { key: 'coverage', tab: 'Roster coverage', src: 'screens/coverage.jpg', w: 2328, h: 606, alt: 'Heatmap of staff short and over by day and half hour', caption: 'Your roster against the requirement, every half hour. Red is short, blue is over.' },
-  { key: 'impact', tab: 'Change impact', src: 'screens/impact-chart.jpg', w: 2328, h: 800, alt: 'Monthly FTE chart for a mortgage launch against operational FTE', caption: 'A product launch converted to FTE by month and tested against headroom.' },
+  { key: 'overview', src: 'screens/overview.jpg', w: 2328, h: 790, alt: 'Stacked weekly required FTE by channel against available FTE', kicker: 'Capacity', lead: 'See every week, ', strong: 'before it arrives.', text: 'Required FTE by channel against the people you will have, after attrition and new starters.', chip: ['Suggested', 'Hiring classes that close the gaps'] },
+  { key: 'coverage', src: 'screens/coverage.jpg', w: 2328, h: 620, alt: 'Heatmap of staff short and over by day and half hour', kicker: 'Schedule', lead: 'Know where the roster ', strong: 'runs short.', text: 'Your shifts against the requirement, every half hour of the week.', chip: ['Every half hour', 'Short or over'] },
+  { key: 'impact', src: 'screens/impact-chart.jpg', w: 2328, h: 800, alt: 'Monthly FTE chart for a mortgage launch against operational FTE', kicker: 'Change', lead: 'Test a change ', strong: 'before it lands.', text: 'A launch, campaign or training plan converted to FTE and checked against headroom.', chip: ['Verdict', 'Absorbable or short'] },
 ]
 
 function InsideThePlanner() {
-  const [key, setKey] = useState('coverage')
-  const shot = SCREENS.find((x) => x.key === key)
   return (
-    <section className="section alt" id="inside">
-      <div className="wrap">
-        <div className="section-head">
-          <h2>Inside the planner</h2>
-        </div>
-        <div className="seg" role="tablist" aria-label="Screens">
-          {SCREENS.map((x) => (
-            <button key={x.key} type="button" role="tab" aria-selected={x.key === key} className={x.key === key ? 'on' : ''} onClick={() => setKey(x.key)}>{x.tab}</button>
-          ))}
-        </div>
-        <figure className="screen" role="tabpanel">
-          <img key={shot.key} src={shot.src} width={shot.w} height={shot.h} alt={shot.alt} loading="lazy" decoding="async" />
-          <figcaption>{shot.caption}</figcaption>
-        </figure>
+    <section className="section" id="inside">
+      <div className="wrap features">
+        {SCREENS.map((x, n) => (
+          <div className="feature" key={x.key}>
+            <div className="feature-text">
+              <div className="label">{String(n + 1).padStart(2, '0')} · {x.kicker}</div>
+              <h2>{x.lead}<strong>{x.strong}</strong></h2>
+              <p>{x.text}</p>
+            </div>
+            <figure className="shot">
+              <img src={x.src} width={x.w} height={x.h} alt={x.alt} loading="lazy" decoding="async" />
+              <figcaption className="chip"><span>{x.chip[0]}</span><b>{x.chip[1]}</b></figcaption>
+            </figure>
+          </div>
+        ))}
       </div>
     </section>
   )
@@ -143,17 +142,18 @@ export default function Landing({ onToggleTheme, account }) {
       <main id="main" tabIndex={-1}>
       <section className="lp-hero">
         <div className="wrap">
-          <div>
-            <div className="label">Workforce planning for contact centres</div>
-            <h1>The right number of people, <em>every half hour</em> of the year.</h1>
-            <p className="lede">Forecast, staff and hire across voice, chat, back office and branches.</p>
-            <div className="ctas">
-              <a className="btn primary" href="#/app">Open the planner</a>
-              <a className="btn" href="#/app/calculator">Erlang calculator</a>
-            </div>
-            <p className="assure">No sign-up. Your data never leaves your browser.</p>
+          <div className="label">Workforce planning · Voice · Chat · Back office · Branch</div>
+          <h1>The right number of people, <strong>every half hour.</strong></h1>
+          <p className="lede">Forecast, staff and hire for your contact centre, from one plan.</p>
+          <div className="ctas">
+            <a className="btn primary" href="#/app">Open the planner</a>
+            <a className="btn" href="#/app/calculator">Erlang calculator</a>
           </div>
-          <LivePlanner />
+          <p className="assure">No sign-up. Your data never leaves your browser.</p>
+          <div className="stage">
+            <LivePlanner />
+            <div className="chip" aria-hidden="true"><span>Live example</span><b>Move a slider</b></div>
+          </div>
         </div>
       </section>
 
@@ -169,10 +169,11 @@ export default function Landing({ onToggleTheme, account }) {
 
       <InsideThePlanner />
 
-      <section className="section" id="pricing">
+      <section className="section alt" id="pricing">
         <div className="wrap">
           <div className="section-head">
-            <h2>Pricing</h2>
+            <div className="label">Pricing</div>
+            <h2>Simple, <strong>per planner.</strong></h2>
             <p>{pilotMode ? 'From launch. Pilot teams get three months free.' : 'Fourteen-day trial. Billed monthly, cancel any time.'}</p>
           </div>
           <div className="prices">
@@ -189,42 +190,48 @@ export default function Landing({ onToggleTheme, account }) {
         </div>
       </section>
 
-      <section className="section alt" id="pilot">
-        <div className="wrap pilot">
-          <div>
-            <h2>Founding pilot</h2>
-            <p>Three months free, with a working session on your own data.</p>
-          </div>
-          <div className="ctas">
-            {BRAND.contactEmail
-              ? <a className="btn primary" href={`mailto:${BRAND.contactEmail}?subject=Erlang%20Desk%20pilot`}>Apply for the pilot</a>
-              : <a className="btn primary" href="#/app">Explore the sample</a>}
-          </div>
-        </div>
-      </section>
-
       <section className="section" id="faq">
         <div className="wrap faq">
-          <h2 className="sr-only">Questions</h2>
+          <div className="section-head">
+            <div className="label">Questions</div>
+            <h2>Before you <strong>start.</strong></h2>
+          </div>
           {FAQ.map(([q, a]) => (
             <details key={q}>
               <summary>{q}</summary>
               <p>{a}</p>
             </details>
           ))}
-          <p className="small muted" id="security" style={{ marginTop: 18 }}>Your planning data stays in your browser. <a href="security.html">Security overview</a></p>
+          <p className="small muted" id="security">Your planning data stays in your browser. <a href="security.html">Security overview</a></p>
+        </div>
+      </section>
+
+      <section className="closing" id="pilot">
+        <div className="wrap">
+          <div className="label">Founding pilot</div>
+          <h2>Start with <strong>your own numbers.</strong></h2>
+          <p>Three months free, with a working session on your own data.</p>
+          <div className="ctas">
+            {BRAND.contactEmail && <a className="btn primary" href={`mailto:${BRAND.contactEmail}?subject=Erlang%20Desk%20pilot`}>Apply for the pilot</a>}
+            <a className={`btn${BRAND.contactEmail ? '' : ' primary'}`} href="#/app">Explore the sample</a>
+          </div>
         </div>
       </section>
       </main>
 
-      <footer className="wrap colophon">
-        <span>© {new Date().getFullYear()} {BRAND.name}</span>
-        <span className="spacer" />
-        <a href="glossary.html">Glossary</a>
-        <a href="security.html">Security</a>
-        <a href="privacy.html">Privacy</a>
-        <a href="terms.html">Terms</a>
-        {BRAND.contactEmail && <a href={`mailto:${BRAND.contactEmail}`}>Contact</a>}
+      <footer className="site-foot">
+        <div className="wrap">
+          <div>
+            <a className="nameplate" href="#/"><Mark />Erlang Desk</a>
+            <p>Workforce planning for contact centres, back offices and branches.</p>
+          </div>
+          <nav aria-label="Footer">
+            <div><span>Product</span><a href="#/app">Planner</a><a href="#/app/calculator">Erlang calculator</a><a href="#pricing" onClick={jump('pricing')}>Pricing</a></div>
+            <div><span>Resources</span><a href="glossary.html">Glossary</a><a href="security.html">Security</a>{BRAND.contactEmail && <a href={`mailto:${BRAND.contactEmail}`}>Contact</a>}</div>
+            <div><span>Legal</span><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a></div>
+          </nav>
+        </div>
+        <div className="wrap legal-line">© {new Date().getFullYear()} {BRAND.name}</div>
       </footer>
     </div>
   )
