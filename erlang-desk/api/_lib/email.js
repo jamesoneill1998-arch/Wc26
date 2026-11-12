@@ -14,17 +14,17 @@ export async function sendSignInEmail(cfg, to, link) {
   }
   // Table layout and inline styles so it renders the same in Outlook and Gmail.
   const url = escapeHtml(link)
-  const html = `<!doctype html><html><body style="margin:0;padding:0;background:#f6f8f7">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f8f7;padding:32px 12px"><tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border:1px solid #e1e8e4;border-radius:14px;overflow:hidden">
-<tr><td style="background:#0c1c17;padding:18px 28px;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:bold;color:#ffffff">Erlang Desk</td></tr>
-<tr><td style="padding:28px 28px 8px;font-family:Arial,Helvetica,sans-serif;color:#0c1c17">
+  const html = `<!doctype html><html><body style="margin:0;padding:0;background:#fbfbf9">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fbfbf9;padding:32px 12px"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border:1px solid #dcdcd6;border-radius:0;overflow:hidden">
+<tr><td style="background:#101316;padding:18px 28px;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:bold;color:#ffffff">Erlang Desk</td></tr>
+<tr><td style="padding:28px 28px 8px;font-family:Arial,Helvetica,sans-serif;color:#101316">
 <p style="margin:0 0 10px;font-size:22px;font-weight:bold">Sign in to Erlang Desk</p>
 <p style="margin:0 0 24px;font-size:15px;line-height:1.55;color:#3d4753">Use the button below within 15 minutes, in the same browser you asked from.</p>
-<table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="background:#0c1c17;border-radius:999px"><a href="${url}" style="display:inline-block;padding:13px 22px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none">Sign in</a></td></tr></table>
-<p style="margin:24px 0 0;font-size:12.5px;line-height:1.5;color:#6b7683">If the button doesn't work, paste this link into the same browser:<br><a href="${url}" style="color:#0b6b4b;word-break:break-all">${url}</a></p>
+<table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="background:#101316;border-radius:0"><a href="${url}" style="display:inline-block;padding:13px 22px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none">Sign in</a></td></tr></table>
+<p style="margin:24px 0 0;font-size:12.5px;line-height:1.5;color:#6b7683">If the button doesn't work, paste this link into the same browser:<br><a href="${url}" style="color:#101316;word-break:break-all">${url}</a></p>
 </td></tr>
-<tr><td style="padding:20px 28px 26px;font-family:Arial,Helvetica,sans-serif;font-size:12.5px;line-height:1.5;color:#6b7683;border-top:1px solid #f6f8f7">If you didn't ask for this, ignore this email. Nobody can sign in without access to your inbox.</td></tr>
+<tr><td style="padding:20px 28px 26px;font-family:Arial,Helvetica,sans-serif;font-size:12.5px;line-height:1.5;color:#6b7683;border-top:1px solid #fbfbf9">If you didn't ask for this, ignore this email. Nobody can sign in without access to your inbox.</td></tr>
 </table></td></tr></table></body></html>`
   const r = await fetch('https://api.resend.com/emails', {
     method: 'POST',

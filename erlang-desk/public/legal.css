@@ -1,11 +1,11 @@
 /* Privacy, terms and security pages: the site's palette with system fonts. */
-:root { color-scheme: light dark; --canvas: #f6f8f7; --paper: #ffffff; --ink: #0c1c17; --ink-2: #3f5049; --muted: #5a6b64; --rule: #e1e8e4; --accent: #0b6b4b; }
-@media (prefers-color-scheme: dark) { :root { --canvas: #0a1210; --paper: #101a17; --ink: #e8efec; --ink-2: #b3c0ba; --muted: #94a39c; --rule: #1e2b26; --accent: #6fd3a8; } }
+:root { color-scheme: light dark; --canvas: #fbfbf9; --paper: #fbfbf9; --ink: #101316; --ink-2: #444a51; --muted: #62686f; --rule: #dcdcd6; --accent: #101316; }
+@media (prefers-color-scheme: dark) { :root { --canvas: #0f1113; --paper: #0f1113; --ink: #f1f1ee; --ink-2: #b6bbc0; --muted: #9aa0a6; --rule: #272b30; --accent: #f1f1ee; } }
 body { margin: 0; background: var(--canvas); color: var(--ink); font: 16px/1.6 system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; }
-main { max-width: 760px; margin: 32px auto 64px; padding: 36px 40px 48px; background: var(--paper); border: 1px solid var(--rule); border-radius: 16px; }
+main { max-width: 760px; margin: 32px auto 64px; padding: 36px 40px 48px; background: var(--paper); border: 0; border-top: 1px solid var(--ink); border-radius: 0; }
 @media (max-width: 640px) { main { margin: 0; padding: 24px 16px 48px; border: 0; border-radius: 0; } }
 a { color: var(--accent); }
-h1 { font-size: 36px; line-height: 1.1; font-weight: 650; letter-spacing: -0.03em; margin: 18px 0 6px; }
+h1 { font-size: 44px; line-height: 1; font-weight: 800; letter-spacing: -0.045em; margin: 18px 0 6px; }
 h2 { font-size: 17px; font-weight: 700; margin: 30px 0 8px; padding-top: 18px; border-top: 1px solid var(--rule); }
 p, li { color: var(--ink-2); }
 li { margin: 4px 0; }

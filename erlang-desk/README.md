@@ -20,7 +20,11 @@ Forecasting, staffing and capacity planning for contact centres, back offices an
 
 ## Design
 
-Soft and modern: a pale canvas with white rounded cards and soft shadows, pill buttons, small capital labels, Bricolage Grotesque for headings and figures over Inter for reading, and one green accent. Both fonts are self-hosted. All colours, radii and the card shadow are tokens on `:root` in `src/styles.css`, with dark-mode overrides. The landing page has a centred hero on a soft colour wash, a live Erlang A example (`LivePlanner` in `src/pages/Landing.jsx`) that staffs a day of half hours as the sliders move, three feature rows with product captures, pricing, questions, a closing band and a dark footer. The captures in `public/screens` and the share image `public/og.png` need regenerating after a visual change.
+One continuous sheet: ink on off-white, square edges and hairline rules, with no cards, shadows or decorative labels. One heavy grotesque (Hanken Grotesk) with a mono (Spline Sans Mono) for data labels, both self-hosted. The only colour is the data: red for short, blue for over, plus the chart series. Colours are tokens on `:root` in `src/styles.css`, with dark-mode overrides.
+
+The landing page is built around a live week of half hours (`WeekGrid` in `src/pages/Landing.jsx`): seven days by 24 half hours, staffed with the real Erlang A engine as three sliders move, against an example roster. It counts the half hours short, names the worst, reads out any half hour on hover or tap, and switches between short or over, staff needed and calls. Below it are the four planning steps, pricing and the pilot as plain rows, and four questions.
+
+`vite.config.js` sets `assetsInlineLimit: 0`: the Content Security Policy only allows fonts from our own origin, so nothing may be inlined as a `data:` URI. The share image `public/og.png` needs regenerating after a visual change.
 
 ## Bundle
 
