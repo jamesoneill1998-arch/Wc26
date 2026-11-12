@@ -39,3 +39,18 @@ test('round-trips a normal workspace', () => {
   assert.equal(back.services[0].siteId, 'offshore')
   assert.equal(back.services[0].settings.branches, 25)
 })
+
+test('signed percentages never show a negative zero', async () => {
+  const { fmtSignedPct } = await import('../src/format.js')
+  assert.equal(fmtSignedPct(-0.0002), '0.0%')
+  assert.equal(fmtSignedPct(0), '0.0%')
+  assert.equal(fmtSignedPct(0.0372), '+3.7%')
+  assert.equal(fmtSignedPct(-0.08), '−8.0%')
+  assert.equal(fmtSignedPct(NaN), '–')
+})
+
+test('dates read the UK way whatever the browser locale', async () => {
+  const { formatDate } = await import('../src/engine/dates.js')
+  assert.equal(formatDate('2026-11-16'), '16 Nov')
+  assert.equal(formatDate('2026-11-16', { day: 'numeric', month: 'short', year: 'numeric' }), '16 Nov 2026')
+})

@@ -156,7 +156,7 @@ export default function StaffingPage({ active, site, result, replace, account })
         />
         <div className="table-wrap scroll-y" tabIndex={0} role="region" aria-label="Interval detail" style={{ marginTop: 18 }}>
           <table>
-            <thead><tr><th>Interval</th><th>{unit}</th><th><Term k="aht">AHT</Term></th><th>Staff</th><th>Rostered</th><th><Term k="service-level">Service level</Term></th>{isA && <th><Term k="abandonment">Abandon</Term></th>}<th><Term k="occupancy">Occupancy</Term></th></tr></thead>
+            <thead><tr><th>Interval</th><th>{unit[0].toUpperCase() + unit.slice(1)}</th><th><Term k="aht">AHT</Term></th><th>Staff</th><th>Rostered</th><th><Term k="service-level">Service level</Term></th>{isA && <th><Term k="abandonment">Abandon</Term></th>}<th><Term k="occupancy">Occupancy</Term></th></tr></thead>
             <tbody>
               {dayCols.map((iv) => (
                 <tr key={iv.time}>
