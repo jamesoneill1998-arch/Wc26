@@ -4,6 +4,12 @@
 export const BRAND = {
   name: 'Erlang Desk',
   contactEmail: import.meta.env.VITE_CONTACT_EMAIL || '',
+  // Optional customer quote on the landing page; shown only when the quote and a name are both set.
+  testimonial: {
+    quote: (import.meta.env.VITE_TESTIMONIAL_QUOTE || '').trim(),
+    name: (import.meta.env.VITE_TESTIMONIAL_NAME || '').trim(),
+    role: (import.meta.env.VITE_TESTIMONIAL_ROLE || '').trim(),
+  },
 }
 
 export const CURRENCY = import.meta.env.VITE_CURRENCY_SYMBOL || '£'

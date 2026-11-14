@@ -54,3 +54,22 @@ test('dates read the UK way whatever the browser locale', async () => {
   assert.equal(formatDate('2026-11-16'), '16 Nov')
   assert.equal(formatDate('2026-11-16', { day: 'numeric', month: 'short', year: 'numeric' }), '16 Nov 2026')
 })
+
+test('named scenarios are cleaned on load', () => {
+  const ws = emptyWorkspace()
+  const svc = { ...newService({ name: 'A' }), scenarios: [
+    { id: 'ok', name: '  Launch  ', demand: 0.15, aht: 0.05, shrinkage: 0.4, attrition: null },
+    { id: '<bad id>', name: 5, demand: 99, aht: 'x', shrinkage: 3, attrition: -1 },
+    'junk', null, ...Array.from({ length: 10 }, (_, i) => ({ id: `s${i}`, name: `S${i}`, demand: 0, aht: 0 })),
+  ] }
+  const out = sanitizeWorkspace({ ...ws, services: [svc], activeServiceId: svc.id }).services[0].scenarios
+  assert.equal(out.length, 6)
+  assert.deepEqual(out[0], { id: 'ok', name: 'Launch', demand: 0.15, aht: 0.05, shrinkage: 0.4, attrition: null })
+  assert.equal(out[1].name, 'Scenario')
+  assert.equal(out[1].demand, 2)
+  assert.equal(out[1].aht, 0)
+  assert.equal(out[1].shrinkage, 0.9)
+  assert.equal(out[1].attrition, 0)
+  assert.match(out[1].id, /^[a-z0-9]+$/)
+  assert.deepEqual(sanitizeWorkspace({ ...ws, services: [newService({ name: 'B' })] }).services[0].scenarios, [])
+})
