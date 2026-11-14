@@ -7,7 +7,8 @@
 // `sanitizeWorkspace`, which rebuilds it from known fields only.
 
 import { HOLIDAY_REGIONS } from '../engine/holidays.js'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
+import { markChanged } from './backup.js'
 import { CHANNELS, defaultServiceSettings, defaultSites, SHRINKAGE_COMPONENTS } from '../engine/channels.js'
 
 const KEY = 'erlang-desk:workspace:v2'
@@ -414,6 +415,13 @@ export function clearStoredWorkspace() {
 export function useWorkspace() {
   const [ws, setWs] = useState(load)
   const [saveError, setSaveError] = useState(null)
+  // Note when the plan itself changes (not just which service is on screen), for the backup reminder.
+  const prev = useRef(ws)
+  useEffect(() => {
+    const before = prev.current
+    prev.current = ws
+    if (before !== ws && Object.keys(ws).some((k) => k !== 'activeServiceId' && k !== 'activeAreaId' && ws[k] !== before[k])) markChanged()
+  }, [ws])
   useEffect(() => {
     const t = setTimeout(() => {
       try {
@@ -421,7 +429,7 @@ export function useWorkspace() {
         localStorage.removeItem(LEGACY_KEY)
         setSaveError(null)
       } catch {
-        setSaveError('This browser could not save your workspace (storage full or blocked). Export it from the Data page to keep it.')
+        setSaveError('This browser could not save your workspace (storage full or blocked). Export it from Account & workspace to keep it.')
       }
     }, 250)
     return () => clearTimeout(t)

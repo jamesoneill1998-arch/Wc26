@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Term from '../components/Term.jsx'
 import { CHANNELS, siteShrinkage } from '../engine/channels.js'
 import { readChecklist, setChecklistHidden, checklistItems } from '../state/checklist.js'
+import { readBackup, backupStatus, snoozeBackup } from '../state/backup.js'
 import { formatDate } from '../engine/dates.js'
 import { PageHead, Figures, Figure, Gap, Panel, Sparkline } from '../components/ui.jsx'
 import { assessChange, monthLabel } from '../engine/impact.js'
@@ -119,6 +120,22 @@ function FirstPlan({ ws, active, onHide }) {
   )
 }
 
+/** A nudge to export the plan, since it lives only in this browser. */
+function BackupReminder({ ws, canExport }) {
+  const [state, setState] = useState(readBackup)
+  const status = backupStatus(state, Date.now(), ws.services.some((s) => s.history))
+  if (!status.due || !canExport) return null
+  return (
+    <div className="notice ok backup no-print" role="status">
+      <span><b>Your plan is saved in this browser only.</b> {status.never ? 'It has not been backed up yet.' : `It was last backed up ${status.days} days ago and has changed since.`} Export a copy to keep it safe.</span>
+      <span className="row">
+        <button className="btn sm primary" type="button" onClick={() => { exportWorkspace(ws); setState(readBackup()) }}>Export plan</button>
+        <button className="btn sm" type="button" onClick={() => { snoozeBackup(); setState(readBackup()) }}>Not now</button>
+      </span>
+    </div>
+  )
+}
+
 export default function Overview({ ws, model, replace, update, account, active, isSample, onChecklistHide }) {
   if (!ws.services.length) return <NoServices title="Overview" replace={replace} account={account} />
   const sites = new Map(ws.sites.map((s) => [s.id, s]))
@@ -144,6 +161,7 @@ export default function Overview({ ws, model, replace, update, account, active, 
         {account?.entitled && next && <button className="btn no-print" type="button" onClick={() => exportReport(ws, model)} title="The whole plan as an Excel workbook: summary, services, weekly capacity, scenarios, hiring, forecast and changes">Excel report</button>}
         {account?.entitled && <button className="btn no-print" type="button" onClick={() => exportWorkspace(ws)} title="Save the whole plan as a file to back up or share">Export plan</button>}
       </PageHead>
+      {!isSample && <BackupReminder ws={ws} canExport={!!account?.entitled} />}
       {!isSample && <FirstPlan ws={ws} active={active} onHide={onChecklistHide} />}
       {next ? (
         <Figures>

@@ -4,12 +4,16 @@ import { buildSampleWorkspace } from '../state/sample.js'
 import { downloadText, downloadBlob } from '../format.js'
 import { buildWorkbook } from '../engine/xlsx.js'
 import { buildReport } from '../state/report.js'
+import { markBackedUp } from '../state/backup.js'
 
 /** Save the whole workspace as a file, to back up or hand to a colleague. */
 const safeName = (s) => String(s).replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'plan'
 /** The whole plan as an Excel workbook. */
 export const exportReport = (ws, model) => downloadBlob(`erlang-desk-${safeName(ws.name)}-${new Date().toISOString().slice(0, 10)}.xlsx`, new Blob([buildWorkbook(buildReport(ws, model))], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
-export const exportWorkspace = (ws) => downloadText(`erlang-desk-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(ws), 'application/json')
+export const exportWorkspace = (ws) => {
+  downloadText(`erlang-desk-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(ws), 'application/json')
+  markBackedUp()
+}
 
 /** Open a workspace file a colleague exported (Data → Export workspace). */
 function OpenSharedPlan({ replace }) {
@@ -18,7 +22,10 @@ function OpenSharedPlan({ replace }) {
   const open = async (file) => {
     if (!file) return
     if (file.size > 50 * 1024 * 1024) return setError('That file is too large to be a workspace.')
-    try { replace(JSON.parse(await file.text())) } catch { setError('That file is not an Erlang Desk workspace export.') }
+    try {
+      replace(JSON.parse(await file.text()))
+      setTimeout(markBackedUp, 100) // the plan now matches a file they hold
+    } catch { setError('That file is not an Erlang Desk workspace export.') }
   }
   return (
     <div className="module start">
