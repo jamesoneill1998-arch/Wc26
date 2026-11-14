@@ -4,6 +4,7 @@ import { PageHead, Panel, TextField, ConfirmButton, Locked } from '../components
 import { clearStoredWorkspace, emptyWorkspace } from '../state/store.js'
 import { buildSampleWorkspace } from '../state/sample.js'
 import { exportWorkspace } from './common.jsx'
+import { readBackup, markBackedUp, backupStatus } from '../state/backup.js'
 import { signInHref } from '../state/signin.js'
 
 function SignIn({ plan }) {
@@ -76,11 +77,14 @@ export default function AccountPage({ account, query, replace, ws, update }) {
 
   const wsRef = useRef(null)
   const [wsMsg, setWsMsg] = useState(null)
+  const [backup, setBackup] = useState(readBackup)
+  const status = backupStatus(backup)
   const importWorkspace = async (file) => {
     if (!file) return
     if (file.size > 50 * 1024 * 1024) return setWsMsg({ ok: false, text: 'That file is too large to be a workspace.' })
     try {
       replace(JSON.parse(await file.text()))
+      setTimeout(() => { markBackedUp(); setBackup(readBackup()) }, 100) // the plan now matches a file they hold
       setWsMsg({ ok: true, text: 'Workspace opened.' })
     } catch {
       setWsMsg({ ok: false, text: 'That file is not an Erlang Desk workspace export.' })
@@ -141,11 +145,12 @@ export default function AccountPage({ account, query, replace, ws, update }) {
           {wsMsg && <p className={`status${wsMsg.ok ? ' good' : ' bad'}`} role="status">{wsMsg.text}</p>}
           {account.entitled ? (
             <div className="row">
-              <button className="btn" type="button" onClick={() => exportWorkspace(ws)}>Export workspace</button>
+              <button className="btn" type="button" onClick={() => { exportWorkspace(ws); setBackup(readBackup()) }}>Export workspace</button>
               <button className="btn" type="button" onClick={() => wsRef.current?.click()}>Import workspace</button>
               <input ref={wsRef} type="file" accept=".json,application/json" hidden onChange={(e) => { importWorkspace(e.target.files[0]); e.target.value = '' }} />
             </div>
           ) : <Locked account={account} what="Exporting and importing workspaces" />}
+          <p className="small" role="status">{status.never ? 'Not backed up from this browser yet.' : `Last backed up ${status.days === 0 ? 'today' : status.days === 1 ? 'yesterday' : `${status.days} days ago`}${backup.changedAt ? ', with changes since' : ''}.`}</p>
           <p className="muted small" style={{ marginTop: 6 }}>On a shared computer, erase the data when you finish.</p>
           <div className="row">
             <ConfirmButton className="btn sm" confirmLabel="Click again to replace your workspace" onConfirm={() => replace(buildSampleWorkspace())}>Load the sample operation</ConfirmButton>

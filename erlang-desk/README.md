@@ -34,6 +34,10 @@ The landing page ships only the shell, React and the small Erlang functions its 
 
 The landing page shows a customer quote above pricing when `VITE_TESTIMONIAL_QUOTE` and `VITE_TESTIMONIAL_NAME` are set (`VITE_TESTIMONIAL_ROLE` is optional); with them unset nothing is rendered. `public/404.html` is the branded page Vercel serves for an unknown address.
 
+## Backup reminder
+
+Plans live only in the planner's browser, so `src/state/backup.js` tracks (per browser, in `erlang-desk:backup`) when the plan last changed and when it was last exported. The Overview shows a reminder when a changed plan has never been exported, or was last exported a week or more ago; "Not now" quiets it for a week. Exporting or opening a workspace file clears it. It is not shown on the sample operation, and Account & workspace states when the plan was last backed up.
+
 ## Glossary and search
 
 `public/glossary.html` is a static, indexable glossary of planning terms, linked from the landing footer and the planner's menu. `public/robots.txt` and `public/sitemap.xml` list the public pages (`/api/` is disallowed), each page has a canonical link, and `index.html` carries a small `SoftwareApplication` JSON-LD block. Add new public pages to the sitemap. Inside the planner the same wording appears in place: `src/glossary.js` holds the terms and matches field and figure labels to them, and `src/components/Term.jsx` shows the explanation on hover, focus or tap. `test/glossary.test.js` fails if the page and the in-app wording drift apart, so edit both together.
