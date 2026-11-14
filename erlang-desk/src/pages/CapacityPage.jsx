@@ -2,7 +2,8 @@ import { useState } from 'react'
 import Term from '../components/Term.jsx'
 import { formatDate } from '../engine/dates.js'
 import { toCSV } from '../engine/csv.js'
-import { PageHead, Figures, Figure, NumberField, SelectField, Gap, Panel, LoadingPage, Segmented } from '../components/ui.jsx'
+import { PageHead, Figures, Figure, NumberField, SelectField, TextField, Gap, Panel, LoadingPage, Segmented } from '../components/ui.jsx'
+import { MAX_SCENARIOS } from '../state/store.js'
 import { LineChart, GapChart, Legend } from '../components/charts.jsx'
 import { downloadText, fmtInt, fmt1, fmtPct } from '../format.js'
 import { NoServices, NeedsHistory, serviceEyebrow } from './common.jsx'
@@ -15,6 +16,7 @@ export default function CapacityPage({ active, site, result, updateActive, updat
   const [newWeek, setNewWeek] = useState('')
   const [newCount, setNewCount] = useState(10)
   const [view, setView] = useState('gap')
+  const [draft, setDraft] = useState({ name: '', demand: 0, aht: 0, shrinkage: null, attrition: null })
   if (!active) return <NoServices title="Capacity plan" replace={replace} account={account} />
   const eyebrow = serviceEyebrow(active, site)
   if (!active.history) return <NeedsHistory title="Capacity plan" eyebrow={eyebrow} />
@@ -36,6 +38,30 @@ export default function CapacityPage({ active, site, result, updateActive, updat
   const worst = sim.reduce((m, w) => (w.gap < m.gap ? w : m), sim[0])
   const lead = c.trainingWeeks + c.nestingWeeks
   const attrition = result.capacity.monthlyAttrition
+
+  const own = active.scenarios ?? []
+  const full = own.length >= MAX_SCENARIOS
+  const near = (x, y) => Math.abs(x - y) < 1e-6
+  const addScenario = (e) => {
+    e.preventDefault()
+    if (!draft.name.trim() || full) return
+    const sc = {
+      id: Math.random().toString(36).slice(2, 10), name: draft.name.trim(), demand: draft.demand, aht: draft.aht,
+      // Left at the current value means "follow the plan", so later changes to the site still apply.
+      shrinkage: draft.shrinkage == null || near(draft.shrinkage, s.shrinkage) ? null : draft.shrinkage,
+      attrition: draft.attrition == null || near(draft.attrition, attrition) ? null : draft.attrition,
+    }
+    updateService(active.id, (svc) => ({ scenarios: [...(svc.scenarios ?? []), sc] }))
+    setDraft({ name: '', demand: 0, aht: 0, shrinkage: null, attrition: null })
+  }
+  const removeScenario = (id) => updateService(active.id, (svc) => ({ scenarios: (svc.scenarios ?? []).filter((x) => x.id !== id) }))
+  const signed = (v) => `${v > 0 ? '+' : '−'}${fmtPct(Math.abs(v), 0)}`
+  const scenarioDetail = (sc) => (sc.key === 'plan' ? 'Your forecast and assumptions' : [
+    sc.demand !== 0 && `Demand ${signed(sc.demand)}`,
+    sc.aht && `handle time ${signed(sc.aht)}`,
+    sc.custom && !near(sc.shrinkage, s.shrinkage) && `shrinkage ${fmtPct(sc.shrinkage, 0)}`,
+    !near(sc.attrition, attrition) && `attrition ${fmtPct(sc.attrition, 1)} a month`,
+  ].filter(Boolean).join(', ').replace(/^[a-z]/, (c) => c.toUpperCase()) || 'Same as the plan')
 
   const exportCsv = () => downloadText(`erlang-desk-capacity-${active.name}.csv`, toCSV([
     { label: 'week_commencing', get: (w) => w.week },
@@ -143,22 +169,32 @@ export default function CapacityPage({ active, site, result, updateActive, updat
         <Panel title="Scenarios" aside={<div style={{ width: 150 }}><NumberField label="Demand swing" pct step={1} min={1} max={50} value={plan.scenarioPct ?? 0.1} onChange={(scenarioPct) => setPlan({ scenarioPct })} /></div>}>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Scenario</th><th>Average position</th><th>Worst week</th><th>Weeks short</th><th>Extra hires to close</th><th className="text">First class starts</th></tr></thead>
+              <thead><tr><th>Scenario</th><th>Average position</th><th>Worst week</th><th>Weeks short</th><th>Extra hires to close</th><th className="text">First class starts</th><th className="no-print"><span className="sr-only">Actions</span></th></tr></thead>
               <tbody>
                 {result.scenarios.map((sc) => (
                   <tr key={sc.key} className={sc.key === 'plan' ? 'hl' : ''}>
-                    <td style={{ whiteSpace: 'normal' }}><b>{SCENARIO_LABEL[sc.key]}</b><div className="small faint">{sc.key === 'plan' ? 'Your forecast and assumptions' : [sc.demand !== 0 && `Demand ${sc.demand > 0 ? '+' : '−'}${fmtPct(Math.abs(sc.demand), 0)}`, sc.attrition !== attrition && `attrition ${fmtPct(sc.attrition, 1)} a month`].filter(Boolean).join(', ').replace(/^a/, 'A')}</div></td>
+                    <td style={{ whiteSpace: 'normal' }}><b>{sc.custom ? sc.name : SCENARIO_LABEL[sc.key]}</b><div className="small faint">{scenarioDetail(sc)}</div></td>
                     <td><Gap value={sc.avgGap} unit="" /></td>
                     <td><Gap value={sc.worstGap} unit="" />{sc.worstWeek && <div className="small faint">w/c {formatDate(sc.worstWeek)}</div>}</td>
                     <td>{sc.weeksShort} of {sim.length}</td>
                     <td>{sc.extraHires > 0 ? `${sc.extraHires} in ${sc.classes} class${sc.classes === 1 ? '' : 'es'}` : 'None'}</td>
                     <td className="text">{sc.firstClass ? formatDate(sc.firstClass, { day: 'numeric', month: 'short', year: 'numeric' }) : '–'}</td>
+                    <td className="text no-print">{sc.custom && <button className="btn link" type="button" aria-label={`Remove ${sc.name}`} onClick={() => removeScenario(sc.id)}>Remove</button>}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <p className="small faint" style={{ marginTop: 10 }}>Each line keeps your planned classes and shows the extra hiring that would close the remaining gaps. Demand cases are re-staffed interval by interval from the scaled forecast. Higher attrition is your site rate plus half.</p>
+          <p className="small faint" style={{ marginTop: 10 }}>Each line keeps your planned classes and shows the extra hiring that would close the remaining gaps. Demand cases are re-staffed interval by interval from the scaled forecast. Higher attrition is your site rate plus half. Your own scenarios are saved with this service.</p>
+          <form className="scenario-form no-print" onSubmit={addScenario}>
+            <TextField label="Your own scenario" placeholder="Such as: Mortgage launch" value={draft.name} maxLength={60} onChange={(name) => setDraft({ ...draft, name })} />
+            <NumberField label="Demand change" id="sc-demand" pct step={1} min={-90} max={200} value={draft.demand} onChange={(demand) => setDraft({ ...draft, demand })} />
+            <NumberField label="Handle time change" id="sc-aht" pct step={1} min={-90} max={200} value={draft.aht} onChange={(aht) => setDraft({ ...draft, aht })} />
+            <NumberField label="Shrinkage in this case" id="sc-shrink" pct step={1} min={0} max={90} value={draft.shrinkage ?? s.shrinkage} onChange={(shrinkage) => setDraft({ ...draft, shrinkage })} />
+            <NumberField label="Attrition in this case" id="sc-att" pct step={0.1} min={0} max={50} value={draft.attrition ?? attrition} onChange={(v) => setDraft({ ...draft, attrition: v })} />
+            <button className="btn" type="submit" disabled={!draft.name.trim() || full}>Save scenario</button>
+          </form>
+          {full && <p className="small faint no-print">Up to {MAX_SCENARIOS} of your own scenarios for each service. Remove one to add another.</p>}
         </Panel>
       )}
 

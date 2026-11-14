@@ -177,6 +177,13 @@ export default function Landing({ onToggleTheme, account }) {
           ))}
         </section>
 
+        {BRAND.testimonial.quote && BRAND.testimonial.name && (
+          <figure className="lp-quote">
+            <blockquote>{BRAND.testimonial.quote}</blockquote>
+            <figcaption><b>{BRAND.testimonial.name}</b>{BRAND.testimonial.role && <span>{BRAND.testimonial.role}</span>}</figcaption>
+          </figure>
+        )}
+
         <section className="lp-rows" id="pricing">
           <h2 className="sr-only">Pricing</h2>
           {PLANS.map((p) => (

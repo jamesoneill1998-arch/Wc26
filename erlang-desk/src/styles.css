@@ -644,6 +644,9 @@ select { text-overflow: ellipsis; }
 @media (max-width: 900px) { .nav a.active { box-shadow: none; } }
 @media (max-width: 600px) { .figure, .figure + .figure { padding: 12px 12px 14px 0; border-left: 0; border-top: 1px solid var(--rule); margin: 0; } .figure:nth-child(even) { padding-left: 12px; border-left: 1px solid var(--rule); } .figure:nth-child(-n+2) { border-top: 0; } .figure .value, .figure.hero .value { font-size: 28px; } }
 
+.scenario-form { display: grid; grid-template-columns: minmax(180px, 1.4fr) repeat(4, minmax(120px, 1fr)) auto; gap: 14px; align-items: end; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--rule); }
+@media (max-width: 1100px) { .scenario-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } .scenario-form .field:first-child { grid-column: 1 / -1; } }
+
 /* Landing: the week of half hours is the page */
 .lp .masthead nav a:not(.btn) { color: var(--ink-2); }
 .lp-head { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 40px; align-items: end; padding-block: 48px 36px; }
@@ -680,6 +683,11 @@ select { text-overflow: ellipsis; }
 .lp-steps .k { font: 400 12px var(--mono); color: var(--muted); }
 .lp-steps h3 { margin: 26px 0 6px; font-size: 26px; line-height: 1.1; font-weight: 800; letter-spacing: -0.03em; }
 .lp-steps p { color: var(--ink-2); font-size: 15px; }
+.lp-quote { margin: 88px 0 0; padding-top: 28px; border-top: 1px solid var(--ink); display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(0, 1fr); gap: 40px; align-items: end; }
+.lp-quote blockquote { margin: 0; font-size: clamp(26px, 3.4vw, 44px); line-height: 1.08; font-weight: 800; letter-spacing: -0.035em; text-wrap: balance; }
+.lp-quote figcaption { display: flex; flex-direction: column; gap: 2px; font-size: 15px; }
+.lp-quote figcaption span { color: var(--ink-2); }
+@media (max-width: 860px) { .lp-quote { grid-template-columns: minmax(0, 1fr); gap: 18px; margin-top: 56px; } }
 .lp-rows { margin-top: 88px; border-top: 1px solid var(--ink); }
 .lp-rows .price { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 0.8fr) minmax(0, 1.8fr) auto; gap: 24px; align-items: baseline; padding-block: 20px; border-bottom: 1px solid var(--rule); }
 .lp-rows h3 { margin: 0; font-size: 26px; line-height: 1.1; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }

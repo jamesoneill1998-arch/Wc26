@@ -69,8 +69,13 @@ export function computeService(service, site, cache = createCache()) {
   // attrition half as high again. Demand cases are re-staffed from the scaled
   // forecast, interval by interval.
   const swing = plan.scenarioPct ?? 0.1
-  const weeksAt = (factor) => (factor === 1 ? weeks : memo(cache, `${fKey}|r|${JSON.stringify(s)}|${plan.ahtAdjustPct}|x${factor}`, () =>
-    weeklyRequirements(intervalRequirements(forecast.points.map((p) => ({ ...p, volume: p.volume * factor })), profiles, ahtByWeekday, s, { ahtAdjustPct: plan.ahtAdjustPct }), s).filter((w) => !w.partial)))
+  const weeksAt = (factor, ahtPct = 0, shrinkage = null) => {
+    if (factor === 1 && !ahtPct && shrinkage == null) return weeks
+    const s2 = shrinkage == null ? s : { ...s, shrinkage }
+    const aht = (1 + plan.ahtAdjustPct) * (1 + ahtPct) - 1
+    return memo(cache, `${fKey}|r|${JSON.stringify(s2)}|${aht}|x${factor}`, () =>
+      weeklyRequirements(intervalRequirements(forecast.points.map((p) => ({ ...p, volume: p.volume * factor })), profiles, ahtByWeekday, s2, { ahtAdjustPct: aht }), s2).filter((w) => !w.partial))
+  }
   const highAttrition = { ...capacity, monthlyAttrition: Math.min(0.5, capacity.monthlyAttrition * 1.5) }
   const scenarios = [
     { key: 'plan', demand: 0, attrition: capacity.monthlyAttrition, ...scenarioSummary(weeks, capacity, service.hires) },
@@ -78,6 +83,15 @@ export function computeService(service, site, cache = createCache()) {
     { key: 'low', demand: -swing, attrition: capacity.monthlyAttrition, ...scenarioSummary(weeksAt(1 - swing), capacity, service.hires) },
     { key: 'attrition', demand: 0, attrition: highAttrition.monthlyAttrition, ...scenarioSummary(weeks, highAttrition, service.hires) },
     { key: 'both', demand: swing, attrition: highAttrition.monthlyAttrition, ...scenarioSummary(weeksAt(1 + swing), highAttrition, service.hires) },
+    // The planner's own named cases, saved with the service.
+    ...(service.scenarios ?? []).map((sc) => {
+      const cap = sc.attrition == null ? capacity : { ...capacity, monthlyAttrition: sc.attrition }
+      return {
+        key: `custom:${sc.id}`, custom: true, id: sc.id, name: sc.name,
+        demand: sc.demand, aht: sc.aht, shrinkage: sc.shrinkage ?? s.shrinkage, attrition: cap.monthlyAttrition,
+        ...scenarioSummary(weeksAt(1 + sc.demand, sc.aht, sc.shrinkage), cap, service.hires),
+      }
+    }),
   ]
   return {
     serviceId: service.id,

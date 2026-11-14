@@ -40,6 +40,7 @@ export function newService({ name, channel = 'voice', siteId = 'uk' } = {}) {
     plan: { ...DEFAULT_PLAN },
     capacity: defaultCapacity(channel),
     hires: [],
+    scenarios: [],
     history: null,
     excludedDays: [],
     schedule: emptySchedule(),
@@ -286,6 +287,20 @@ function sanitizeExcluded(list) {
   return [...seen.values()].sort((a, b) => (a.date < b.date ? -1 : 1))
 }
 
+export const MAX_SCENARIOS = 6
+/** A planner's named what-if: demand and handle-time changes, with optional shrinkage and attrition of its own. */
+function sanitizeScenarios(list) {
+  if (!Array.isArray(list)) return []
+  return list.filter((x) => x && typeof x === 'object').slice(0, MAX_SCENARIOS).map((x) => ({
+    id: typeof x.id === 'string' && /^[a-z0-9-]{1,40}$/i.test(x.id) ? x.id : newId(),
+    name: str(x.name, 60, '').trim() || 'Scenario',
+    demand: num(x.demand, -0.9, 2, 0),
+    aht: num(x.aht, -0.9, 2, 0),
+    shrinkage: x.shrinkage == null ? null : num(x.shrinkage, 0, 0.9, null),
+    attrition: x.attrition == null ? null : num(x.attrition, 0, 0.5, null),
+  }))
+}
+
 function sanitizeService(svc, siteIds) {
   if (!svc || typeof svc !== 'object') return null
   const channel = CHANNELS[svc.channel] ? svc.channel : 'voice'
@@ -317,6 +332,7 @@ function sanitizeService(svc, siteIds) {
     hires: Array.isArray(svc.hires)
       ? svc.hires.filter((h) => h && ISO.test(h.week) && Number.isFinite(h.count)).slice(0, 200).map((h) => ({ week: h.week, count: Math.round(num(h.count, 1, 10000, 1)) }))
       : [],
+    scenarios: sanitizeScenarios(svc.scenarios),
     history: sanitizeHistory(svc.history),
     excludedDays: sanitizeExcluded(svc.excludedDays),
     schedule: sanitizeSchedule(svc.schedule),

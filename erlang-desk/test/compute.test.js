@@ -92,3 +92,26 @@ test('capacity scenarios: demand and attrition move the plan the right way', () 
   const avgReq = r.weeks.reduce((t, w) => t + w.requiredFte, 0) / r.weeks.length
   assert.ok(reqPlan > 0.05 * avgReq && reqPlan < 0.13 * avgReq, `${reqPlan} vs ${avgReq}`)
 })
+
+test('named scenarios: saved cases are re-staffed with their own demand, handle time, shrinkage and attrition', () => {
+  const base = { ...service('voice-uk', 'voice', 'uk'), plan: { method: 'auto', horizonWeeks: 26, volumeAdjustPct: 0, ahtAdjustPct: 0, scenarioPct: 0.1 } }
+  const svc = { ...base, scenarios: [
+    { id: 'same', name: 'Same as plan', demand: 0, aht: 0, shrinkage: null, attrition: null },
+    { id: 'tenup', name: 'Ten up', demand: 0.1, aht: 0, shrinkage: null, attrition: null },
+    { id: 'aht', name: 'Longer calls', demand: 0, aht: 0.1, shrinkage: null, attrition: null },
+    { id: 'shr', name: 'More shrinkage', demand: 0, aht: 0, shrinkage: 0.45, attrition: null },
+    { id: 'att', name: 'Leavers', demand: 0, aht: 0, shrinkage: null, attrition: 0.06 },
+  ] }
+  const r = computeWorkspace({ sites: defaultSites(), services: [svc] }).services['voice-uk']
+  const by = Object.fromEntries(r.scenarios.map((x) => [x.key, x]))
+  assert.equal(r.scenarios.length, 10)
+  assert.equal(by['custom:tenup'].name, 'Ten up')
+  // No change: identical to the plan. +10% demand: identical to the built-in higher-demand case.
+  assert.ok(Math.abs(by['custom:same'].avgGap - by.plan.avgGap) < 1e-9)
+  assert.ok(Math.abs(by['custom:tenup'].avgGap - by.high.avgGap) < 1e-9)
+  for (const k of ['custom:aht', 'custom:shr', 'custom:att']) assert.ok(by[k].avgGap < by.plan.avgGap - 0.5, k)
+  assert.equal(by['custom:shr'].shrinkage, 0.45)
+  assert.equal(by['custom:att'].attrition, 0.06)
+  // A service saved before scenarios existed still computes.
+  assert.equal(computeWorkspace({ sites: defaultSites(), services: [base] }).services['voice-uk'].scenarios.length, 5)
+})
