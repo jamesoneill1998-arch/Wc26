@@ -9,6 +9,7 @@
 import { HOLIDAY_REGIONS } from '../engine/holidays.js'
 import { useCallback, useEffect, useState, useRef } from 'react'
 import { markChanged } from './backup.js'
+import { describeLoss } from './undo.js'
 import { CHANNELS, defaultServiceSettings, defaultSites, SHRINKAGE_COMPONENTS } from '../engine/channels.js'
 
 const KEY = 'erlang-desk:workspace:v2'
@@ -428,12 +429,16 @@ export function clearStoredWorkspace() {
 export function useWorkspace() {
   const [ws, setWs] = useState(load)
   const [saveError, setSaveError] = useState(null)
+  const [undo, setUndo] = useState(null)
   // Note when the plan itself changes (not just which service is on screen), for the backup reminder.
   const prev = useRef(ws)
   useEffect(() => {
     const before = prev.current
     prev.current = ws
     if (before !== ws && Object.keys(ws).some((k) => k !== 'activeServiceId' && k !== 'activeAreaId' && ws[k] !== before[k])) markChanged()
+    // Something was deleted: keep what was there, so it can be offered back.
+    const label = describeLoss(before, ws)
+    if (label) setUndo({ ws: before, label, id: Date.now() })
   }, [ws])
   useEffect(() => {
     const t = setTimeout(() => {
@@ -460,7 +465,14 @@ export function useWorkspace() {
   const replace = useCallback((next) => setWs(sanitizeWorkspace(next)), [])
 
   const active = ws.services.find((s) => s.id === ws.activeServiceId) ?? ws.services[0] ?? null
-  return { ws, active, update, updateService, updateSite, replace, saveError }
+  const undoRef = useRef(null)
+  undoRef.current = undo
+  const undoLast = useCallback(() => {
+    if (undoRef.current) setWs(undoRef.current.ws)
+    setUndo(null)
+  }, [])
+  const dismissUndo = useCallback(() => setUndo(null), [])
+  return { ws, active, update, updateService, updateSite, replace, saveError, undo, undoLast, dismissUndo }
 }
 
 /** Keep only recent interval rows: profiles use the last 8 weeks. */

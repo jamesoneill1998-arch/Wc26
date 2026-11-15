@@ -93,6 +93,23 @@ function useNarrow() {
   return narrow
 }
 
+/** Offered after a deletion. Stays for 20 seconds, and for as long as the pointer or keyboard focus is on it. */
+function UndoBar({ undo, onUndo, onDismiss }) {
+  const [held, setHeld] = useState(false)
+  useEffect(() => {
+    if (held) return
+    const t = setTimeout(onDismiss, 20000)
+    return () => clearTimeout(t)
+  }, [held, onDismiss])
+  return (
+    <div className="undo-bar no-print" role="status" onMouseEnter={() => setHeld(true)} onMouseLeave={() => setHeld(false)} onFocus={() => setHeld(true)} onBlur={() => setHeld(false)}>
+      <span>{undo.label}.</span>
+      <button className="btn sm" type="button" onClick={onUndo}>Undo</button>
+      <button className="btn link" type="button" onClick={onDismiss}>Dismiss</button>
+    </div>
+  )
+}
+
 /** Previous and next planning step, at the foot of each service page. */
 function StepNav({ current, label }) {
   const i = STEPS.findIndex(([k]) => k === current)
@@ -219,6 +236,7 @@ export default function App() {
         {store.saveError && <div className="notice" style={{ marginBottom: 20 }}>{store.saveError}</div>}
         {error && <div className="notice" style={{ marginBottom: 20 }}>The planning model hit a problem: {error}</div>}
         {tourStep != null && <Tour step={tourStep} setStep={setTourStep} />}
+        {store.undo && <UndoBar key={store.undo.id} undo={store.undo} onUndo={store.undoLast} onDismiss={store.dismissUndo} />}
         <Suspense fallback={<div className="skel skel-board" role="status" aria-label="Loading" />}>
           <Page key={key === 'overview' ? `overview-${checklistShown}` : key} {...store} isSample={isSample} onChecklistHide={() => bumpFoot((n) => n + 1)} model={model} account={account} query={route.query} result={active ? model.services[active.id] : null} updateActive={(patch) => active && updateService(active.id, patch)} site={site} />
         </Suspense>
