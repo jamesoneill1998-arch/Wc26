@@ -42,6 +42,7 @@ export function newService({ name, channel = 'voice', siteId = 'uk' } = {}) {
     capacity: defaultCapacity(channel),
     hires: [],
     scenarios: [],
+    forecastSnapshot: null,
     history: null,
     excludedDays: [],
     schedule: emptySchedule(),
@@ -288,6 +289,13 @@ function sanitizeExcluded(list) {
   return [...seen.values()].sort((a, b) => (a.date < b.date ? -1 : 1))
 }
 
+/** The forecast kept from before the latest import, so it can be compared with what then happened. */
+function sanitizeSnapshot(x) {
+  if (!x || typeof x !== 'object' || !ISO.test(x.madeOn) || !Array.isArray(x.points)) return null
+  const points = x.points.filter((p) => p && ISO.test(p.date) && typeof p.volume === 'number' && Number.isFinite(p.volume)).slice(0, 400).map((p) => ({ date: p.date, volume: Math.min(1e9, Math.max(0, p.volume)) }))
+  return points.length ? { madeOn: x.madeOn, method: str(x.method, 80, ''), points } : null
+}
+
 export const MAX_SCENARIOS = 6
 /** A planner's named what-if: demand and handle-time changes, with optional shrinkage and attrition of its own. */
 function sanitizeScenarios(list) {
@@ -334,6 +342,7 @@ function sanitizeService(svc, siteIds) {
       ? svc.hires.filter((h) => h && ISO.test(h.week) && Number.isFinite(h.count)).slice(0, 200).map((h) => ({ week: h.week, count: Math.round(num(h.count, 1, 10000, 1)) }))
       : [],
     scenarios: sanitizeScenarios(svc.scenarios),
+    forecastSnapshot: sanitizeSnapshot(svc.forecastSnapshot),
     history: sanitizeHistory(svc.history),
     excludedDays: sanitizeExcluded(svc.excludedDays),
     schedule: sanitizeSchedule(svc.schedule),

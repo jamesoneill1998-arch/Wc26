@@ -73,3 +73,14 @@ test('named scenarios are cleaned on load', () => {
   assert.match(out[1].id, /^[a-z0-9]+$/)
   assert.deepEqual(sanitizeWorkspace({ ...ws, services: [newService({ name: 'B' })] }).services[0].scenarios, [])
 })
+
+test('a kept forecast is cleaned on load', () => {
+  const ws = emptyWorkspace()
+  const good = { madeOn: '2026-11-01', method: 'x'.repeat(200), points: [{ date: '2026-11-02', volume: 100 }, { date: 'bad', volume: 1 }, { date: '2026-11-03', volume: -5 }, null] }
+  const out = sanitizeWorkspace({ ...ws, services: [{ ...newService({ name: 'A' }), forecastSnapshot: good }] }).services[0].forecastSnapshot
+  assert.deepEqual(out.points, [{ date: '2026-11-02', volume: 100 }, { date: '2026-11-03', volume: 0 }])
+  assert.equal(out.method.length, 80)
+  for (const bad of [null, 'x', { madeOn: 'nope', points: [] }, { madeOn: '2026-11-01', points: [] }]) {
+    assert.equal(sanitizeWorkspace({ ...ws, services: [{ ...newService({ name: 'A' }), forecastSnapshot: bad }] }).services[0].forecastSnapshot, null)
+  }
+})

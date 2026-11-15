@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { forecastSnapshot } from '../engine/forecast.js'
 import { parseHistoryCSV, toCSV, MAX_IMPORT_BYTES } from '../engine/csv.js'
 import { formatDate, formatTime } from '../engine/dates.js'
 import { unusualDays } from '../engine/forecast.js'
@@ -182,7 +183,7 @@ function UnusualDays({ active, site, days, unit, updateActive }) {
   )
 }
 
-export default function DataPage({ ws, active, site, updateActive, replace, account }) {
+export default function DataPage({ ws, active, site, result, updateActive, replace, account }) {
   const [msg, setMsg] = useState(null)
   const [over, setOver] = useState(false)
   const [pending, setPending] = useState(null) // a chosen file being checked before import: { text, name, columns, queue }
@@ -193,7 +194,12 @@ export default function DataPage({ ws, active, site, updateActive, replace, acco
 
   const commit = (res, source) => {
     if (!res.rows.length) return setMsg({ ok: false, text: res.errors.join(' ') || 'No rows found.' })
-    updateActive({ history: historyFrom(res.kind, res.rows, source.slice(0, 120)), hires: [] })
+    const history = historyFrom(res.kind, res.rows, source.slice(0, 120))
+    // Newer data arriving: keep the forecast made before it, to show later how it did.
+    const was = h?.dailyRows?.at(-1)?.date
+    const now = history.dailyRows.at(-1)?.date
+    const snap = was && now > was ? forecastSnapshot(result?.forecast, was) : null
+    updateActive({ history, hires: [], ...(snap ? { forecastSnapshot: snap } : {}) })
     const c = res.columns
     const read = [`dates${c.time ? '' : res.kind === 'interval' ? ' and times' : ''} from "${c.date}"`, c.time && `times from "${c.time}"`, `volume from "${c.volume}"`, c.aht && `handle time from "${c.aht}"`].filter(Boolean).join(', ')
     const skipped = res.errors.length ? ` ${res.errors.length >= 10 ? '10 or more' : res.errors.length} rows were skipped, e.g. ${res.errors[0]}` : ''
@@ -259,7 +265,7 @@ export default function DataPage({ ws, active, site, updateActive, replace, acco
           </div>
           {h && (
             <div style={{ marginTop: 6 }}>
-              <ConfirmButton className="btn sm" confirmLabel="Click again to clear" onConfirm={() => updateActive({ history: null, hires: [], excludedDays: [] })}>Clear this service's history</ConfirmButton>
+              <ConfirmButton className="btn sm" confirmLabel="Click again to clear" onConfirm={() => updateActive({ history: null, hires: [], excludedDays: [], forecastSnapshot: null })}>Clear this service's history</ConfirmButton>
             </div>
           )}
         </div>
