@@ -89,7 +89,9 @@ export function computeService(service, site, cache = createCache()) {
       return {
         key: `custom:${sc.id}`, custom: true, id: sc.id, name: sc.name,
         demand: sc.demand, aht: sc.aht, shrinkage: sc.shrinkage ?? s.shrinkage, attrition: cap.monthlyAttrition,
-        ...scenarioSummary(weeksAt(1 + sc.demand, sc.aht, sc.shrinkage), cap, service.hires),
+        // Its own hiring plan, when it has one, takes the place of the planned classes.
+        ownHires: sc.hires ? sc.hires.reduce((t, h) => t + h.count, 0) : null, ownClasses: sc.hires ? sc.hires.length : null,
+        ...scenarioSummary(weeksAt(1 + sc.demand, sc.aht, sc.shrinkage), cap, sc.hires ?? service.hires),
       }
     }),
   ]

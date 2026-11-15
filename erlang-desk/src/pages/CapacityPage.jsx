@@ -16,6 +16,9 @@ export default function CapacityPage({ active, site, result, updateActive, updat
   const [newWeek, setNewWeek] = useState('')
   const [newCount, setNewCount] = useState(10)
   const [view, setView] = useState('gap')
+  const [editing, setEditing] = useState(null)
+  const [scWeek, setScWeek] = useState('')
+  const [scCount, setScCount] = useState(10)
   const [draft, setDraft] = useState({ name: '', demand: 0, aht: 0, shrinkage: null, attrition: null })
   if (!active) return <NoServices title="Capacity plan" replace={replace} account={account} />
   const eyebrow = serviceEyebrow(active, site)
@@ -54,6 +57,8 @@ export default function CapacityPage({ active, site, result, updateActive, updat
     updateService(active.id, (svc) => ({ scenarios: [...(svc.scenarios ?? []), sc] }))
     setDraft({ name: '', demand: 0, aht: 0, shrinkage: null, attrition: null })
   }
+  const edited = own.find((x) => x.id === editing) ?? null
+  const setScenarioHires = (id, hires) => updateService(active.id, (svc) => ({ scenarios: (svc.scenarios ?? []).map((x) => (x.id === id ? { ...x, hires } : x)) }))
   const removeScenario = (id) => updateService(active.id, (svc) => ({ scenarios: (svc.scenarios ?? []).filter((x) => x.id !== id) }))
   const signed = (v) => `${v > 0 ? '+' : '−'}${fmtPct(Math.abs(v), 0)}`
   const scenarioDetail = (sc) => (sc.key === 'plan' ? 'Your forecast and assumptions' : [
@@ -61,6 +66,7 @@ export default function CapacityPage({ active, site, result, updateActive, updat
     sc.aht && `handle time ${signed(sc.aht)}`,
     sc.custom && !near(sc.shrinkage, s.shrinkage) && `shrinkage ${fmtPct(sc.shrinkage, 0)}`,
     !near(sc.attrition, attrition) && `attrition ${fmtPct(sc.attrition, 1)} a month`,
+    sc.ownClasses != null && (sc.ownClasses ? `own hiring plan: ${sc.ownHires} in ${sc.ownClasses} class${sc.ownClasses === 1 ? '' : 'es'}` : 'own hiring plan: no classes'),
   ].filter(Boolean).join(', ').replace(/^[a-z]/, (c) => c.toUpperCase()) || 'Same as the plan')
 
   const exportCsv = () => downloadText(`erlang-desk-capacity-${active.name}.csv`, toCSV([
@@ -179,13 +185,36 @@ export default function CapacityPage({ active, site, result, updateActive, updat
                     <td>{sc.weeksShort} of {sim.length}</td>
                     <td>{sc.extraHires > 0 ? `${sc.extraHires} in ${sc.classes} class${sc.classes === 1 ? '' : 'es'}` : 'None'}</td>
                     <td className="text">{sc.firstClass ? formatDate(sc.firstClass, { day: 'numeric', month: 'short', year: 'numeric' }) : '–'}</td>
-                    <td className="text no-print">{sc.custom && <button className="btn link" type="button" aria-label={`Remove ${sc.name}`} onClick={() => removeScenario(sc.id)}>Remove</button>}</td>
+                    <td className="text no-print">{sc.custom && <span className="row" style={{ gap: 14, flexWrap: 'nowrap' }}><button className="btn link" type="button" aria-expanded={editing === sc.id} aria-label={`Hiring plan for ${sc.name}`} onClick={() => setEditing(editing === sc.id ? null : sc.id)}>Classes</button><button className="btn link" type="button" aria-label={`Remove ${sc.name}`} onClick={() => removeScenario(sc.id)}>Remove</button></span>}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <p className="small faint" style={{ marginTop: 10 }}>Each line keeps your planned classes and shows the extra hiring that would close the remaining gaps. Demand cases are re-staffed interval by interval from the scaled forecast. Higher attrition is your site rate plus half. Your own scenarios are saved with this service.</p>
+          <p className="small faint" style={{ marginTop: 10 }}>Each line keeps your planned classes and shows the extra hiring that would close the remaining gaps. Demand cases are re-staffed interval by interval from the scaled forecast. Higher attrition is your site rate plus half. Your own scenarios are saved with this service, and can carry a hiring plan of their own.</p>
+          {edited && (
+            <div className="scenario-hires no-print">
+              <h3>Hiring plan for {edited.name}</h3>
+              {edited.hires == null ? (
+                <p className="small muted">This scenario follows your planned classes. Give it a hiring plan of its own to compare a different one.</p>
+              ) : edited.hires.length === 0 ? (
+                <p className="small muted">Its own hiring plan, with no classes yet: the scenario shows the position with no new starters.</p>
+              ) : (
+                <ul>
+                  {edited.hires.map((h) => (
+                    <li key={h.week}>{h.count} starting {formatDate(h.week, { day: 'numeric', month: 'short', year: 'numeric' })} <button className="btn link" type="button" aria-label={`Remove the class starting ${formatDate(h.week)}`} onClick={() => setScenarioHires(edited.id, edited.hires.filter((x) => x.week !== h.week))}>Remove</button></li>
+                  ))}
+                </ul>
+              )}
+              <div className="row" style={{ alignItems: 'flex-end' }}>
+                <div style={{ width: 190 }}><SelectField label="Class starts" id="sc-class-week" value={scWeek || weekOpts[0].value} onChange={setScWeek} options={weekOpts} /></div>
+                <div style={{ width: 96 }}><NumberField label="Hires" id="sc-class-count" min={1} value={scCount} onChange={(v) => setScCount(Math.round(v))} /></div>
+                <button className="btn sm" type="button" onClick={() => { const week = scWeek || weekOpts[0].value; const rest = (edited.hires ?? []).filter((x) => x.week !== week); setScenarioHires(edited.id, [...rest, { week, count: ((edited.hires ?? []).find((x) => x.week === week)?.count ?? 0) + scCount }].sort((x, y) => (x.week < y.week ? -1 : 1))) }}>Add class</button>
+                {edited.hires == null && active.hires.length > 0 && <button className="btn sm" type="button" onClick={() => setScenarioHires(edited.id, active.hires.map((h) => ({ ...h })))}>Start from planned classes</button>}
+                {edited.hires != null && <button className="btn sm" type="button" onClick={() => setScenarioHires(edited.id, null)}>Follow planned classes</button>}
+              </div>
+            </div>
+          )}
           <form className="scenario-form no-print" onSubmit={addScenario}>
             <TextField label="Your own scenario" placeholder="Such as: Mortgage launch" value={draft.name} maxLength={60} onChange={(name) => setDraft({ ...draft, name })} />
             <NumberField label="Demand change" id="sc-demand" pct step={1} min={-90} max={200} value={draft.demand} onChange={(demand) => setDraft({ ...draft, demand })} />

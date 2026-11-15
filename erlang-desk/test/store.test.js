@@ -64,7 +64,7 @@ test('named scenarios are cleaned on load', () => {
   ] }
   const out = sanitizeWorkspace({ ...ws, services: [svc], activeServiceId: svc.id }).services[0].scenarios
   assert.equal(out.length, 6)
-  assert.deepEqual(out[0], { id: 'ok', name: 'Launch', demand: 0.15, aht: 0.05, shrinkage: 0.4, attrition: null })
+  assert.deepEqual(out[0], { id: 'ok', name: 'Launch', demand: 0.15, aht: 0.05, shrinkage: 0.4, attrition: null, hires: null })
   assert.equal(out[1].name, 'Scenario')
   assert.equal(out[1].demand, 2)
   assert.equal(out[1].aht, 0)
@@ -83,4 +83,17 @@ test('a kept forecast is cleaned on load', () => {
   for (const bad of [null, 'x', { madeOn: 'nope', points: [] }, { madeOn: '2026-11-01', points: [] }]) {
     assert.equal(sanitizeWorkspace({ ...ws, services: [{ ...newService({ name: 'A' }), forecastSnapshot: bad }] }).services[0].forecastSnapshot, null)
   }
+})
+
+test('a scenario\'s own hiring plan is cleaned on load', () => {
+  const ws = emptyWorkspace()
+  const svc = { ...newService({ name: 'A' }), scenarios: [
+    { id: 'a', name: 'A', demand: 0, aht: 0, hires: [{ week: '2026-11-16', count: 7.6 }, { week: 'bad', count: 2 }, null] },
+    { id: 'b', name: 'B', demand: 0, aht: 0, hires: [] },
+    { id: 'c', name: 'C', demand: 0, aht: 0, hires: 'x' },
+  ] }
+  const out = sanitizeWorkspace({ ...ws, services: [svc] }).services[0].scenarios
+  assert.deepEqual(out[0].hires, [{ week: '2026-11-16', count: 8 }])
+  assert.deepEqual(out[1].hires, [])
+  assert.equal(out[2].hires, null)
 })
