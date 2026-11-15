@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { compareForecast } from '../engine/forecast.js'
 import Term from '../components/Term.jsx'
 import { HOLIDAY_REGIONS } from '../engine/holidays.js'
 import { METHODS } from '../engine/forecast.js'
@@ -58,6 +59,7 @@ export default function ForecastPage({ active, site, result, updateActive, repla
   const [heatWeek, setHeatWeek] = useState(null)
   const daily = active?.history?.dailyRows ?? []
   const forecast = result?.forecast
+  const past = useMemo(() => compareForecast(active?.forecastSnapshot, daily, new Set((active?.excludedDays ?? []).map((x) => x.date))), [active?.forecastSnapshot, daily, active?.excludedDays])
   const chartRows = useMemo(() => {
     if (!forecast?.points?.length) return []
     if (grain === 'weekly') {
@@ -149,6 +151,32 @@ export default function ForecastPage({ active, site, result, updateActive, repla
 
       {active.channel !== 'backoffice' && result?.dayReqs?.length > 0 && (
         <IntervalHeatmap dayReqs={result.dayReqs} unit={unit} intervalMin={result.settings.intervalMin} week={heatWeek} setWeek={setHeatWeek} />
+      )}
+
+      {past && (
+        <Panel title="How the last forecast did" aside={`${past.days} days, ${formatDate(past.from)} to ${formatDate(past.to, { day: 'numeric', month: 'short', year: 'numeric' })}`}>
+          <p style={{ marginBottom: 14 }}>
+            The forecast made from data up to {formatDate(past.madeOn, { day: 'numeric', month: 'long', year: 'numeric' })} was <b>{fmtPct(1 - past.wape)} accurate</b> day by day.
+            {' '}It forecast {fmtInt(past.forecast)} {unit} and {fmtInt(past.actual)} arrived: {Math.abs(past.bias) < 0.0005 ? 'level overall' : <b>{fmtPct(Math.abs(past.bias))} {past.bias > 0 ? 'over' : 'under'}</b>}.
+          </p>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Week of</th><th>Days</th><th>Forecast</th><th>Actual</th><th>Difference</th></tr></thead>
+              <tbody>
+                {past.weeks.map((w) => (
+                  <tr key={w.week}>
+                    <td>{formatDate(w.week, { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                    <td>{w.days}</td>
+                    <td>{fmtInt(w.forecast)}</td>
+                    <td>{fmtInt(w.actual)}</td>
+                    <td>{w.diff == null ? '–' : fmtSignedPct(w.diff)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="small faint" style={{ marginTop: 10 }}>Kept from before your latest import{past.method ? ` (${past.method})` : ''}. Days you left out of the forecast are left out here too.</p>
+        </Panel>
       )}
 
       <div className="cols">

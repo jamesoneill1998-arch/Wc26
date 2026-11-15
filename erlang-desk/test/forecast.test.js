@@ -50,3 +50,25 @@ test('planner overlay scales the forecast', () => {
 test('too little history returns an error', () => {
   assert.ok(forecastDaily([{ date: '2026-01-01', volume: 1 }]).error)
 })
+
+test('forecast against actuals: a kept forecast is scored on the days that have since arrived', async () => {
+  const { forecastSnapshot, compareForecast } = await import('../src/engine/forecast.js')
+  const points = Array.from({ length: 28 }, (_, i) => ({ date: new Date(Date.UTC(2026, 10, 2 + i)).toISOString().slice(0, 10), volume: 100, low: 80, high: 120 }))
+  const snap = forecastSnapshot({ methodLabel: 'Same day last week', points }, '2026-11-01')
+  assert.equal(snap.points.length, 28)
+  assert.deepEqual(Object.keys(snap.points[0]), ['date', 'volume'])
+  assert.equal(forecastSnapshot(null, '2026-11-01'), null)
+  // Two weeks of actuals, all 10% above the forecast.
+  const actuals = points.slice(0, 14).map((p) => ({ date: p.date, volume: 110 }))
+  const r = compareForecast(snap, actuals)
+  assert.equal(r.days, 14)
+  assert.equal(r.from, '2026-11-02')
+  assert.equal(r.to, '2026-11-15')
+  assert.ok(Math.abs(r.wape - 10 / 110) < 1e-9)
+  assert.ok(Math.abs(r.bias - (1400 - 1540) / 1540) < 1e-9) // negative: it under-forecast
+  assert.deepEqual(r.weeks.map((w) => [w.week, w.days, w.forecast, w.actual]), [['2026-11-02', 7, 700, 770], ['2026-11-09', 7, 700, 770]])
+  // Left-out days are ignored; under a week of overlap gives nothing.
+  assert.equal(compareForecast(snap, actuals, new Set(['2026-11-02'])).days, 13)
+  assert.equal(compareForecast(snap, actuals.slice(0, 6)), null)
+  assert.equal(compareForecast(null, actuals), null)
+})

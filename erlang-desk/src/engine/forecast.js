@@ -4,7 +4,7 @@
 // accurate one (lowest WAPE) is selected automatically. Planners can still
 // override the choice. Everything here is deterministic and dependency-free.
 
-import { addDays, daysBetween, weekdayIndex, parseISODate } from './dates.js'
+import { addDays, daysBetween, weekdayIndex, parseISODate, weekStart } from './dates.js'
 
 /**
  * Turn sparse {date, volume} rows into a contiguous daily series.
@@ -85,6 +85,44 @@ export function bias(actual, forecast) {
   const a = actual.reduce((s, v) => s + v, 0)
   const f = forecast.reduce((s, v) => s + v, 0)
   return a > 0 ? (f - a) / a : 0
+}
+
+/** What to keep of a forecast so it can be judged once the actuals arrive. */
+export function forecastSnapshot(forecast, madeOn) {
+  if (!forecast?.points?.length || !madeOn) return null
+  return { madeOn, method: String(forecast.methodLabel ?? '').slice(0, 80), points: forecast.points.slice(0, 400).map((p) => ({ date: p.date, volume: Math.round(p.volume * 10) / 10 })) }
+}
+
+/**
+ * How an earlier forecast did against the actuals that have since arrived.
+ * @param snapshot  { madeOn, method, points: [{ date, volume }] }
+ * @param dailyRows the service's history now
+ * @param excluded  dates the planner left out (outages), ignored here too
+ * @returns null when fewer than seven days overlap
+ */
+export function compareForecast(snapshot, dailyRows, excluded = new Set()) {
+  if (!snapshot?.points?.length) return null
+  const actuals = new Map(dailyRows.map((r) => [r.date, r.volume]))
+  const pairs = snapshot.points.filter((p) => actuals.has(p.date) && !excluded.has(p.date)).map((p) => ({ date: p.date, forecast: p.volume, actual: actuals.get(p.date) }))
+  if (pairs.length < 7) return null
+  const weeks = new Map()
+  for (const p of pairs) {
+    const k = weekStart(p.date)
+    const w = weeks.get(k) ?? { week: k, days: 0, forecast: 0, actual: 0 }
+    w.days++
+    w.forecast += p.forecast
+    w.actual += p.actual
+    weeks.set(k, w)
+  }
+  const a = pairs.map((p) => p.actual)
+  const f = pairs.map((p) => p.forecast)
+  return {
+    madeOn: snapshot.madeOn, method: snapshot.method,
+    days: pairs.length, from: pairs[0].date, to: pairs[pairs.length - 1].date,
+    forecast: f.reduce((s, v) => s + v, 0), actual: a.reduce((s, v) => s + v, 0),
+    wape: wape(a, f), bias: bias(a, f),
+    weeks: [...weeks.values()].map((w) => ({ ...w, diff: w.actual > 0 ? (w.forecast - w.actual) / w.actual : null })),
+  }
 }
 
 // ── Methods ─────────────────────────────────────────────────────────────────

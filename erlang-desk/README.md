@@ -34,6 +34,10 @@ The landing page ships only the shell, React and the small Erlang functions its 
 
 The landing page shows a customer quote above pricing when `VITE_TESTIMONIAL_QUOTE` and `VITE_TESTIMONIAL_NAME` are set (`VITE_TESTIMONIAL_ROLE` is optional); with them unset nothing is rendered. `public/404.html` is the branded page Vercel serves for an unknown address.
 
+## Forecast against actuals
+
+When a newer export is imported for a service, the forecast made from the older data is kept with the service (`forecastSnapshot`, up to 400 days of daily points). The Forecast page then shows how it did on the days that now have actuals: accuracy (1 − WAPE), over or under overall, and a week-by-week table (`compareForecast` in `src/engine/forecast.js`). It needs at least seven overlapping days, ignores days left out of the forecast, and is cleared with the service's history.
+
 ## Backup reminder
 
 Plans live only in the planner's browser, so `src/state/backup.js` tracks (per browser, in `erlang-desk:backup`) when the plan last changed and when it was last exported. The Overview shows a reminder when a changed plan has never been exported, or was last exported a week or more ago; "Not now" quiets it for a week. Exporting or opening a workspace file clears it. It is not shown on the sample operation, and Account & workspace states when the plan was last backed up.
