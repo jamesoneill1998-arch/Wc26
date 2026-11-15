@@ -8,18 +8,25 @@ import Tour, { tourSeen } from './components/Tour.jsx'
 import { markPageSeen, readChecklist, setChecklistHidden } from './state/checklist.js'
 import Landing from './pages/Landing.jsx'
 // The planner's pages load on demand, so the landing page ships without them.
-const Overview = lazy(() => import('./pages/Overview.jsx'))
-const DataPage = lazy(() => import('./pages/DataPage.jsx'))
-const ForecastPage = lazy(() => import('./pages/ForecastPage.jsx'))
-const StaffingPage = lazy(() => import('./pages/StaffingPage.jsx'))
-const CoveragePage = lazy(() => import('./pages/CoveragePage.jsx'))
-const ImpactPage = lazy(() => import('./pages/ImpactPage.jsx'))
-const CapacityPage = lazy(() => import('./pages/CapacityPage.jsx'))
-const ServicePage = lazy(() => import('./pages/ServicePage.jsx'))
-const SitesPage = lazy(() => import('./pages/SitesPage.jsx'))
-const Calculator = lazy(() => import('./pages/Calculator.jsx'))
-const AccountPage = lazy(() => import('./pages/AccountPage.jsx'))
-const SignInPage = lazy(() => import('./pages/SignInPage.jsx'))
+// If a page's file is gone (a new release went out while this tab was open), reload once to pick up the new one.
+const page = (load) => lazy(() => load().catch((err) => {
+  try {
+    if (!sessionStorage.getItem('erlang-desk:reloaded')) { sessionStorage.setItem('erlang-desk:reloaded', '1'); window.location.reload() }
+  } catch { /* storage blocked */ }
+  throw err
+}))
+const Overview = page(() => import('./pages/Overview.jsx'))
+const DataPage = page(() => import('./pages/DataPage.jsx'))
+const ForecastPage = page(() => import('./pages/ForecastPage.jsx'))
+const StaffingPage = page(() => import('./pages/StaffingPage.jsx'))
+const CoveragePage = page(() => import('./pages/CoveragePage.jsx'))
+const ImpactPage = page(() => import('./pages/ImpactPage.jsx'))
+const CapacityPage = page(() => import('./pages/CapacityPage.jsx'))
+const ServicePage = page(() => import('./pages/ServicePage.jsx'))
+const SitesPage = page(() => import('./pages/SitesPage.jsx'))
+const Calculator = page(() => import('./pages/Calculator.jsx'))
+const AccountPage = page(() => import('./pages/AccountPage.jsx'))
+const SignInPage = page(() => import('./pages/SignInPage.jsx'))
 
 const PAGES = {
   overview: Overview,
