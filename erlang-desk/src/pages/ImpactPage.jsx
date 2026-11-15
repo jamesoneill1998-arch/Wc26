@@ -275,6 +275,7 @@ function ChangeRegister({ ws, area, ctx, update, account }) {
     setSelId(c.id)
   }
   if (!changes.length) {
+    if (embedded) return null
     return (
       <div className="panel empty">
         <h2>No changes logged for {area.name}</h2>
@@ -422,7 +423,7 @@ function ChangeRegister({ ws, area, ctx, update, account }) {
 }
 
 /** Everything a change board needs for one area, on paper: the register, the combined picture and one section per change. */
-function ChangePack({ ws, area, site, ctx }) {
+function ChangePack({ ws, area, site, ctx, embedded = false }) {
   const [copied, setCopied] = useState(null)
   const changes = ws.changes.filter((c) => c.areaId === area.id && c.status !== 'rejected')
   const results = useMemo(() => Object.fromEntries(changes.map((c) => [c.id, assessChange(c, area, ws.changes, ctx)])), [changes, area, ws.changes, ctx])
@@ -472,11 +473,11 @@ function ChangePack({ ws, area, site, ctx }) {
   }
 
   return (
-    <div className="stack pack">
-      <Panel title={`Change-board pack: ${area.name}`} aside={
+    <div className={`stack pack${embedded ? ' area-pack' : ''}`}>
+      <Panel title={embedded ? area.name : `Change-board pack: ${area.name}`} aside={
         <div className="row no-print">
           <button className="btn sm" type="button" onClick={copy}>Copy as text</button>
-          <button className="btn sm primary" type="button" onClick={() => window.print()}>Print or save as PDF</button>
+          {!embedded && <button className="btn sm primary" type="button" onClick={() => window.print()}>Print or save as PDF</button>}
         </div>
       }>
         <p className="muted">{ws.name} · {CHANNELS[area.channel].label} · {site?.name} · {period} · prepared {today}</p>
@@ -607,6 +608,75 @@ function ChangePack({ ws, area, site, ctx }) {
   )
 }
 
+const areaCtx = (ws, a) => {
+  const site = ws.sites.find((s) => s.id === a.siteId) ?? ws.sites[0]
+  return { site, ctx: { shrinkage: a.settings.shrinkageOverride ?? siteShrinkage(site), weeklyHours: site?.fteHoursPerWeek ?? 37.5 } }
+}
+
+/** The pack for one area, or one paper covering every area with a summary first. */
+function PackView({ ws, area, site, ctx }) {
+  const [scope, setScope] = useState('area')
+  const many = ws.areas.length > 1
+  return (
+    <>
+      {many && (
+        <div className="row no-print">
+          <Segmented label="Pack covers" value={scope} onChange={setScope} options={[{ value: 'area', label: `${area.name} only` }, { value: 'all', label: 'All areas' }]} />
+        </div>
+      )}
+      {many && scope === 'all' ? <AllAreasPack ws={ws} /> : <ChangePack ws={ws} area={area} site={site} ctx={ctx} />}
+    </>
+  )
+}
+
+function AllAreasPack({ ws }) {
+  const now = thisMonth()
+  const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+  const rows = useMemo(() => ws.areas.map((a) => {
+    const { site, ctx } = areaCtx(ws, a)
+    const changes = ws.changes.filter((c) => c.areaId === a.id && c.status !== 'rejected')
+    return { a, site, ctx, changes, all: combinedPlan(a, ws.changes, ctx) }
+  }), [ws])
+  const withChanges = rows.filter((r) => r.changes.length)
+  const open = rows.reduce((t, r) => t + r.all.proposedCount, 0)
+  const cost = rows.reduce((t, r) => t + r.all.cost, 0)
+  const short = rows.filter((r) => r.all.verdict === 'short').length
+  return (
+    <div className="stack pack">
+      <Panel title="Change-board pack: all areas" aside={<div className="row no-print"><button className="btn sm primary" type="button" onClick={() => window.print()}>Print or save as PDF</button></div>}>
+        <p className="muted">{ws.name} · {rows.length} areas · prepared {today}</p>
+      </Panel>
+      <Figures>
+        <Figure label="For decision" value={open} sub={`Across ${withChanges.length} area${withChanges.length === 1 ? '' : 's'} with changes`} />
+        <Figure label="Areas short if all approved" value={`${short} of ${rows.length}`} sub={short ? 'Need extra resource beyond overtime' : 'Every area can absorb its proposals'} />
+        <Figure label="Incremental cost" value={`${CURRENCY}${fmtInt(cost)}`} sub="Open proposals, all areas" />
+      </Figures>
+      <Panel title="Areas at a glance">
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Area</th><th className="text">Channel and site</th><th>For decision</th><th>Combined shortfall</th><th className="text">Recruit</th><th>Cost</th><th className="text">If all approved</th></tr></thead>
+            <tbody>
+              {rows.map(({ a, site, changes, all }) => (
+                <tr key={a.id}>
+                  <td><b>{a.name}</b></td>
+                  <td className="text">{CHANNELS[a.channel].label} · {site?.name}</td>
+                  <td>{all.proposedCount}</td>
+                  <td>{all.peakShortfall > 0.05 ? fmt1(all.peakShortfall) : '–'}</td>
+                  <td className="text">{all.hireBy ? `${all.hireCount} FTE by ${monthLabel(all.hireBy, true)}${all.hireBy < now ? ' (already late)' : ''}` : '–'}</td>
+                  <td>{CURRENCY}{fmtInt(all.cost)}</td>
+                  <td className="text">{!changes.length ? <span className="faint">No changes logged</span> : all.proposedCount ? <Verdict v={all.verdict} /> : <span className="faint">Nothing open</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="small faint" style={{ marginTop: 10 }}>Each area is tested on its own: the combined position if every open proposal for that area is approved. A section for each area with changes follows.</p>
+      </Panel>
+      {withChanges.map(({ a, site, ctx }) => <ChangePack key={a.id} ws={ws} area={a} site={site} ctx={ctx} embedded />)}
+    </div>
+  )
+}
+
 export default function ImpactPage({ ws, update, replace, model, account, query }) {
   const [tab, setTab] = useState(['plan', 'pack'].includes(query?.get('tab')) ? query.get('tab') : 'changes')
   const area = ws.areas.find((a) => a.id === ws.activeAreaId) ?? ws.areas[0]
@@ -659,7 +729,7 @@ export default function ImpactPage({ ws, update, replace, model, account, query 
       </div>
       {tab === 'plan' && <AggregatePlan ws={ws} area={area} site={site} ctx={ctx} plan={plan} setArea={setArea} update={update} model={model} />}
       {tab === 'changes' && <ChangeRegister key={area.id} ws={ws} area={area} ctx={ctx} update={update} account={account} />}
-      {tab === 'pack' && <ChangePack ws={ws} area={area} site={site} ctx={ctx} />}
+      {tab === 'pack' && <PackView ws={ws} area={area} site={site} ctx={ctx} />}
     </div>
   )
 }

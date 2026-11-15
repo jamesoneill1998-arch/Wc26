@@ -515,6 +515,7 @@ input.slider { padding: 0; border: 0; background: none; height: 22px; accent-col
   .pack .panel { break-inside: auto; padding: 14px 16px; } /* long sections may run over a page; rows and charts stay whole */
   .pack .chart, .pack .panel-head, .pack h2 { break-inside: avoid; break-after: avoid; }
   .pack-points { font-size: 10pt; }
+  .pack .area-pack { break-before: page; }
   .pack .legend { break-after: avoid; }
   .pack table { font-size: 8.5pt; }
   .pack .verdict { white-space: nowrap; }
