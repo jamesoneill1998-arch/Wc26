@@ -40,8 +40,8 @@ export function buildReport(ws, model, { today = new Date().toISOString().slice(
     rows: planned.flatMap(({ svc, r }) => r.sim.map((w) => [svc.name, w.week, w.volume, w.aht, w.requiredFte, w.availableFte, w.headcount, w.inTraining, w.gap])),
   }, {
     name: 'Scenarios',
-    columns: [{ header: 'Service', width: 26 }, { header: 'Scenario', width: 30 }, { header: 'Demand change', format: 'pct', width: 15 }, { header: 'Monthly attrition', format: 'pct', width: 17 }, { header: 'Average gap FTE', format: 'dec1', width: 16 }, { header: 'Worst gap FTE', format: 'dec1', width: 14 }, { header: 'Worst week', format: 'date', width: 14 }, { header: 'Weeks short', format: 'int', width: 12 }, { header: 'Extra hires to close', format: 'int', width: 19 }, { header: 'First class starts', format: 'date', width: 17 }],
-    rows: planned.flatMap(({ svc, r }) => (r.scenarios ?? []).map((sc) => [svc.name, sc.custom ? sc.name : SCENARIO[sc.key] ?? sc.key, sc.demand, sc.attrition, sc.avgGap, sc.worstGap, sc.worstWeek, sc.weeksShort, sc.extraHires, sc.firstClass])),
+    columns: [{ header: 'Service', width: 26 }, { header: 'Scenario', width: 30 }, { header: 'Demand change', format: 'pct', width: 15 }, { header: 'Monthly attrition', format: 'pct', width: 17 }, { header: 'Average gap FTE', format: 'dec1', width: 16 }, { header: 'Worst gap FTE', format: 'dec1', width: 14 }, { header: 'Worst week', format: 'date', width: 14 }, { header: 'Weeks short', format: 'int', width: 12 }, { header: 'Extra hires to close', format: 'int', width: 19 }, { header: 'First class starts', format: 'date', width: 17 }, { header: 'Own hiring plan (hires)', format: 'int', width: 22 }],
+    rows: planned.flatMap(({ svc, r }) => (r.scenarios ?? []).map((sc) => [svc.name, sc.custom ? sc.name : SCENARIO[sc.key] ?? sc.key, sc.demand, sc.attrition, sc.avgGap, sc.worstGap, sc.worstWeek, sc.weeksShort, sc.extraHires, sc.firstClass, sc.ownHires ?? null])),
   }, {
     name: 'Hiring',
     columns: [{ header: 'Service', width: 26 }, { header: 'Class starts', format: 'date', width: 14 }, { header: 'Hires', format: 'int', width: 10 }, { header: 'Status', width: 14 }],

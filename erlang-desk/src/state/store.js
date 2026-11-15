@@ -289,6 +289,10 @@ function sanitizeExcluded(list) {
   return [...seen.values()].sort((a, b) => (a.date < b.date ? -1 : 1))
 }
 
+const sanitizeHires = (list) => (Array.isArray(list)
+  ? list.filter((h) => h && ISO.test(h.week) && Number.isFinite(h.count)).slice(0, 200).map((h) => ({ week: h.week, count: Math.round(num(h.count, 1, 10000, 1)) }))
+  : [])
+
 /** The forecast kept from before the latest import, so it can be compared with what then happened. */
 function sanitizeSnapshot(x) {
   if (!x || typeof x !== 'object' || !ISO.test(x.madeOn) || !Array.isArray(x.points)) return null
@@ -307,6 +311,8 @@ function sanitizeScenarios(list) {
     aht: num(x.aht, -0.9, 2, 0),
     shrinkage: x.shrinkage == null ? null : num(x.shrinkage, 0, 0.9, null),
     attrition: x.attrition == null ? null : num(x.attrition, 0, 0.5, null),
+    // null: follow the planned classes. A list (even an empty one): this scenario's own hiring plan.
+    hires: Array.isArray(x.hires) ? sanitizeHires(x.hires).slice(0, 50) : null,
   }))
 }
 
@@ -338,9 +344,7 @@ function sanitizeService(svc, siteIds) {
       gapToleranceFte: num(c.gapToleranceFte, 0, 100, cap.gapToleranceFte),
       ...(c.calibrate === true ? { calibrate: true } : {}),
     },
-    hires: Array.isArray(svc.hires)
-      ? svc.hires.filter((h) => h && ISO.test(h.week) && Number.isFinite(h.count)).slice(0, 200).map((h) => ({ week: h.week, count: Math.round(num(h.count, 1, 10000, 1)) }))
-      : [],
+    hires: sanitizeHires(svc.hires),
     scenarios: sanitizeScenarios(svc.scenarios),
     forecastSnapshot: sanitizeSnapshot(svc.forecastSnapshot),
     history: sanitizeHistory(svc.history),

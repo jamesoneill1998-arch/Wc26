@@ -115,3 +115,21 @@ test('named scenarios: saved cases are re-staffed with their own demand, handle 
   // A service saved before scenarios existed still computes.
   assert.equal(computeWorkspace({ sites: defaultSites(), services: [base] }).services['voice-uk'].scenarios.length, 5)
 })
+
+test('named scenarios: a scenario can carry its own hiring plan', () => {
+  const base = { ...service('voice-uk', 'voice', 'uk'), plan: { method: 'auto', horizonWeeks: 26, volumeAdjustPct: 0, ahtAdjustPct: 0, scenarioPct: 0.1 }, capacity: { startHeadcount: 55, trainingWeeks: 3, nestingWeeks: 2, nestingProductivity: 0.6, classCadenceWeeks: 4, gapToleranceFte: 0.5 } }
+  const week = computeWorkspace({ sites: defaultSites(), services: [base] }).services['voice-uk'].weeks[2].week
+  const svc = { ...base, hires: [{ week, count: 4 }], scenarios: [
+    { id: 'follow', name: 'Follow', demand: 0, aht: 0, shrinkage: null, attrition: null, hires: null },
+    { id: 'none', name: 'No hiring', demand: 0, aht: 0, shrinkage: null, attrition: null, hires: [] },
+    { id: 'big', name: 'Bigger class', demand: 0, aht: 0, shrinkage: null, attrition: null, hires: [{ week, count: 12 }] },
+  ] }
+  const by = Object.fromEntries(computeWorkspace({ sites: defaultSites(), services: [svc] }).services['voice-uk'].scenarios.map((x) => [x.key, x]))
+  assert.ok(Math.abs(by['custom:follow'].avgGap - by.plan.avgGap) < 1e-9)
+  assert.equal(by['custom:follow'].ownHires, null)
+  assert.ok(by['custom:none'].avgGap < by.plan.avgGap - 0.5)
+  assert.ok(by['custom:big'].avgGap > by.plan.avgGap + 0.5)
+  assert.equal(by['custom:big'].ownHires, 12)
+  assert.equal(by['custom:none'].ownClasses, 0)
+  assert.ok(by['custom:big'].extraHires <= by.plan.extraHires)
+})
