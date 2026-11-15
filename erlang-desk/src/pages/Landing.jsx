@@ -67,6 +67,15 @@ function WeekGrid() {
     return `over-${step3(c.volume, calls)}`
   }
   const [d, i] = at
+  // Arrow keys walk the grid; the readout below is announced as it changes.
+  const onGridKey = (e) => {
+    const move = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] }[e.key]
+    if (move) setAt([Math.min(6, Math.max(0, d + move[0])), Math.min(23, Math.max(0, i + move[1]))])
+    else if (e.key === 'Home') setAt([d, 0])
+    else if (e.key === 'End') setAt([d, 23])
+    else return
+    e.preventDefault()
+  }
   const cur = week[d][i]
   const gap = roster[d][i] - cur.need
   return (
@@ -94,7 +103,10 @@ function WeekGrid() {
             {VIEWS.map(([k, label]) => <button key={k} type="button" className={view === k ? 'on' : ''} aria-pressed={view === k} onClick={() => setView(k)}>{label}</button>)}
           </div>
         </div>
-        <div className="week-grid" role="img" aria-label={`Seven days by 24 half hours from 08:00 to 20:00. ${short} half hours are short of staff.`}>
+        <div
+          className="week-grid" role="group" tabIndex={0} onKeyDown={onGridKey}
+          aria-label={`A week of half hours, 08:00 to 20:00. ${short} are short of staff.`} aria-describedby="week-grid-help"
+        >
           {DAYS.map((day, dd) => (
             <div className="week-row" key={day}>
               <span className="d">{day}</span>
@@ -108,6 +120,7 @@ function WeekGrid() {
             {Array.from({ length: 12 }, (_, h) => <span key={h} className={`t${h % 2 ? ' minor' : ''}`}>{slotTime(h * 2)}</span>)}
           </div>
         </div>
+        <p className="sr-only" id="week-grid-help">Use the arrow keys to move between half hours. Home and End jump to the start and end of the day.</p>
         <div className="week-read">
           <span aria-live="polite">
             <b>{DAYS[d]} {slotTime(i)}</b> · {Math.round(cur.volume)} calls · need <b>{cur.need}</b> · rostered <b>{roster[d][i]}</b> · {gap < 0 ? <b>{-gap} short</b> : gap > 0 ? `${gap} over` : 'level'} · {fmtPct(cur.abandon)} abandon
