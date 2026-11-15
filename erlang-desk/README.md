@@ -26,6 +26,10 @@ The landing page is built around a live week of half hours (`WeekGrid` in `src/p
 
 `vite.config.js` sets `assetsInlineLimit: 0`: the Content Security Policy only allows fonts from our own origin, so nothing may be inlined as a `data:` URI. The share image `public/og.png` needs regenerating after a visual change.
 
+## Offline
+
+Once opened, the planner works without a connection. `vite.config.js` writes `/sw.js` at build time with that build's file list, and `src/main.jsx` registers it in production builds. The rules that stop it serving a stale site: pages always come from the network when there is one, and the stored copy is used only when the network fails; hashed files under `/assets/` are immutable, so the stored copy is used first; `/api/` is never touched; each build has its own cache and older ones are deleted when the new worker activates. Scripts, styles and the Latin fonts are stored ahead of time, so pages not yet visited also open offline. If a page's file has gone because a release went out while a tab was open, the planner reloads once to pick up the new one (`page()` in `src/App.jsx`).
+
 ## Bundle
 
 The landing page ships only the shell, React and the small Erlang functions its live example needs. Each planner page is a `lazy()` chunk loaded when first opened (`src/App.jsx`), and the main-thread fallback engine is imported only where Web Workers are unavailable (`src/state/model.js`).
