@@ -5,10 +5,12 @@ import { useEffect } from 'react'
 export const TOUR = [
   { page: 'overview', title: 'The whole operation', text: 'Required against available FTE for every service and site. "Needs attention" lists what to act on this week: hiring deadlines and shortfalls.' },
   { page: 'sites', title: 'UK and offshore', text: 'Each site has its own shrinkage, contracted hours and attrition. Change a component and every plan updates.' },
-  { page: 'forecast', title: 'Forecast', text: 'Four methods are tested against recent history and the most accurate is used. The heatmap shows where each day\'s calls land.' },
+  { page: 'forecast', title: 'Forecast', text: 'Four methods are tested against recent history and the most accurate is used. When newer data arrives, this page shows how the last forecast did.' },
+  { page: 'staffing', title: 'Staff needed', text: 'The people needed in every half hour, using Erlang A, which allows for callers who hang up. Select a day to see its curve.' },
   { page: 'coverage', title: 'Roster coverage', text: 'The roster against the requirement, every half hour. Red is short, blue is over. Switch to "Service level" to see what the roster delivers.' },
-  { page: 'capacity', title: 'Capacity plan', text: 'Six months of supply against demand through attrition and training, with the hiring classes that close the gaps.' },
-  { page: 'impact', title: 'Change impact', text: 'A mortgage launch of 25,000 acquisitions, converted to calls and FTE and tested against headroom. Print it for the change board.' },
+  { page: 'capacity', title: 'Capacity plan', text: 'Six months of supply against demand through attrition and training, with the hiring classes that close the gaps. Scenarios test higher demand and attrition, and you can save your own.' },
+  { page: 'impact', title: 'Change impact', text: 'A mortgage launch of 25,000 acquisitions, converted to calls and FTE and tested against headroom. The change-board pack turns it into a paper to print.' },
+  { page: 'data', title: 'Your turn', text: 'Import a CSV export from your telephony system here, and the same pages fill with your own plan. Your data stays in this browser.' },
 ]
 
 const KEY = 'erlang-desk:tour'

@@ -659,12 +659,16 @@ select { text-overflow: ellipsis; }
 
 /* Landing: the week of half hours is the page */
 .lp .masthead nav a:not(.btn) { color: var(--ink-2); }
-.lp-head { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 40px; align-items: end; padding-block: 48px 36px; }
-.lp-head h1 { font-size: clamp(44px, 7.2vw, 104px); line-height: 0.94; letter-spacing: -0.05em; text-wrap: balance; }
+.lp-head { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 40px; align-items: end; padding-block: 36px 32px; }
+.lp-head h1 { font-size: clamp(40px, 6vw, 84px); line-height: 0.94; letter-spacing: -0.05em; text-wrap: balance; }
+.lp-head .lede { margin-top: 22px; font-size: 19px; line-height: 1.5; color: var(--ink-2); max-width: 34em; }
+.lp-head .ctas { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 24px; }
+.lp-head .assure { margin-top: 14px; font-size: 14px; color: var(--muted); }
 .tally { border-left: 1px solid var(--rule); padding-left: 28px; min-width: 0; }
 .tally .n { font-weight: 800; font-size: clamp(56px, 7vw, 96px); line-height: 0.9; letter-spacing: -0.05em; color: var(--short); }
 .tally .n.ok { color: var(--over); }
 .tally p { margin-top: 10px; color: var(--ink-2); max-width: 27ch; min-height: 4.5em; }
+.tally::before { content: 'Live example'; display: block; font: 400 12px var(--mono); color: var(--muted); margin-bottom: 10px; }
 .tally .ctas { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
 .week-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 28px; align-items: end; padding-block: 18px 14px; border-top: 1px solid var(--ink); }
 .dial { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 12px; align-items: baseline; min-width: 0; }

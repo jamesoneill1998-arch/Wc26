@@ -149,6 +149,15 @@ export default function App() {
   useEffect(() => {
     if (isSample && !tourSeen() && route.parts[0] === 'app') setTourStep((s) => s ?? 0)
   }, [isSample]) // eslint-disable-line react-hooks/exhaustive-deps
+  // "Take the tour" on the landing page: open the sample and start the walk-through.
+  // A planner with their own plan keeps it; the tour only runs on the sample.
+  const wantsTour = route.parts[0] === 'app' && route.query.get('tour') === '1'
+  useEffect(() => {
+    if (!wantsTour) return
+    window.location.hash = '#/app/overview'
+    if (isSample) setTourStep(0)
+    else if (!ws.services.length && !(ws.areas?.length)) import('./state/sample.js').then((m) => { store.replace(m.buildSampleWorkspace()); setTourStep(0) })
+  }, [wantsTour]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // After sample data loads, start each demo service roughly in balance so the
   // plan shows attrition opening a gap rather than an instant crisis.

@@ -81,16 +81,20 @@ function WeekGrid() {
   return (
     <>
       <section className="lp-head">
-        <h1>The right number of people, every half hour.</h1>
+        <div>
+          <h1>The right number of people, every half hour.</h1>
+          <p className="lede">Erlang Desk is a workforce planning tool for contact centres. It turns your contact history into a forecast, the staff needed in every half hour, and a hiring plan.</p>
+          <div className="ctas">
+            <a className="btn primary" href="#/app?tour=1">Take the tour</a>
+            <a className="btn" href="#/app">Open the planner</a>
+          </div>
+          <p className="assure">The tour walks through a sample operation in about two minutes. No sign-up.</p>
+        </div>
         <div className="tally" aria-live="polite">
           <div className={`n num${short ? '' : ' ok'}`}>{short}</div>
           <p>{short
             ? `half hours short this week. The worst is ${DAY_LONG[worst.d]} ${slotTime(worst.i)}, ${-worst.gap} ${worst.gap === -1 ? 'person' : 'people'} under.`
             : 'half hours short this week. The roster covers every one.'}</p>
-          <div className="ctas">
-            <a className="btn primary" href="#/app">Open the planner</a>
-            <a className="btn" href="#/app/calculator">Erlang calculator</a>
-          </div>
         </div>
       </section>
 
@@ -131,7 +135,7 @@ function WeekGrid() {
                 : <><i className="cell over-1" />fewer<i className="cell over-3" />more calls</>}
           </span>
         </div>
-        <p className="assure">An example week, staffed with Erlang A. No sign-up: your own data never leaves your browser.</p>
+        <p className="assure">An example week, staffed with Erlang A. Move a slider to see it change. Your own data never leaves your browser.</p>
       </section>
     </>
   )
@@ -174,6 +178,7 @@ export default function Landing({ onToggleTheme, account }) {
         <nav aria-label="Site">
           <a href="#steps" className="hide-sm" onClick={jump('steps')}>How it works</a>
           <a href="#pricing" className="hide-sm" onClick={jump('pricing')}>Pricing</a>
+          <a href="#/app/calculator" className="hide-sm">Calculator</a>
           <button className="icon-btn" type="button" onClick={onToggleTheme} aria-label="Switch light or dark theme" title="Light or dark"><ThemeIcon /></button>
           {account.billing && !account.signedIn && <a href="#/signin">Sign in</a>}
           <a className="btn primary sm" href="#/app">Open the planner</a>
