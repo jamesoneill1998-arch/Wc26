@@ -645,6 +645,10 @@ select { text-overflow: ellipsis; }
 @media (max-width: 900px) { .nav a.active { box-shadow: none; } }
 @media (max-width: 600px) { .figure, .figure + .figure { padding: 12px 12px 14px 0; border-left: 0; border-top: 1px solid var(--rule); margin: 0; } .figure:nth-child(even) { padding-left: 12px; border-left: 1px solid var(--rule); } .figure:nth-child(-n+2) { border-top: 0; } .figure .value, .figure.hero .value { font-size: 28px; } }
 
+.undo-bar { position: fixed; z-index: 45; left: max(20px, env(safe-area-inset-left, 0px)); bottom: max(20px, env(safe-area-inset-bottom, 0px)); max-width: calc(100vw - 40px); display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 12px 16px; background: var(--board); color: var(--board-ink); font-size: 14.5px; }
+.undo-bar .btn { background: var(--board-ink); color: var(--board); border-color: var(--board-ink); }
+.undo-bar .btn.link { background: none; color: var(--board-muted); }
+.undo-bar :focus-visible { outline-color: var(--board-ink); }
 .scenario-hires { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--rule); display: flex; flex-direction: column; gap: 10px; }
 .scenario-hires h3 { font-size: 16px; font-weight: 800; letter-spacing: -0.02em; }
 .scenario-hires ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 14.5px; font-variant-numeric: tabular-nums; }
